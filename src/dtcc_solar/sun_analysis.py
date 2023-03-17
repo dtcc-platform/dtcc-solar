@@ -4,12 +4,11 @@ project_dir = str(pathlib.Path(__file__).resolve().parents[0])
 sys.path.append(project_dir)
 
 import numpy as np
-import raycasting as raycasting
-import mesh_compute as mc
-import utils
-
-from results import Results
-from model import Model
+import dtcc_solar.raycasting as raycasting
+import dtcc_solar.mesh_compute as mc
+from dtcc_solar import utils
+from dtcc_solar.results import Results
+from dtcc_solar.model import Model
 
 class SunAnalysis:
 

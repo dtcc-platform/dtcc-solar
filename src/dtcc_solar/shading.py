@@ -3,12 +3,14 @@ import pathlib
 project_dir = str(pathlib.Path(__file__).resolve().parents[0])
 sys.path.append(project_dir)
 
-import utils
-import raycasting_ncollpyde as raycasting
-import mesh_compute as mc
 import copy
 import trimesh
 import numpy as np
+
+import dtcc_solar.raycasting as raycasting
+import dtcc_solar.mesh_compute as mc
+from dtcc_solar import utils
+
 
 class Shading:
 

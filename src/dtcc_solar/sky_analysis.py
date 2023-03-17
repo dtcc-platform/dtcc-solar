@@ -4,19 +4,16 @@ project_dir = str(pathlib.Path(__file__).resolve().parents[0])
 sys.path.append(project_dir)
 
 import numpy as np
-import raycasting as raycasting
+import dtcc_solar.raycasting as raycasting
 import trimesh
 import copy
-import mesh_compute as mc
-import utils
-import data_io
-from skydome import SkyDome
-from multi_skydomes import MultiSkyDomes
+import dtcc_solar.mesh_compute as mc
+import dtcc_solar.utils as utils
 
-from results import Results
-from skydome import SkyDome
-from model import Model
-from multi_skydomes import MultiSkyDomes
+from dtcc_solar.results import Results
+from dtcc_solar.skydome import SkyDome
+from dtcc_solar.model import Model
+from dtcc_solar.multi_skydomes import MultiSkyDomes
 
 
 class SkyAnalysis: 

@@ -1,6 +1,8 @@
+
 import numpy as np
-from utils import ColorBy
-import mesh_compute as mc
+import dtcc_solar.mesh_compute as mc
+from dtcc_solar.utils import ColorBy
+
 
 #This class contains all the results from analysis that will be accessed for visualisation
 class Results:

@@ -7,8 +7,9 @@ import numpy as np
 import pandas as pd
 import trimesh
 import math
-import utils
 import copy
+
+from dtcc_solar import utils
 
 class SkyDome:
 

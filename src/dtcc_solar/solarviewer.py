@@ -5,8 +5,8 @@ sys.path.append(project_dir)
 
 import numpy as np
 import trimesh
-import utils
-import mesh_compute as mc
+import dtcc_solar.mesh_compute as mc
+from dtcc_solar import utils
 
 class SolarViewer:
 

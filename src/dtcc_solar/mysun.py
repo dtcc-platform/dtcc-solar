@@ -3,12 +3,14 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import utils
 import math
 import sys
 import pathlib
 project_dir = str(pathlib.Path(__file__).resolve().parents[0])
 sys.path.append(project_dir)
+
+from dtcc_solar import utils
+
 
 def InitialisePlot(r):
     plt.rcParams['figure.figsize'] = (10,10)

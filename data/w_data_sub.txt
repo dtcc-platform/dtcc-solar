@@ -1,1 +1,0 @@
-Key:2015-03-30 09:00:00 {'diffuse_radiation': 181.0, 'direct_normal_radiation': 570.0}

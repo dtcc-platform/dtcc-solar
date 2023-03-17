@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "citysolar"
+name = "dtcc-solar"
 version = "0.1.0"
 description = "Solar analysis for the DTCC project"
 authors = ["Jens Olsson <jens.olsson@chalmersindustriteknik.se>"]
 readme = "README.md"
 
-packages = [{include = "citysolar"}]
+packages = [{include = "dtcc_solar", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.8"

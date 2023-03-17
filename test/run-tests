@@ -1,0 +1,7 @@
+#!/urs/bin/env bash
+
+echo "Running python tests"
+echo "===================="
+pytest test_solar.py
+
+

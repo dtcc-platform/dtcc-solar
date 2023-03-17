@@ -1,7 +1,8 @@
 #Raycasting function using ncollpyde 
 import numpy as np
 import time
-import utils
+from dtcc_solar import utils
+
 
 def ray_trace_faces(meshes, sunVecRev):
     

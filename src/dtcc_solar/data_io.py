@@ -5,7 +5,8 @@ import pathlib
 project_dir = str(pathlib.Path(__file__).resolve().parents[0])
 sys.path.append(project_dir)
 
-from utils import AnalysisType, ColorBy
+from dtcc_solar.utils import AnalysisType, ColorBy
+
 
 class Parameters:
     def __init__(self, a_type, fileName, lat, lon, prep_disp, disp, origin, color_by, export, one_date, s_date, e_date):

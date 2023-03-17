@@ -3,9 +3,8 @@ import pathlib
 project_dir = str(pathlib.Path(__file__).resolve().parents[0])
 sys.path.append(project_dir)
 
-from sun_analysis import SunAnalysis
-from sky_analysis import SkyAnalysis
-from utils import SkyModel
+from dtcc_solar.sun_analysis import SunAnalysis
+from dtcc_solar.sky_analysis import SkyAnalysis
 
 class CitySolar:
 

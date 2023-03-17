@@ -10,24 +10,25 @@ import os
 import trimesh
 import argparse
 
-import utils
-import data_io
-from mysun import Sunpath
-from solarviewer import SolarViewer
-from utils import ColorBy, AnalysisType
-from model import Model
-from results import Results
-from data_io import Parameters
-from skydome import SkyDome
-from sun_analysis import SunAnalysis
-from sky_analysis import SkyAnalysis
-from combind_analysis import CombinedAnalysis
-from multi_skydomes import MultiSkyDomes
+from dtcc_solar import utils
+from dtcc_solar import data_io 
+from dtcc_solar.mysun import Sunpath
+from dtcc_solar.solarviewer import SolarViewer
+from dtcc_solar.utils import ColorBy, AnalysisType
+from dtcc_solar.model import Model
+from dtcc_solar.results import Results
+from dtcc_solar.data_io import Parameters
+from dtcc_solar.skydome import SkyDome
+from dtcc_solar.sun_analysis import SunAnalysis
+from dtcc_solar.sky_analysis import SkyAnalysis
+from dtcc_solar.combind_analysis import CombinedAnalysis
+from dtcc_solar.multi_skydomes import MultiSkyDomes
 
 def register_args(args):
     #data/CitySurfaceS.stl
     #data/City136kSoft.stl    
-    path = '/Users/jensolsson/Documents/Dev/DTCC/CitySolar/data/CitySurface69k.stl'
+    path = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/CitySurface69k.stl'
+
     parser = argparse.ArgumentParser(description='Parameters to run city solar analysis', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-a', '--analysis'    , type=int  , metavar='', default=1, help=' sun_raycasting = 1, sky_raycasting = 2, sky_raycasting_some = 3, sun_raycast_iterative = 4')
     parser.add_argument('-lat', '--latitude'  , type=float, metavar='', default=51.5 , help='Latitude for location of analysis')
@@ -193,7 +194,7 @@ if __name__ == "__main__":
     args_3 = ['--inputfile', inputfile_S, 
               '--analysis', '3',
               '--one_date', '2015-03-30 12:00:00',
-              '--colorby', '5']        
+              '--colorby', '6']        
 
     args_4 = ['--inputfile', inputfile_L, 
               '--analysis', '4',
@@ -213,6 +214,6 @@ if __name__ == "__main__":
               '--colorby', '3']        
 
 
-    run(args_1)
+    run(args_5)
 
 

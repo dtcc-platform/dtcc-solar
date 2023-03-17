@@ -4,15 +4,15 @@ project_dir = str(pathlib.Path(__file__).resolve().parents[0])
 sys.path.append(project_dir)
 
 import numpy as np
-import raycasting as raycasting
-import mesh_compute as mc
-import utils
+import dtcc_solar.raycasting as raycasting
+import dtcc_solar.mesh_compute as mc
+from dtcc_solar import utils
 
-from sun_analysis import SunAnalysis
-from sky_analysis import SkyAnalysis
-from results import Results
-from skydome import SkyDome
-from model import Model
+from dtcc_solar.sun_analysis import SunAnalysis
+from dtcc_solar.sky_analysis import SkyAnalysis
+from dtcc_solar.results import Results
+from dtcc_solar.skydome import SkyDome
+from dtcc_solar.model import Model
 
 class CombinedAnalysis:
 
