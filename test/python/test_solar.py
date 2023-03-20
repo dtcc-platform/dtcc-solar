@@ -8,7 +8,8 @@ import pandas as pd
 from dtcc_solar.scripts.run_solar import run
 
 inputfile_S = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceS.stl'
-inputfile_L = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurface69k.stl'
+inputfile_M = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceS.stl'
+inputfile_L = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceL.stl'
 
 
 ########################### Testig of instant analysis ##############################

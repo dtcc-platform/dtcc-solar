@@ -59,7 +59,7 @@ def print_results(shouldPrint,faceRayFaces):
 
 
 def import_weather_date_epw(p:Parameters):
-    file = '/Users/jensolsson/Documents/Dev/DTCC/CitySolar/weatherdata/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw' 
+    file = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw' 
     year_dict_keys = []
     direct_normal_radiation = []
     diffuse_horisontal_radiation = []
@@ -90,8 +90,7 @@ def import_weather_date_epw(p:Parameters):
         a_dict['direct_normal_radiation'] = direct_normal_radiation[i] 
         year_weather_data[key] = a_dict
         
-
-    print_dict(year_weather_data, "w_data_year_epw.txt")
+    print_dict(year_weather_data, '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/output/w_data_year_epw.txt')
 
 def make_double_digit_str(s:str):
     if len(s) == 1:
@@ -126,7 +125,7 @@ def import_weather_data_clm(p:Parameters):
     line_index = 0
     data_counter = 0
     #The data file contains weather data for each hour during the year 2015.
-    file = '/Users/jensolsson/Documents/Dev/DTCC/CitySolar/weatherdata/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm'
+    file = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm'
     year_dates = pd.date_range(start = '2015-01-01 00:00:00', end = '2015-12-31 23:59:00', freq = '1H')
     year_dict_keys = np.array([str(d) for d in year_dates])
     year_weather_data = dict.fromkeys(year_dict_keys)
@@ -140,7 +139,7 @@ def import_weather_data_clm(p:Parameters):
             
             line_index += 1
 
-    print_dict(year_weather_data, "w_data_year.txt")
+    print_dict(year_weather_data, '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/output/w_data_year.txt')
     
     if( p.a_type == AnalysisType.sun_raycasting or 
         p.a_type == AnalysisType.sky_raycasting or
@@ -151,7 +150,7 @@ def import_weather_data_clm(p:Parameters):
 
     [sub_weather_data, sub_dict_keys] = get_weather_data_subset(year_weather_data, sub_dates)    
 
-    print_dict(sub_weather_data, "w_data_sub.txt")
+    print_dict(sub_weather_data, '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/output/w_data_sub.txt')
 
     return sub_weather_data, sub_dict_keys, sub_dates
 
