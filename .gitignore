@@ -10,6 +10,9 @@ __pycache__
 
 sandbox/
 output/
+htmlcov/
+
+*.coverage
 
 *.so
 *.o

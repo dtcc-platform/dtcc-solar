@@ -24,16 +24,14 @@ from dtcc_solar.sky_analysis import SkyAnalysis
 from dtcc_solar.combind_analysis import CombinedAnalysis
 from dtcc_solar.multi_skydomes import MultiSkyDomes
 
-def register_args(args):
-    #data/CitySurfaceS.stl
-    #data/City136kSoft.stl    
-    path = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurface69k.stl'
-
+def register_args(args):    
+    
+    default_path = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceL.stl'
     parser = argparse.ArgumentParser(description='Parameters to run city solar analysis', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-a', '--analysis'    , type=int  , metavar='', default=1, help=' sun_raycasting = 1, sky_raycasting = 2, sky_raycasting_some = 3, sun_raycast_iterative = 4')
     parser.add_argument('-lat', '--latitude'  , type=float, metavar='', default=51.5 , help='Latitude for location of analysis')
     parser.add_argument('-lon', '--longitude' , type=float, metavar='', default=-0.12, help='Longitude for location of analysis')
-    parser.add_argument('-f', '--inputfile'   , type=str  , metavar='', default=path, help='Filename (incl. path) for city mesh (*.stl, *.vtu)')
+    parser.add_argument('-f', '--inputfile'   , type=str  , metavar='', default=default_path, help='Filename (incl. path) for city mesh (*.stl, *.vtu)')
     parser.add_argument('-d', '--one_date'    , type=str  , metavar='', default='2015-03-30 09:00:00', help='Date and time for instant analysis')
     parser.add_argument('-ds', '--start_date' , type=str  , metavar='', default='2015-03-30 07:00:00', help='Start date for iterative analysis')
     parser.add_argument('-de', '--end_date'   , type=str  , metavar='', default='2015-03-30 21:00:00', help='End date for iterative analysis')
@@ -125,7 +123,7 @@ def create_sunpath(sunpath:Sunpath, viewer:SolarViewer, city_model:Model, sun_po
 
 ###############################################################################################################################
 
-def run(command_line_args):
+def run_script(command_line_args):
 
     clock1 = time.perf_counter()
     os.system('clear')
@@ -215,6 +213,6 @@ if __name__ == "__main__":
               '--colorby', '3']        
 
 
-    run(args_1)
+    run_script(args_1)
 
 

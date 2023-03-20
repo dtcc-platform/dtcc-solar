@@ -39,7 +39,6 @@ def print_list(listToPrint, path):
 
     print("Export completed")
 
-
 def print_dict(dictToPrint, filename):
     counter = 0
     with open(filename, "w") as f:
@@ -56,7 +55,6 @@ def print_results(shouldPrint,faceRayFaces):
                 counter += 1 
 
     print(counter)
-
 
 def import_weather_date_epw(p:Parameters):
     file = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw' 
@@ -119,7 +117,6 @@ def find_date_range_epw(file):
 
     return start_date, end_date
 
-
 def import_weather_data_clm(p:Parameters):
     
     line_index = 0
@@ -139,7 +136,7 @@ def import_weather_data_clm(p:Parameters):
             
             line_index += 1
 
-    print_dict(year_weather_data, '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/output/w_data_year.txt')
+    print_dict(year_weather_data, '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/output/w_data_year_clm.txt')
     
     if( p.a_type == AnalysisType.sun_raycasting or 
         p.a_type == AnalysisType.sky_raycasting or
@@ -162,7 +159,6 @@ def get_weather_data_subset(year_weather_data, sub_dates):
         sub_weather_data[key] = year_weather_data[key]
 
     return sub_weather_data, sub_dict_keys
-
 
 def line2numbers(line):
     keys = ['diffuse_radiation', 'direct_normal_radiation']
