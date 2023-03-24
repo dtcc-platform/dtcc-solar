@@ -217,11 +217,11 @@ if __name__ == "__main__":
 
     radius = 5.0
     horizon_z = 0.0
-    year = 2017
+    year = 2015
     name_1 = "1"
     name_2 = "2"
     ax = initialise_plot(radius)
-    get_sunpath_hour_loops(year, 5, True, True, radius, ax, location["Stockholm"], name_1, True)
+    get_sunpath_hour_loops(year, 5, True, True, radius, ax, location["Stockholm"], name_1, False)
     print("-------------------------------------------")
     #get_sunpath_hour_loops(year, 5, True, True, radius, ax, location["NYC"], name_2, True)
 
