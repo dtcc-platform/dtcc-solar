@@ -180,7 +180,7 @@ if __name__ == "__main__":
     inputfile_L = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceL.stl'
 
 
-    args_1 = ['--inputfile', inputfile_M, 
+    args_1 = ['--inputfile', inputfile_L, 
               '--analysis', '1',
               '--one_date', '2015-03-30 09:00:00',
               '--display', '1',

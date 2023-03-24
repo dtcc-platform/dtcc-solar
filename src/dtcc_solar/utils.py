@@ -252,3 +252,20 @@ def get_index_of_closest_point(point, array_of_points):
             index = i
 
     return index        
+
+# Remove subsequent duplicates in the pandas data frame. 
+def remove_date_range_duplicates(subset:pd.DataFrame):
+    counter = 0
+    index_list = subset.index
+    for index in index_list:
+        current_day = index.day
+        
+        if(counter > 0):
+           if(previous_day == current_day):
+               subset = subset.drop(index)
+               #print("Dropped item: " + str(index) ) 
+        
+        previous_day = current_day
+        counter += 1
+
+    return subset

@@ -2,11 +2,20 @@ import numpy as np
 import pandas as pd
 import sys
 import pathlib
+import csv
+from csv import reader
 project_dir = str(pathlib.Path(__file__).resolve().parents[0])
 sys.path.append(project_dir)
 
 from dtcc_solar.utils import AnalysisType, ColorBy
 
+from dataclasses import dataclass
+
+@dataclass
+class Vec3:
+    x: float
+    y: float
+    z: float
 
 class Parameters:
     def __init__(self, a_type, fileName, lat, lon, prep_disp, disp, origin, color_by, export, one_date, s_date, e_date):
@@ -170,3 +179,40 @@ def line2numbers(line):
         adict['direct_normal_radiation'] = float(linesegs[2])
 
     return adict
+
+def WriteToCsv(filename, data):
+
+    print("Write to CSV")
+    print(type(data))
+
+    data_list = data.to_list()
+
+    print(type(data_list))
+
+    with open(filename, 'w', newline='') as csvfile:
+        filewriter = csv.writer(csvfile)
+        for d in data:
+            filewriter.writerow(str(d))
+        
+def read_sunpath_diagram_from_csv_file(filename):
+
+    counter = 0
+    pts = []
+
+    with open(filename, 'r') as read_obj:
+        csv_reader = reader(read_obj)
+        header = next(csv_reader)
+        # Check file as empty
+        if header != None:
+            # Iterate over each row after the header in the csv
+            for row in csv_reader:
+                # row variable is a list that represents a row in csv
+                pt = Vec3(x = float(row[0]), y = float(row[1]), z = float(row[2]))                
+                pts.append(pt)
+
+    return pts
+
+
+
+
+

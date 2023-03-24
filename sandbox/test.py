@@ -261,3 +261,8 @@ sub_dates = pd.date_range(start = start_date, end = end_date, freq = '1H')
 
 print(sub_dates)
 
+
+mystr = "0022"
+
+print(mystr[0:2])
+

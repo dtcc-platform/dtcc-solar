@@ -92,7 +92,7 @@ class Sunpath():
         y = dict.fromkeys([h for h in loop_hours])
         z = dict.fromkeys([h for h in loop_hours])
 
-        #Get hourly sun path loops
+        #Get hourly sun path loops in matrix form and elevaion, azimuth and zenith coordinates
         for hour in loop_hours:
             subset = sol_pos_hour.loc[sol_pos_hour.index.hour == hour, :]
             rad_elev = np.radians(subset.apparent_elevation)
@@ -184,7 +184,7 @@ class Sunpath():
         return sun_positions, dates, dict_keys
 
 
-def RunExample():
+def run_example():
 
     os.system('clear')
     print("-------- My Solar Example Started -------")
@@ -215,7 +215,7 @@ def RunExample():
 
 if __name__ == "__main__":
 
-    RunExample()
+    run_example()
 
 
 
