@@ -14,6 +14,7 @@ import pytz
 from tzwhere import tzwhere
 from timezonefinder import TimezoneFinder
 import datetime
+import shapely
 
 def initialise_plot(r):
     plt.rcParams['figure.figsize'] = (16,11)
@@ -130,6 +131,7 @@ def get_sunpath_hour_loops(year, sample_rate , plot_results, plot_night, radius,
     x = dict.fromkeys([h for h in loop_hours])
     y = dict.fromkeys([h for h in loop_hours])
     z = dict.fromkeys([h for h in loop_hours])
+    sun_pos = dict.fromkeys([h for h in loop_hours])
 
     # Get hourly sun path loops in matrix form and elevaion, azimuth and zenith coordinates
     for hour in loop_hours:
@@ -150,11 +152,12 @@ def get_sunpath_hour_loops(year, sample_rate , plot_results, plot_night, radius,
         z[h] = radius * np.sin(mat_elev_hour[h, :])
         local_h = convert_utc_to_local_time(h, location['GMT_diff'])
         utc_h = convert_local_time_to_utc(local_h, location['GMT_diff'])
+        sun_pos[h] = utils.create_list_of_vectors(x[h], y[h], z[h])
         
         if plot_results:
             plot_day_loop_with_text(x[h], y[h], z[h], local_h, radius, ax, plot_night, location["cmap"])
 
-    return x,y,z
+    return sun_pos
 
 def convert_utc_to_local_time(utc_h, gmt_diff):
 
@@ -215,19 +218,24 @@ if __name__ == "__main__":
 
     get_timezone_from_long_lat(location["NYC"]["lat"], location["NYC"]["lon"])
 
-    radius = 5.0
+    radius = 1.0
     horizon_z = 0.0
     year = 2015
     name_1 = "1"
     name_2 = "2"
     ax = initialise_plot(radius)
-    get_sunpath_hour_loops(year, 5, True, True, radius, ax, location["Stockholm"], name_1, False)
+    all_sun_pos = get_sunpath_hour_loops(year, 5, True, True, radius, ax, location["London"], name_1, False)
+    
     print("-------------------------------------------")
     #get_sunpath_hour_loops(year, 5, True, True, radius, ax, location["NYC"], name_2, True)
 
-    filename = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/sandbox/sunpath_stockholm.csv'
+    filename = '../../sandbox/sunpath_london.csv'
     pts = dtcc_solar.data_io.read_sunpath_diagram_from_csv_file(filename)
     plot_imported_sunpath_diagarm(pts, radius, ax, 'summer_r')
+
+    filename2 = '../../sandbox/sunpath_london_loops.csv'
+    dtcc_solar.data_io.sunpath_testing(filename2, all_sun_pos, radius)
+
 
     plt.show()
 

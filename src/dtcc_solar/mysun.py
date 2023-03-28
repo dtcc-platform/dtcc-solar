@@ -10,7 +10,7 @@ project_dir = str(pathlib.Path(__file__).resolve().parents[0])
 sys.path.append(project_dir)
 
 from dtcc_solar import utils
-
+from dtcc_solar.utils import Vec3
 
 def InitialisePlot(r):
     plt.rcParams['figure.figsize'] = (10,10)
@@ -92,6 +92,8 @@ class Sunpath():
         y = dict.fromkeys([h for h in loop_hours])
         z = dict.fromkeys([h for h in loop_hours])
 
+        xyz = dict.fromkeys([h for h in loop_hours])
+
         #Get hourly sun path loops in matrix form and elevaion, azimuth and zenith coordinates
         for hour in loop_hours:
             subset = sol_pos_hour.loc[sol_pos_hour.index.hour == hour, :]
@@ -106,7 +108,8 @@ class Sunpath():
         for h in range(0,24):
             x[h] = self.radius * np.cos(mat_elev_hour[h, :]) * np.cos(-mat_azim_hour[h, :]) + self.origin[0]
             y[h] = self.radius * np.cos(mat_elev_hour[h, :]) * np.sin(-mat_azim_hour[h, :]) + self.origin[1]
-            z[h] = self.radius * np.sin(mat_elev_hour[h, :]) + self.origin[2]    
+            z[h] = self.radius * np.sin(mat_elev_hour[h, :]) + self.origin[2]                
+            xyz[h] = utils.create_list_of_vectors(x[h], y[h], z[h])
             if plot_results:
                 PlotDayLoopWithText(x[h], y[h], z[h], h, self.radius, self.ax, plot_night)
 

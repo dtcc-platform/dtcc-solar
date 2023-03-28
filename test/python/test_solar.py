@@ -7,10 +7,9 @@ import numpy as np
 import pandas as pd
 from dtcc_solar.scripts.main import run_script
 
-inputfile_S = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceS.stl'
-inputfile_M = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceM.stl'
-inputfile_L = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceL.stl'
-
+inputfile_S = '../data/models/CitySurfaceS.stl'
+inputfile_M = '../data/models/CitySurfaceM.stl'
+inputfile_L = '../data/models/CitySurfaceL.stl'
 
 ########################### Testig of instant analysis ##############################
 def test_instant_face_sun_angle():

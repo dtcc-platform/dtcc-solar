@@ -175,9 +175,9 @@ def run_script(command_line_args):
 
 if __name__ == "__main__":
     
-    inputfile_S = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceS.stl'
-    inputfile_M = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceM.stl'
-    inputfile_L = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceL.stl'
+    inputfile_S = '../../../data/models/CitySurfaceS.stl'
+    inputfile_M = '../../../data/models/CitySurfaceM.stl'
+    inputfile_L = '../../../data/models/CitySurfaceL.stl'
 
 
     args_1 = ['--inputfile', inputfile_L, 
@@ -213,6 +213,6 @@ if __name__ == "__main__":
               '--colorby', '3']        
 
 
-    run_script(args_1)
+    run_script(args_5)
 
 

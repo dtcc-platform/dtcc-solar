@@ -6,6 +6,7 @@ import os
 import numpy.matlib as npmat
 import matplotlib as mpl
 from pytz import all_timezones
+import typing
 
 os.system('clear')
 
@@ -266,3 +267,19 @@ mystr = "0022"
 
 print(mystr[0:2])
 
+
+
+loop_pts = dict.fromkeys(range(0,3))
+
+print(loop_pts)
+
+for key in loop_pts:
+    loop_pts[key] = "Apa"
+
+
+def func(a_dict: typing.Dict[int, str]):
+    for key in a_dict:
+        print(a_dict[key])
+
+
+func(loop_pts)

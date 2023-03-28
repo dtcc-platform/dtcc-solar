@@ -10,6 +10,7 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from enum import Enum
+from dataclasses import dataclass
 
 class ColorBy(Enum):
     face_sun_angle = 1
@@ -44,6 +45,19 @@ class Shading(Enum):
     Boarder = 2
     Shade = 3
     
+
+@dataclass
+class Vec3:
+    x: float
+    y: float
+    z: float    
+
+def create_list_of_vectors(x_list, y_list, z_list):
+    vector_list = []
+    for i in range(0, len(x_list)):
+        vec = Vec3(x = x_list[i], y = y_list[i], z = z_list[i])
+        vector_list.append(vec)
+    return vector_list    
 
 def colorFader(mix): #fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
     c1=np.array(mpl.colors.to_rgb('blue'))
