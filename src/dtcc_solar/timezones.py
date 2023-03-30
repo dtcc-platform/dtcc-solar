@@ -15,6 +15,7 @@ from tzwhere import tzwhere
 from timezonefinder import TimezoneFinder
 import datetime
 import shapely
+from dtcc_solar import sun_utils
 
 def initialise_plot(r):
     plt.rcParams['figure.figsize'] = (16,11)
@@ -55,26 +56,6 @@ def plot_imported_sunpath_diagarm(pts, radius, ax, cmap):
         z.append(sf * pt.z)
     
     ax.scatter3D(x, y, z, c=z, cmap = cmap, vmin = 0, vmax = radius)
-    
-def get_one_day_loop(radius, location):
-
-    ax = initialise_plot(radius)
-    start_date = '2015-01-01 00:00:00'
-    end_date = '2015-01-01 23:00:00'    
-    
-    times_no = pd.date_range(start = start_date, end = end_date, freq = 'H', tz = 'UTC')
-    times_tz = pd.date_range(start = start_date, end = end_date, freq = 'H', tz = location["tz"])    
-
-    print(type(times_no))
-    print(times_no)
-    print(type(times_tz))
-    print(times_tz)
-
-    sol_pos_no = solarposition.get_solarposition(times_no, location["lat"], location["lon"])
-    sol_pos_tz = solarposition.get_solarposition(times_tz, location["lat"], location["lon"])
-
-    print(sol_pos_no)
-    print(sol_pos_tz)
     
 
 def get_sunpath_hour_loops(year, sample_rate , plot_results, plot_night, radius, ax, location, name_extension, is_tz_dep):
@@ -150,52 +131,20 @@ def get_sunpath_hour_loops(year, sample_rate , plot_results, plot_night, radius,
         x[h] = radius * np.cos(mat_elev_hour[h, :]) * np.cos(-mat_azim_hour[h, :])
         y[h] = radius * np.cos(mat_elev_hour[h, :]) * np.sin(-mat_azim_hour[h, :])
         z[h] = radius * np.sin(mat_elev_hour[h, :])
-        local_h = convert_utc_to_local_time(h, location['GMT_diff'])
-        utc_h = convert_local_time_to_utc(local_h, location['GMT_diff'])
+        print("Hour: " + str(h))
+        local_h = sun_utils.convert_utc_to_local_time(h, location['GMT_diff'])
+        print("Local Hour: " + str(local_h))
+        utc_h = sun_utils.convert_local_time_to_utc(local_h, location['GMT_diff'])
+        print("UTC Hour: " + str(utc_h))
         sun_pos[h] = utils.create_list_of_vectors(x[h], y[h], z[h])
         
         if plot_results:
-            plot_day_loop_with_text(x[h], y[h], z[h], local_h, radius, ax, plot_night, location["cmap"])
+            plot_day_loop_with_text(x[h], y[h], z[h], h, radius, ax, plot_night, location["cmap"])
 
     return sun_pos
 
-def convert_utc_to_local_time(utc_h, gmt_diff):
 
-    local_h = utc_h + gmt_diff
-    if(local_h < 0):
-        local_h = 24 + local_h
-    elif (local_h > 23):    
-        local_h = local_h - 24
 
-    return local_h
-
-def convert_local_time_to_utc(local_h, gmt_diff):
-
-    utc_h = local_h - gmt_diff
-    if(utc_h < 0):
-        utc_h = 24 + utc_h
-    elif (utc_h > 23):    
-        utc_h = utc_h - 24
-
-    return utc_h
-
-def get_timezone_from_long_lat(lat, long):
-    tf = TimezoneFinder() 
-    timezone_str = tf.timezone_at(lng=long, lat=lat)
-    print(timezone_str)
-
-    timezone = pytz.timezone(timezone_str)
-    dt = datetime.datetime.now()
-    offset = timezone.utcoffset(dt)
-    h_offset_1 = offset.seconds / 3600 
-    h_offset_2 = 24 - h_offset_1
-
-    print("Time zone: " + str(timezone))
-    print("GMT_diff: " + str(h_offset_1) + " or: " + str(h_offset_2))
-    
-    h_offset = np.min([h_offset_1, h_offset_2])
-
-    return h_offset
 
 
 if __name__ == "__main__":
@@ -210,13 +159,12 @@ if __name__ == "__main__":
         "Stockholm"  :{ "lat": 59.33, "lon": 18.06,   "tz": 'Europe/Stockholm', "GMT_diff":  1, "cmap": 'cool'     },
         "Oslo"       :{ "lat": 59.91, "lon": 10.75,   "tz": 'Europe/Oslo',      "GMT_diff":  1, "cmap": 'autumn_r' },
         "Helsinki"   :{ "lat": 60.19, "lon": 24.94,   "tz": 'Europe/Helsinki',  "GMT_diff":  2, "cmap": 'autumn_r' },
-        "Umeå"       :{ "lat": 63.82, "lon": 20.26,   "tz": 'Europe/Stockholm', "GMT_diff":  1, "cmap": 'autumn_r' },
-        "Luleå"      :{ "lat": 65.58, "lon": 22.15,   "tz": 'Europe/Stockholm', "GMT_diff":  1, "cmap": 'autumn_r' },
         "Kiruna"     :{ "lat": 67.51, "lon": 20.13,   "tz": 'Europe/Stockholm', "GMT_diff":  1, "cmap": 'autumn_r' }, 
-        "NYC"        :{ "lat": 43.00, "lon": -75.00,  "tz": 'America/New_York', "GMT_diff": -5, "cmap": 'autumn_r' }           
+        "NYC"        :{ "lat": 43.00, "lon": -75.00,  "tz": 'America/New_York', "GMT_diff": -5, "cmap": 'autumn_r' },
+        "Istanbul"   :{ "lat": 41.01, "lon": 28.97,   "tz": 'Asia/Istanbul',    "GMT_diff":  3, "cmap": 'autumn_r' }           
     }
 
-    get_timezone_from_long_lat(location["NYC"]["lat"], location["NYC"]["lon"])
+    sun_utils.get_timezone_from_long_lat(location["NYC"]["lat"], location["NYC"]["lon"])
 
     radius = 1.0
     horizon_z = 0.0
@@ -224,18 +172,9 @@ if __name__ == "__main__":
     name_1 = "1"
     name_2 = "2"
     ax = initialise_plot(radius)
-    all_sun_pos = get_sunpath_hour_loops(year, 5, True, True, radius, ax, location["London"], name_1, False)
+    all_sun_pos = get_sunpath_hour_loops(year, 5, True, True, radius, ax, location["Gothenburg"], name_1, False)
     
-    print("-------------------------------------------")
-    #get_sunpath_hour_loops(year, 5, True, True, radius, ax, location["NYC"], name_2, True)
-
-    filename = '../../sandbox/sunpath_london.csv'
-    pts = dtcc_solar.data_io.read_sunpath_diagram_from_csv_file(filename)
-    plot_imported_sunpath_diagarm(pts, radius, ax, 'summer_r')
-
-    filename2 = '../../sandbox/sunpath_london_loops.csv'
-    dtcc_solar.data_io.sunpath_testing(filename2, all_sun_pos, radius)
-
+    #sun_utils.plot_sunpath_diagram(all_sun_pos, radius, ax, True, 'autumn_r', location["Gothenburg"]["GMT_diff"])
 
     plt.show()
 

@@ -55,7 +55,10 @@ def PlotDayPath2(sun_pos, radius, ax, plot_night):
     ax.scatter3D(sun_pos[day_indices,0],sun_pos[day_indices,1],sun_pos[day_indices,2], c=zColor , cmap = 'autumn_r', vmin = 0, vmax = radius)
     if plot_night:    
         ax.scatter3D(sun_pos[night_indices,0],sun_pos[night_indices,1],sun_pos[night_indices,2], color = 'w')        
-      
+
+
+
+
 class Sunpath():
 
     def __init__(self, lat, lon, radius, origin):
@@ -63,7 +66,7 @@ class Sunpath():
         self.lon = lon
         self.origin = origin
         self.radius = radius
-        self.ax = InitialisePlot(self.radius)
+        #self.ax = InitialisePlot(self.radius)
         
     def get_sunpath_hour_loops(self, year, sample_rate , plot_results, plot_night):
         start_date = str(year) + '-01-01 12:00:00'
@@ -91,8 +94,7 @@ class Sunpath():
         x = dict.fromkeys([h for h in loop_hours])
         y = dict.fromkeys([h for h in loop_hours])
         z = dict.fromkeys([h for h in loop_hours])
-
-        xyz = dict.fromkeys([h for h in loop_hours])
+        pos_dict = dict.fromkeys([h for h in loop_hours])
 
         #Get hourly sun path loops in matrix form and elevaion, azimuth and zenith coordinates
         for hour in loop_hours:
@@ -109,11 +111,11 @@ class Sunpath():
             x[h] = self.radius * np.cos(mat_elev_hour[h, :]) * np.cos(-mat_azim_hour[h, :]) + self.origin[0]
             y[h] = self.radius * np.cos(mat_elev_hour[h, :]) * np.sin(-mat_azim_hour[h, :]) + self.origin[1]
             z[h] = self.radius * np.sin(mat_elev_hour[h, :]) + self.origin[2]                
-            xyz[h] = utils.create_list_of_vectors(x[h], y[h], z[h])
+            pos_dict[h] = utils.create_list_of_vectors(x[h], y[h], z[h])
             if plot_results:
                 PlotDayLoopWithText(x[h], y[h], z[h], h, self.radius, self.ax, plot_night)
 
-        return x,y,z
+        return x,y,z, pos_dict
 
     def get_sunpath_day_loops(self, dates, step_min, plot_results, plot_night):              
 

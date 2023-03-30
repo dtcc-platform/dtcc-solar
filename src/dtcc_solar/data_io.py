@@ -208,8 +208,6 @@ def read_sunpath_diagram_from_csv_file(filename):
 
     return pts
 
-
-
 def sunpath_testing(filename:str, all_sun_pos: Dict[int, List[Vec3]], radius:float):
 
     print("Sunpath testing")
@@ -225,20 +223,25 @@ def sunpath_testing(filename:str, all_sun_pos: Dict[int, List[Vec3]], radius:flo
 
     deviations = calc_distace_from_sun_pos_to_linear_rings(loops, all_sun_pos)
 
-    print("Average distance between sun path loops is:" + str(loops_dist))
+    avrg_loops_dist = np.average(loops_dist)
+
+    print("Average distance between sunpath loops is:" + str(avrg_loops_dist))
 
     print("The deviation between sun position and sunpath loops is:")
     
-
-    for hour in deviations:
-        min_dev = np.min(deviations[hour])
+    for hour in deviations:        
         max_dev = np.max(deviations[hour])
         avrg_dev = np.average(deviations[hour])
-        print("Min deviation: " + str(min_dev)+ ". Max deviation: " + str(max_dev) + "Avrg deviation: " + str(avrg_dev))
+        print("Max deviation: " + str(max_dev) + "Avrg deviation: " + str(avrg_dev))
+        relative_error = max_dev / avrg_loops_dist
+        
+        #Allowing 5 % diference between a solar position and the sunpath loop.
+        if(relative_error > 0.05):
+            return False
 
-    
-    #pp(deviations)
+        print("Error relative to the loop distance: " + str(relative_error))
 
+    return True
 
 def read_sunpath_diagram_loops_from_csv_file(filename:str):
 
@@ -273,6 +276,7 @@ def match_scale_of_imported_sunpath_diagram(loop_pts:Dict[int, List[Vec3]], radi
     sf = radius / current_raduis
 
     for hour in loop_pts:
+        print(len(loop_pts[hour]))
         for i in range(len(loop_pts[hour])):
             pt = loop_pts[hour][i]
             pt.x = sf * pt.x 
@@ -281,7 +285,6 @@ def match_scale_of_imported_sunpath_diagram(loop_pts:Dict[int, List[Vec3]], radi
             loop_pts[hour][i] = pt
 
     return loop_pts
-
 
 def remove_empty_dict_branch(a_dict: Dict[int, List[Vec3]]) -> Dict[int, List[Vec3]]:
     
@@ -295,8 +298,6 @@ def remove_empty_dict_branch(a_dict: Dict[int, List[Vec3]]) -> Dict[int, List[Ve
 
     return a_dict
 
-
-
 def create_sunpath_loops_as_linear_rings(loop_pts: Dict[int, List[Vec3]]) -> List[LinearRing]:
 
     loops = []
@@ -307,7 +308,6 @@ def create_sunpath_loops_as_linear_rings(loop_pts: Dict[int, List[Vec3]]) -> Lis
             loops.append(linear_ring)
     
     return loops
-
 
 def calc_distace_from_sun_pos_to_linear_rings(loops:List[LinearRing], all_sun_pos:Dict[int, List[Vec3]]) -> Dict[int, List[float]]:
     
@@ -327,7 +327,6 @@ def calc_distace_from_sun_pos_to_linear_rings(loops:List[LinearRing], all_sun_po
         
     return deviations
 
-
 def calc_distace_from_sun_to_rings(loops:List[LinearRing], sun_pos:Vec3) -> float:
     dist = np.zeros(len(loops))
     pt = Point(sun_pos.x, sun_pos.y, sun_pos.z)
@@ -340,7 +339,6 @@ def calc_distace_from_sun_to_rings(loops:List[LinearRing], sun_pos:Vec3) -> floa
     #Get distance to the closest loop
     min_dist = np.amin(dist)
     return min_dist
-
 
 def get_distance_between_sun_loops(loop_pts:Dict[int, List[Vec3]]) -> List[float]:
     avrg_pts = []
@@ -370,7 +368,6 @@ def get_distance_between_sun_loops(loop_pts:Dict[int, List[Vec3]]) -> List[float
         dist[i] = d
 
     return dist
-
 
 def reformat_coordinates(vec_list: List[Vec3]) -> np.ndarray:
 

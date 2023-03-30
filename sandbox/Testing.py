@@ -4,10 +4,7 @@ import math
 import trimesh
 import os
 import matplotlib.pyplot as plt
-import pyglet
-import utils
 import time
-import intersectNcollpyde as intNcoll
 from ncollpyde import Volume
 import meshio
 

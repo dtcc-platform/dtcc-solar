@@ -268,18 +268,10 @@ mystr = "0022"
 print(mystr[0:2])
 
 
+arr2 = np.array([1, 9, 3, 4, 2, 6, 7 ,1, 9, 0, 9, 3])
 
-loop_pts = dict.fromkeys(range(0,3))
+apa  = np.where(arr2 > 6)
 
-print(loop_pts)
+print(apa)
 
-for key in loop_pts:
-    loop_pts[key] = "Apa"
-
-
-def func(a_dict: typing.Dict[int, str]):
-    for key in a_dict:
-        print(a_dict[key])
-
-
-func(loop_pts)
+print(arr2[apa])

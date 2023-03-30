@@ -11,6 +11,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from enum import Enum
 from dataclasses import dataclass
+from typing import List, Dict
 
 class ColorBy(Enum):
     face_sun_angle = 1
@@ -52,7 +53,7 @@ class Vec3:
     y: float
     z: float    
 
-def create_list_of_vectors(x_list, y_list, z_list):
+def create_list_of_vectors(x_list, y_list, z_list) -> List[Vec3]:
     vector_list = []
     for i in range(0, len(x_list)):
         vec = Vec3(x = x_list[i], y = y_list[i], z = z_list[i])
@@ -98,29 +99,35 @@ def VectorFromPoints(pt1, pt2):
     return vec
 
 def normalise_vector(vec):
-    length = CalcVectorLength(vec)
+    length = calc_vector_length(vec)
     vecNorm = np.zeros(3)
     vecNorm = vec / length
-    #vecNorm[0] = vec[0]/length
-    #vecNorm[1] = vec[1]/length
-    #vecNorm[2] = vec[2]/length
+    return vecNorm
+
+def normalise_vector3(vec: Vec3):
+    length = calc_vector_length3(vec)
+    vecNorm = Vec3(x = (vec.x / length), y = (vec.y / length), z = (vec.z / length))
     return vecNorm
 
 def reverse_vector(vec):    
     vecRev = -1.0 * vec
-    #vecRev = [0,0,0]
-    #vecRev[0] = -1.0 * vec[0]
-    #vecRev[1] = -1.0 * vec[1]
-    #vecRev[2] = -1.0 * vec[2]
     return vecRev
 
-def CalcVectorLength(vec):
+def calc_vector_length(vec):
     length = math.sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2])
     return length
 
+def calc_vector_length3(vec:Vec3):
+    length = math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
+    return length
+
+def scale_vector3(vec:Vec3, sf:float):
+    scaled_vec = Vec3(x = sf * vec.x, y = sf * vec.y, z = sf * vec.z)
+    return scaled_vec
+
 def VectorAngle(vec1, vec2):
-    lengthV1 = CalcVectorLength(vec1)
-    lengthV2 = CalcVectorLength(vec2)
+    lengthV1 = calc_vector_length(vec1)
+    lengthV2 = calc_vector_length(vec2)
     scalarV1V2 = ScalarProduct(vec1, vec2)
     angle = math.acos(scalarV1V2 / (lengthV1 * lengthV2))
     return angle
@@ -283,3 +290,12 @@ def remove_date_range_duplicates(subset:pd.DataFrame):
         counter += 1
 
     return subset
+
+
+def count_elements_in_dict(a_dict: Dict[int, List[Vec3]]):
+
+    counter = 0
+    for key in a_dict: 
+        counter += len(a_dict[key])
+
+    return counter
