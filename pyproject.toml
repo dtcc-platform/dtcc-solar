@@ -16,6 +16,7 @@ pandas = "^1.5.2"
 argparse = "^1.4.0"
 pvlib = "^0.9.4"
 pyglet = "^1.5.27"
+pytest = "^7.2.0"
 
 
 [build-system]
