@@ -2,6 +2,6 @@
 
 echo "Running python tests"
 echo "===================="
-pytest test_solar.py
+pytest python/test_solar.py python/test_sunpath.py
 
 

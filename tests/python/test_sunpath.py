@@ -19,16 +19,16 @@ from dtcc_solar.utils import Vec3
 
 # Locations with predefined sunpath diagrams that have been generated using ladybug and the same settings as specified below.
 locations = {
-        "Base"       :{ "name": "Base",           "lat":  51.5,  "lon": -0.12,   "tz": 'UTC',              "GMT_diff":  0, "cmap": 'autumn_r', "file": '../data/sunpaths/london.csv'           },
-        "London"     :{ "name": "London",         "lat":  51.5,  "lon": -0.12,   "tz": 'Europe/London',    "GMT_diff":  0, "cmap": 'autumn_r', "file": '../data/sunpaths/london.csv'           },
-        "Gothenburg" :{ "name": "Gothenburg",     "lat":  57.71, "lon":  11.97,  "tz": 'Europe/Stockholm', "GMT_diff":  1, "cmap": 'autumn_r', "file": '../data/sunpaths/gothenburg.csv'       },
-        "Stockholm"  :{ "name": "Stockholm",      "lat":  59.33, "lon":  18.06,  "tz": 'Europe/Stockholm', "GMT_diff":  1, "cmap": 'autumn_r', "file": '../data/sunpaths/stockholm.csv'        },
-        "Oslo"       :{ "name": "Oslo",           "lat":  59.91, "lon":  10.75,  "tz": 'Europe/Oslo',      "GMT_diff":  1, "cmap": 'autumn_r', "file": '../data/sunpaths/oslo.csv'             },
-        "Helsinki"   :{ "name": "Helsinki",       "lat":  60.19, "lon":  24.94,  "tz": 'Europe/Helsinki',  "GMT_diff":  2, "cmap": 'autumn_r', "file": '../data/sunpaths/helsinki.csv'         },
-        "Kiruna"     :{ "name": "Kiruna",         "lat":  67.51, "lon":  20.13,  "tz": 'Europe/Stockholm', "GMT_diff":  1, "cmap": 'autumn_r', "file": '../data/sunpaths/kiruna.csv'           }, 
-        "NYC"        :{ "name": "New York",       "lat":  43.00, "lon": -75.00,  "tz": 'America/New_York', "GMT_diff": -5, "cmap": 'autumn_r', "file": '../data/sunpaths/nyc.csv'              },
-        "Istanbul"   :{ "name": "Istanbul",       "lat":  41.01, "lon":  28.97,  "tz": 'Asia/Istanbul',    "GMT_diff":  3, "cmap": 'autumn_r', "file": '../data/sunpaths/istanbul.csv'         },
-        "Rio"        :{ "name": "Rio de Janeiro", "lat": -22.90, "lon": -43.17,  "tz": 'America/Sao_Paulo',"GMT_diff": -3, "cmap": 'autumn_r', "file": '../data/sunpaths/rio_de_janeiro.csv'   } 
+        "Base"       :{ "name": "Base",           "lat":  51.5,  "lon": -0.12,   "tz": 'UTC',              "GMT_diff":  0, "cmap": 'autumn_r', "file": 'data/sunpaths/london.csv'           },
+        "London"     :{ "name": "London",         "lat":  51.5,  "lon": -0.12,   "tz": 'Europe/London',    "GMT_diff":  0, "cmap": 'autumn_r', "file": 'data/sunpaths/london.csv'           },
+        "Gothenburg" :{ "name": "Gothenburg",     "lat":  57.71, "lon":  11.97,  "tz": 'Europe/Stockholm', "GMT_diff":  1, "cmap": 'autumn_r', "file": 'data/sunpaths/gothenburg.csv'       },
+        "Stockholm"  :{ "name": "Stockholm",      "lat":  59.33, "lon":  18.06,  "tz": 'Europe/Stockholm', "GMT_diff":  1, "cmap": 'autumn_r', "file": 'data/sunpaths/stockholm.csv'        },
+        "Oslo"       :{ "name": "Oslo",           "lat":  59.91, "lon":  10.75,  "tz": 'Europe/Oslo',      "GMT_diff":  1, "cmap": 'autumn_r', "file": 'data/sunpaths/oslo.csv'             },
+        "Helsinki"   :{ "name": "Helsinki",       "lat":  60.19, "lon":  24.94,  "tz": 'Europe/Helsinki',  "GMT_diff":  2, "cmap": 'autumn_r', "file": 'data/sunpaths/helsinki.csv'         },
+        "Kiruna"     :{ "name": "Kiruna",         "lat":  67.51, "lon":  20.13,  "tz": 'Europe/Stockholm', "GMT_diff":  1, "cmap": 'autumn_r', "file": 'data/sunpaths/kiruna.csv'           }, 
+        "NYC"        :{ "name": "New York",       "lat":  43.00, "lon": -75.00,  "tz": 'America/New_York', "GMT_diff": -5, "cmap": 'autumn_r', "file": 'data/sunpaths/nyc.csv'              },
+        "Istanbul"   :{ "name": "Istanbul",       "lat":  41.01, "lon":  28.97,  "tz": 'Asia/Istanbul',    "GMT_diff":  3, "cmap": 'autumn_r', "file": 'data/sunpaths/istanbul.csv'         },
+        "Rio"        :{ "name": "Rio de Janeiro", "lat": -22.90, "lon": -43.17,  "tz": 'America/Sao_Paulo',"GMT_diff": -3, "cmap": 'autumn_r', "file": 'data/sunpaths/rio_de_janeiro.csv'   } 
 }
 
 ########################### Testig of instant analysis ##############################
@@ -53,7 +53,7 @@ def test_sunpaths():
 
     calc_sunpath_deviation(locations["Istanbul"], plot)
         
-    calc_sunpath_deviation(locations["Rio"], True)
+    calc_sunpath_deviation(locations["Rio"], plot)
 
     pass
 

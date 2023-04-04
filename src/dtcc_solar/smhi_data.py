@@ -5,7 +5,7 @@ from pandas import Timestamp
 from pprint import pp
 from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
-
+import json
 
 def get_smhi_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Timestamp):
 
@@ -145,6 +145,46 @@ def assert_no_summer_time_in_data():
     return False
 
 
+def get_shmi_stations_from_api():
+
+    url = "https://opendata-download-metobs.smhi.se/api/version/1.0/parameter/1?measuringStations=all"
+    stations = requests.get(url)
+
+    print(stations)
+    print(type(stations.text))
+
+
+
+    for line in stations.iter_lines():
+        
+        if line:
+            text_line = str(line)
+            #print(text_line)
+
+            if(text_line.find("<id>"))!= -1:
+                segs = text_line.split('.')
+                some_seg = segs[3]
+                segs = some_seg.split('/')
+                #print(segs[-1])
+                pass
+
+            if(text_line.find("Latitud: ")) != -1:
+                segs = text_line.split(':')
+                #print(segs[2])
+                lat_segs = segs[1].split(' ')
+                lat_num = float(lat_segs[1])
+
+                lon_segs = segs[2].split(' ')
+                lon_num = float(lon_segs[1])
+
+                print("" + str(lon_num) + "," + str(lat_num))
+
+                #print("Latitude: " + str(lat_num) + ", Longitude: " + str(lon_num))
+
+
+
+
+
 if __name__ == "__main__":
 
     os.system('clear')
@@ -156,10 +196,13 @@ if __name__ == "__main__":
     lat = 58.5812
     w_data_dict = get_smhi_data_from_api_call(lon, lat, time_from, time_to)
 
-    pp(w_data_dict)
+    #pp(w_data_dict)
 
-    result = assert_no_summer_time_in_data()
+    #result = assert_no_summer_time_in_data()
 
-    print(result)
+    #print(result)
+
+    get_shmi_stations_from_api()
+
 
 

@@ -113,7 +113,7 @@ def color_mesh(p:Parameters, city_results:Results, viewer:SolarViewer):
         city_results.color_city_mesh_com_iterative(p.color_by)    
 
 def create_sunpath(sunpath:Sunpath, viewer:SolarViewer, city_model:Model, sun_positions, city_results:Results):
-    [sunX, sunY, sunZ] = sunpath.get_sunpath_hour_loops(2019, 5, False, False)
+    [sunX, sunY, sunZ, pos_dict] = sunpath.get_sunpath_hour_loops(2019, 5, False, False)
     sun_path_meshes = viewer.create_sunpath_loops(sunX, sunY, sunZ, city_model.sunpath_radius)
     [sunX, sunY, sunZ] = sunpath.get_sunpath_day_loops(pd.to_datetime(['2015-06-21', '2015-03-21', '2015-12-21']), 10, False, False)
     sun_path_meshes_day = viewer.create_sunpath_loops(sunX, sunY, sunZ, city_model.sunpath_radius)
