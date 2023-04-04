@@ -54,13 +54,15 @@ def run_instant(p:Parameters, sunpath:Sunpath, city_model:Model, sun_analysis:Su
     sun_time = pd.to_datetime(p.one_date)
     sun_pos = sunpath.get_sun_position_for_a_date(sun_time, False, False) 
     sun_vec = utils.normalise_vector(city_model.origin - sun_pos[0])
-    
+    print(sun_vec)
     #Run analysis
     if(p.a_type == AnalysisType.sun_raycasting):
         sun_analysis.execute_raycasting(sun_vec)
         sun_analysis.set_city_mesh_out()
 
     elif(p.a_type == AnalysisType.sky_raycasting):
+        print(dict_keys)
+        print(w_data)
         sky_analysis.execute_raycasting(sun_vec, dict_keys, w_data)
         sky_analysis.set_city_mesh_out()
 
@@ -213,6 +215,6 @@ if __name__ == "__main__":
               '--colorby', '3']        
 
 
-    run_script(args_5)
+    run_script(args_2)
 
 

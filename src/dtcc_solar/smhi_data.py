@@ -101,87 +101,56 @@ def check_geo_data(lon, lat):
 
     return lon, lat
 
-# Todo: Move to unit test file.
-def assert_no_summer_time_in_data():
-
-    # In order to test the the SMHI data does not acount for summer time shift, (which 
-    # need to be sycronised with the solar position calulations), the hour 02:00 should
-    # present in the weather data in the last sunday of march and in the last sunday of
-    # october. This structure is based on an EU regulation but may not be followed by 
-    # countries outside of EU. However, the SMHI Open data API only covers the north of 
-    # Europe so the check is still relevant for this application.    
-
-    # Checking that 02:00:00 existing in the transion from winter to summer.
-    dst_test_from = ["2018-03-25 00:00:00", "2018-10-28 00:00:00", 
-                     "2019-03-31 00:00:00", "2019-10-27 00:00:00", 
-                     "2020-03-29 00:00:00", "2020-10-25 00:00:00",
-                     "2021-03-28 00:00:00", "2021-10-31 00:00:00",
-                     "2022-03-27 00:00:00", "2022-10-30 00:00:00"]
-    
-    dst_test_to =   ["2018-03-25 04:00:00", "2018-10-28 04:00:00", 
-                     "2019-03-31 04:00:00", "2019-10-27 04:00:00", 
-                     "2020-03-29 04:00:00", "2020-10-25 04:00:00",
-                     "2021-03-28 04:00:00", "2021-10-31 04:00:00",
-                     "2022-03-27 04:00:00", "2022-10-30 04:00:00"]
-    
-    lon = 16.158
-    lat = 58.5812
-    results = []
-    for i in range(0, len(dst_test_from)):
-        time_from = dst_test_from[i]
-        time_to =   dst_test_to[i]
-        w_data_dict = get_smhi_data_from_api_call(lon, lat, time_from, time_to)
-        for key in w_data_dict:
-            parts = key.split('T')
-            part2 = parts[1]
-            hour = part2[0:2]
-            if(hour == "02"):
-                results.append(True)
-                break
-            
-    if(all(results)):                
-        return True
-    
-    return False
-
 
 def get_shmi_stations_from_api():
 
     url = "https://opendata-download-metobs.smhi.se/api/version/1.0/parameter/1?measuringStations=all"
     stations = requests.get(url)
+    status = stations.status_code
+    stations_dict = {}
+    
+    if(status == 200):
+        for line in stations.iter_lines():
+            
+            if line:
+                text_line = str(line)
+                        
+                if(text_line.find("<id>"))!= -1:
+                    segs = text_line.split('.')
+                    some_seg = segs[3]
+                    segs = some_seg.split('/')
+                    id = segs[-1]
+                    
+                if(text_line.find("Latitud: ")) != -1:
+                    segs = text_line.split(':')
+                    lat_segs = segs[1].split(' ')
+                    lat_num = float(lat_segs[1])
 
-    print(stations)
-    print(type(stations.text))
+                    lon_segs = segs[2].split(' ')
+                    lon_num = float(lon_segs[1])
 
+                    types = ['Latitude', 'Longitude']
+                    pos_dict = dict.fromkeys([t for t in types])
+                    pos_dict['Latitude'] = lat_num
+                    pos_dict['Longitude'] = lon_num
+                    stations_dict[id] = pos_dict
 
+        return stations_dict
+    
+    elif(status == 404):
+        print("SMHI Open Data API Docs HTTP code 404:")
+        print("The request points to a resource that do not exist." +
+        "This might happen if you query for a station that do" +
+        "not produce data for a specific parameter or you are" +
+        "using a deprecated version of the API that has been" +
+        "removed. It might also be the case that the specified" +
+        "station do not have any data for the latest hour.")
+    elif (status == 500):
+        print("SMHI Open Data API Docs HTTP code 500:")    
+        print("Something went wrong internally in the system. This" +
+               "might be fixed after a while so try again later on.")    
 
-    for line in stations.iter_lines():
-        
-        if line:
-            text_line = str(line)
-            #print(text_line)
-
-            if(text_line.find("<id>"))!= -1:
-                segs = text_line.split('.')
-                some_seg = segs[3]
-                segs = some_seg.split('/')
-                #print(segs[-1])
-                pass
-
-            if(text_line.find("Latitud: ")) != -1:
-                segs = text_line.split(':')
-                #print(segs[2])
-                lat_segs = segs[1].split(' ')
-                lat_num = float(lat_segs[1])
-
-                lon_segs = segs[2].split(' ')
-                lon_num = float(lon_segs[1])
-
-                print("" + str(lon_num) + "," + str(lat_num))
-
-                #print("Latitude: " + str(lat_num) + ", Longitude: " + str(lon_num))
-
-
+    return None
 
 
 
@@ -202,7 +171,8 @@ if __name__ == "__main__":
 
     #print(result)
 
-    get_shmi_stations_from_api()
+    pos_dict = get_shmi_stations_from_api()
+
 
 
 
