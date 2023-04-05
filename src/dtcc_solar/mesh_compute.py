@@ -1,10 +1,6 @@
 import numpy as np
 import trimesh
 import copy
-import sys
-import pathlib
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
 
 from dtcc_solar import utils
 

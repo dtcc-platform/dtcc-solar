@@ -1,8 +1,3 @@
-import sys
-import pathlib
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
-
 from dtcc_solar.sun_analysis import SunAnalysis
 from dtcc_solar.sky_analysis import SkyAnalysis
 

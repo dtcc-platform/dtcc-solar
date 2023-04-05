@@ -1,8 +1,3 @@
-import sys
-import pathlib
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
-
 import numpy as np
 import dtcc_solar.raycasting as raycasting
 import dtcc_solar.mesh_compute as mc

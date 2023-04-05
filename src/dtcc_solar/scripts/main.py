@@ -12,7 +12,7 @@ import argparse
 
 from dtcc_solar import utils
 from dtcc_solar import data_io 
-from dtcc_solar.mysun import Sunpath
+from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.solarviewer import SolarViewer
 from dtcc_solar.utils import ColorBy, AnalysisType
 from dtcc_solar.model import Model
@@ -52,17 +52,14 @@ def print_args(args):
 def run_instant(p:Parameters, sunpath:Sunpath, city_model:Model, sun_analysis:SunAnalysis, sky_analysis:SkyAnalysis, dict_keys, w_data):  
     #Get sun position for instant analysis
     sun_time = pd.to_datetime(p.one_date)
-    sun_pos = sunpath.get_sun_position_for_a_date(sun_time, False, False) 
+    sun_pos = sunpath.get_single_sun(sun_time) 
     sun_vec = utils.normalise_vector(city_model.origin - sun_pos[0])
-    print(sun_vec)
     #Run analysis
     if(p.a_type == AnalysisType.sun_raycasting):
         sun_analysis.execute_raycasting(sun_vec)
         sun_analysis.set_city_mesh_out()
 
     elif(p.a_type == AnalysisType.sky_raycasting):
-        print(dict_keys)
-        print(w_data)
         sky_analysis.execute_raycasting(sun_vec, dict_keys, w_data)
         sky_analysis.set_city_mesh_out()
 
@@ -75,8 +72,9 @@ def run_instant(p:Parameters, sunpath:Sunpath, city_model:Model, sun_analysis:Su
 
 def run_iterative(p:Parameters, sunpath:Sunpath, city_model:Model, sun_analysis:SunAnalysis, dict_keys, dates, w_data):
     #Get multiple solar positions for iterative analysis     
-    sun_positions = sunpath.get_sun_position_for_dates(dates, False, False)
-    [sun_positions, dates, dict_keys] = sunpath.remove_position_under_horizon(city_model.horizon_z, sun_positions, dates, dict_keys)
+    sun_positions = sunpath.get_multiple_suns(dates)
+    [sun_positions, dates, dict_keys] = sunpath.remove_sun_under_horizon(city_model.horizon_z, sun_positions, dates, dict_keys)
+    print(sun_positions)
     sun_vectors_dict = utils.get_sun_vecs_dict_from_sun_pos(sun_positions, city_model.origin, dict_keys)
     sun_analysis.execute_raycasting_iterative(sun_vectors_dict, dict_keys, w_data)
     sun_analysis.set_city_mesh_out()
@@ -84,8 +82,8 @@ def run_iterative(p:Parameters, sunpath:Sunpath, city_model:Model, sun_analysis:
 
 def run_combined(sunpath:Sunpath, city_model:Model, com_analysis:CombinedAnalysis, dict_keys, dates, w_data):
     #Get multiple solar positions for iterative analysis      
-    sun_positions = sunpath.get_sun_position_for_dates(dates, False, False)
-    [sun_positions, dates, dict_keys] = sunpath.remove_position_under_horizon(city_model.horizon_z, sun_positions, dates, dict_keys)
+    sun_positions = sunpath.get_multiple_suns(dates)
+    [sun_positions, dates, dict_keys] = sunpath.remove_sun_under_horizon(city_model.horizon_z, sun_positions, dates, dict_keys)
     sun_vectors_dict = utils.get_sun_vecs_dict_from_sun_pos(sun_positions, city_model.origin, dict_keys)
     com_analysis.execute(sun_vectors_dict, dict_keys, w_data)
     com_analysis.set_city_mesh_out()
@@ -115,9 +113,9 @@ def color_mesh(p:Parameters, city_results:Results, viewer:SolarViewer):
         city_results.color_city_mesh_com_iterative(p.color_by)    
 
 def create_sunpath(sunpath:Sunpath, viewer:SolarViewer, city_model:Model, sun_positions, city_results:Results):
-    [sunX, sunY, sunZ, pos_dict] = sunpath.get_sunpath_hour_loops(2019, 5, False, False)
+    [sunX, sunY, sunZ, pos_dict] = sunpath.get_analemmas(2019, 5)
     sun_path_meshes = viewer.create_sunpath_loops(sunX, sunY, sunZ, city_model.sunpath_radius)
-    [sunX, sunY, sunZ] = sunpath.get_sunpath_day_loops(pd.to_datetime(['2015-06-21', '2015-03-21', '2015-12-21']), 10, False, False)
+    [sunX, sunY, sunZ] = sunpath.get_daypaths(pd.to_datetime(['2015-06-21', '2015-03-21', '2015-12-21']), 10)
     sun_path_meshes_day = viewer.create_sunpath_loops(sunX, sunY, sunZ, city_model.sunpath_radius)
     sun_path_meshes.extend(sun_path_meshes_day)
     sun_mesh = viewer.create_solar_spheres(sun_positions, city_model.sun_size)
@@ -215,6 +213,6 @@ if __name__ == "__main__":
               '--colorby', '3']        
 
 
-    run_script(args_2)
+    run_script(args_3)
 
 

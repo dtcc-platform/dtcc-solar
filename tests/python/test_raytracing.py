@@ -4,7 +4,7 @@ import math
 
 from dtcc_solar import utils
 from dtcc_solar import data_io 
-from dtcc_solar.mysun import Sunpath
+from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.solarviewer import SolarViewer
 from dtcc_solar.utils import ColorBy, AnalysisType
 from dtcc_solar.model import Model
@@ -72,8 +72,7 @@ class TestRaytracing:
 
         assert not is_error
 
-    def test_raytrascing_iterative(self):
-
+    def test_raytracing_iterative(self):
         #Get multiple solar positions for iterative analysis     
         #sun_positions = sunpath.get_sun_position_for_dates(dates, False, False)
         #[sun_positions, dates, dict_keys] = sunpath.remove_position_under_horizon(city_model.horizon_z, sun_positions, dates, dict_keys)

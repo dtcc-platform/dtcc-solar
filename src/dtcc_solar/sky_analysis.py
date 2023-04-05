@@ -1,8 +1,3 @@
-import sys
-import pathlib
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
-
 import numpy as np
 import dtcc_solar.raycasting as raycasting
 import trimesh
@@ -41,7 +36,6 @@ class SkyAnalysis:
         #Register results
         self.results.set_face_in_sky(face_in_sky)
         self.results.set_sky_irradiance_dict(sky_irradiance_dict)
-
         self.results.calc_average_results_from_sky_dict(dict_keys)
 
     def execute_raycasting_some(self, sun_vec):

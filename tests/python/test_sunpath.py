@@ -1,8 +1,3 @@
-import sys
-import pathlib
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -11,7 +6,7 @@ import os
 
 from dtcc_solar.scripts.main import run_script
 from dtcc_solar import sun_utils
-from dtcc_solar import mysun
+from dtcc_solar.sunpath import Sunpath
 
 from pprint import pp
 from typing import List, Dict
@@ -73,8 +68,8 @@ def calc_sunpath_deviation(location, plot:bool):
     origin = np.array([0, 0, 0])
 
     # Create sunpath
-    sunpath = mysun.Sunpath(lat, lon, radius, origin)
-    [x, y, z, all_sun_pos] = sunpath.get_sunpath_hour_loops(2019, 5, False, False)
+    sunpath = Sunpath(lat, lon, radius, origin)
+    [x, y, z, all_sun_pos] = sunpath.get_analemmas(2019, 5)
 
     # Import sunpath for the same location
     loop_pts = sun_utils.read_sunpath_diagram_loops_from_csv_file(filename)
@@ -85,7 +80,7 @@ def calc_sunpath_deviation(location, plot:bool):
 
     if plot:
         ax = sun_utils.initialise_plot(radius, name)
-        sun_utils.plot_sunpath_diagram(all_sun_pos, radius, ax, True, cmap, gmt_diff)
+        sun_utils.plot_analemmas(all_sun_pos, radius, ax, True, cmap, gmt_diff)
         sun_utils.plot_imported_sunpath_diagarm(loop_pts, radius, ax, 'cool')
 
     # Distance between analemmas from trigonomety        

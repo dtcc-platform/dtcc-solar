@@ -1,12 +1,8 @@
 import numpy as np
 import pandas as pd
-import sys
-import pathlib
 import csv
 import math
 from csv import reader
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
 
 from dtcc_solar.utils import AnalysisType, ColorBy, Vec3
 from typing import Dict, List

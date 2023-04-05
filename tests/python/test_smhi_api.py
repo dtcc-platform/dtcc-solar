@@ -1,9 +1,3 @@
-
-import sys
-import pathlib
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
-
 import pandas as pd
 from dtcc_solar import smhi_data
 

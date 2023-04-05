@@ -1,10 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 import math
-import sys
-import pathlib
 from pvlib import solarposition
 from dtcc_solar import utils
 from pprint import pp
@@ -87,9 +84,6 @@ def read_sunpath_diagram_loops_from_csv_file(filename:str):
 
 def shift_sun_pos_dict_for_timezone(all_sun_pos:Dict[int, List[Vec3]], gmt_diff: float):
  
-
-
-
     pass
 
 
@@ -229,7 +223,7 @@ def plot_imported_sunpath_diagarm(pts, radius, ax, cmap):
     ax.scatter3D(x, y, z, c=z, cmap = cmap, vmin = 0, vmax = radius)
 
 
-def plot_sunpath_diagram(all_sun_pos: Dict[int, List[Vec3]],radius, ax, plot_night, cmap, gmt_diff):
+def plot_analemmas(all_sun_pos: Dict[int, List[Vec3]],radius, ax, plot_night, cmap, gmt_diff):
     
     x,y,z = [],[],[]
     z_max_indices = []
@@ -267,6 +261,19 @@ def plot_sunpath_diagram(all_sun_pos: Dict[int, List[Vec3]],radius, ax, plot_nig
         ax.text(text_pos_max[0], text_pos_max[1], text_pos_max[2], str(local_hour), fontsize=12)
 
 
+def plot_daypath(x_dict, y_dict, z_dict, radius, ax, plot_night):
+
+    for key in x_dict:
+        x = x_dict[key]
+        y = y_dict[key]
+        z = z_dict[key]
+
+        day_indices = np.where(z > 0)
+        night_indices = np.where(z <= 0)
+        z_color = z[day_indices]
+        ax.scatter3D(x[day_indices],y[day_indices],z[day_indices], c=z_color , cmap = 'autumn_r', vmin = 0, vmax = radius)
+        if plot_night:    
+            ax.scatter3D(x[night_indices],y[night_indices],z[night_indices], color = 'w')
 
 def plot_day_loop_with_text(x, y, z, h, radius, ax, plot_night, cmap):
     day_indices = np.where(z > 0)
@@ -283,3 +290,17 @@ def plot_day_loop_with_text(x, y, z, h, radius, ax, plot_night, cmap):
     min_z_index = min_z_indices[0][0]
     text_pos_min = np.array([x[min_z_index], y[min_z_index], z[min_z_index]])
     ax.text(text_pos_min[0], text_pos_min[1], text_pos_min[2], str(h), fontsize=12)
+
+
+def plot_single_sun(x, y, z, radius, ax):
+    z_color = z
+    ax.scatter3D(x,y,z, c=z_color , cmap = 'autumn_r', vmin = 0, vmax = radius)        
+
+def plot_multiple_suns(sun_pos, radius, ax, plot_night):
+    z = sun_pos[:,2]
+    day_indices = np.where(z > 0)
+    night_indices = np.where(z <= 0)
+    zColor = z[day_indices]
+    ax.scatter3D(sun_pos[day_indices,0],sun_pos[day_indices,1],sun_pos[day_indices,2], c=zColor , cmap = 'autumn_r', vmin = 0, vmax = radius)
+    if plot_night:    
+        ax.scatter3D(sun_pos[night_indices,0],sun_pos[night_indices,1],sun_pos[night_indices,2], color = 'w')        
