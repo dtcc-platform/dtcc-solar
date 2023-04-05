@@ -138,6 +138,8 @@ def run_script(command_line_args):
                     args.export,    args.one_date,   args.start_date, args.end_date)    
     
     print_args(args)
+    
+    dict_keys = utils.create_dict_keys(pd.to_datetime('2015-01-01 00:00:00'), pd.to_datetime('2015-01-02 00:00:00'))
 
     #Main object for the analysis 
     [w_data, dict_keys, dates] = data_io.import_weather_data_clm(p)
@@ -213,6 +215,6 @@ if __name__ == "__main__":
               '--colorby', '3']        
 
 
-    run_script(args_3)
+    run_script(args_4)
 
 

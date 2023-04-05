@@ -167,6 +167,19 @@ def IsFaceBlocked(thisTriIndex, intersectedTriangleIndices):
     return False        
 
 
+def create_dict_keys(time_from: pd.Timestamp, time_to: pd.Timestamp) -> np.ndarray:
+    
+    #Datetimeindex, prb unfit to be used as dictionaty keys 
+    dict_keys = pd.date_range(start = time_from, end = time_to, freq = '1H')
+    
+    #Keys as array of strings with date and time
+    dict_keys_str = np.array([str(d) for d in dict_keys])
+
+    #Keys as array of Timestamps
+    dict_keys_list = dict_keys.to_list()
+    
+    return dict_keys_str
+ 
 def Distance(v1, v2):
     return math.sqrt(math.pow((v1[0] - v2[0]),2) + math.pow((v1[1] - v2[1]),2) + + math.pow((v1[2] - v2[2]),2)) 
 
