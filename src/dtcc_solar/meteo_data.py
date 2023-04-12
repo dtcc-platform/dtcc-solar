@@ -113,19 +113,10 @@ def get_hour_from_dict_key(dict_key: str):
     return  int(dict_key[11:13])
 
 
-def get_open_meteo_stations():
-
-    url = ""
-    stations = requests.get(url)
-    status = stations.status_code
-    stations_dict = {}
-    
-
 def timestamp_str(ts:Timestamp):
     date_time_str =  str(ts).split(' ')
     date_str = date_time_str[0]
-    time_str = date_time_str[1]
-    #date_time_str = date + 'T' + time 
+    time_str = date_time_str[1] 
     return date_str, time_str
 
 
@@ -139,6 +130,5 @@ if __name__ == "__main__":
 
     lon = 16.158
     lat = 58.5812
-    w_data_dict = get_data_from_api_call(lon, lat, time_from, time_to)
+    [w_data_dict, dict_keys] = get_data_from_api_call(lon, lat, time_from, time_to)
 
-    pos_dict = get_open_meteo_stations()

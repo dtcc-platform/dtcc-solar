@@ -23,7 +23,7 @@ from pprint import pp
 from typing import List, Dict
 
 import dtcc_solar.smhi_data as smhi
-import dtcc_solar.open_meteo_data as meteo  
+import dtcc_solar.meteo_data as meteo  
 
 def register_args(args):    
     
