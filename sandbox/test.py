@@ -7,6 +7,7 @@ import numpy.matlib as npmat
 import matplotlib as mpl
 from pytz import all_timezones
 import typing
+from pprint import pp
 
 os.system('clear')
 
@@ -263,15 +264,62 @@ sub_dates = pd.date_range(start = start_date, end = end_date, freq = '1H')
 print(sub_dates)
 
 
-mystr = "0022"
-
-print(mystr[0:2])
-
-
 arr2 = np.array([1, 9, 3, 4, 2, 6, 7 ,1, 9, 0, 9, 3])
 
-apa  = np.where(arr2 > 6)
 
-print(apa)
 
-print(arr2[apa])
+dict_key = "2018-03-23T12:00:00"
+
+print(len(dict_key))
+
+year = dict_key[0:4]
+sep1 = dict_key[4]
+month = dict_key[5:7]
+sep2 = dict_key[7]
+day = dict_key[8:10]
+sep3 = dict_key[10]
+hour = dict_key[11:13]
+sep4 = dict_key[13]
+min = dict_key[14:16]
+sep5 = dict_key[16]
+sec = dict_key[17:19]
+
+numbers = np.array([int(year), int(month), int(day), int(hour), int(min), int(sec)])    
+separators = np.array([dict_key[4], dict_key[7], dict_key[10], dict_key[13], dict_key[16]])
+facit = np.array(['-', '-', 'T', ':', ':'])
+
+print(numbers)
+
+res_nan =  np.all(np.isnan(numbers)) #np.isnan(numbers)
+res_sep = np.array_equal(separators, facit)
+
+print(res_sep)
+print(res_nan)
+print(year)
+print(month)
+print(day)
+print(hour)
+print(min)
+print(sec)
+print(separators)
+
+dict_keys = ['2018-03-23T00:00:00', '2018-03-23T01:00:00', '2018-03-23T02:00:00',
+             '2018-03-23T03:00:00', '2018-03-23T04:00:00', '2018-03-23T05:00:00', 
+             '2018-03-23T06:00:00', '2018-03-23T07:00:00', '2018-03-23T08:00:00',
+             '2018-03-23T09:00:00', '2018-03-23T10:00:00', '2018-03-23T11:00:00', 
+             '2018-03-23T12:00:00', '2018-03-23T13:00:00', '2018-03-23T14:00:00', 
+             '2018-03-23T15:00:00', '2018-03-23T16:00:00', '2018-03-23T17:00:00', 
+             '2018-03-23T18:00:00', '2018-03-23T19:00:00', '2018-03-23T20:00:00', 
+             '2018-03-23T21:00:00', '2018-03-23T22:00:00', '2018-03-23T23:00:00']
+
+time_from = '00:00:00'
+time_to = '23:00:00'
+
+hour_from = int(time_from[0:2])
+hour_to = int(time_to[0:2])
+# Remove the first and last  
+dict_keys_subset = dict_keys[hour_from: (len(dict_keys)-(24 - hour_to) + 1)]
+
+pp(dict_keys_subset)
+
+

@@ -144,9 +144,6 @@ def get_sunpath_hour_loops(year, sample_rate , plot_results, plot_night, radius,
     return sun_pos
 
 
-
-
-
 if __name__ == "__main__":
 
     os.system('clear')

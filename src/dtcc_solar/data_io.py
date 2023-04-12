@@ -4,7 +4,7 @@ import csv
 import math
 from csv import reader
 
-from dtcc_solar.utils import AnalysisType, ColorBy, Vec3
+from dtcc_solar.utils import AnalysisType, ColorBy, Vec3, DataSource
 from typing import Dict, List
 import typing
 from pprint import pp
@@ -12,14 +12,15 @@ from pprint import pp
 from shapely import LinearRing, Point, get_z
 
 class Parameters:
-    def __init__(self, a_type, fileName, lat, lon, prep_disp, disp, origin, color_by, export, one_date, s_date, e_date):
+    def __init__(self, a_type, fileName, lat, lon, prep_disp, disp, 
+                 data_source, color_by, export,   one_date, s_date, e_date):
         self.a_type = AnalysisType(a_type)
         self.file_name = fileName
         self.latitude = lat
         self.longitude = lon 
         self.prepare_display = bool(prep_disp)
         self.display = bool(disp)
-        self.origin = np.array(origin, dtype= float)
+        self.data_source = DataSource(data_source) 
         self.color_by = ColorBy(color_by)
         self.export = export
         self.one_date = one_date
@@ -48,7 +49,6 @@ def print_dict(dictToPrint, filename):
         for key in dictToPrint:
             f.write('Key:' + str(key) + ' ' + str(dictToPrint[key])+'\n')
 
-
 def print_results(shouldPrint,faceRayFaces):
     counter = 0
     if shouldPrint:
@@ -59,7 +59,7 @@ def print_results(shouldPrint,faceRayFaces):
 
     print(counter)
 
-def import_weather_date_epw(p:Parameters):
+def import_weather_data_epw(p:Parameters):
     file = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw' 
     year_dict_keys = []
     direct_normal_radiation = []
@@ -92,6 +92,17 @@ def import_weather_date_epw(p:Parameters):
         year_weather_data[key] = a_dict
         
     print_dict(year_weather_data, '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/output/w_data_year_epw.txt')
+
+    if(p.a_type == AnalysisType.sun_raycast_iterative or p.a_type == AnalysisType.com_iterative):
+        sub_dates = pd.date_range(start = p.start_date, end = p.end_date, freq = '1H')
+    else:
+        sub_dates = pd.date_range(start = p.one_date, end = p.one_date, freq = '1H')
+        
+    [sub_weather_data, sub_dict_keys] = get_weather_data_subset(year_weather_data, sub_dates)    
+
+    print_dict(sub_weather_data, '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/output/w_data_epw_sub.txt')
+    
+    return sub_weather_data, sub_dict_keys
 
 def make_double_digit_str(s:str):
     if len(s) == 1:
@@ -141,18 +152,16 @@ def import_weather_data_clm(p:Parameters):
 
     print_dict(year_weather_data, '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/output/w_data_year_clm.txt')
     
-    if( p.a_type == AnalysisType.sun_raycasting or 
-        p.a_type == AnalysisType.sky_raycasting or
-        p.a_type == AnalysisType.sky_raycasting_some):
-        sub_dates = pd.date_range(start = p.one_date, end = p.one_date, freq = '1H')
-    else:
+    if(p.a_type == AnalysisType.sun_raycast_iterative or p.a_type == AnalysisType.com_iterative):
         sub_dates = pd.date_range(start = p.start_date, end = p.end_date, freq = '1H')
-
+    else:
+        sub_dates = pd.date_range(start = p.one_date, end = p.one_date, freq = '1H')
+        
     [sub_weather_data, sub_dict_keys] = get_weather_data_subset(year_weather_data, sub_dates)    
 
-    print_dict(sub_weather_data, '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/output/w_data_sub.txt')
+    print_dict(sub_weather_data, '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/output/w_data_clm_sub.txt')
 
-    return sub_weather_data, sub_dict_keys, sub_dates
+    return sub_weather_data, sub_dict_keys
 
 def get_weather_data_subset(year_weather_data, sub_dates):
     sub_dict_keys = np.array([str(d) for d in sub_dates])
@@ -173,6 +182,37 @@ def line2numbers(line):
         adict['direct_normal_radiation'] = float(linesegs[2])
 
     return adict
+
+# The dict key format is (without blank spaces):
+# Year - Month - Day T hour : minute : second
+# Example 2018-03-23T12:00:00
+def check_dict_keys_format(dict_keys: List[str]):
+    for key in dict_keys:
+        if not is_dict_key_format_correct(key):
+            return False
+    return True
+
+def is_dict_key_format_correct(dict_key:str):
+    
+    if(len(dict_key) < 19):
+        return False
+
+    year = dict_key[0:4]
+    month = dict_key[5:7]
+    day = dict_key[8:10]
+    hour = dict_key[11:13]
+    min = dict_key[14:16]
+    sec = dict_key[17:19]
+    
+    is_nan = np.all(np.array([int(year), int(month), int(day), int(hour), int(min), int(sec)]))    
+    separators = np.array([dict_key[4], dict_key[7], dict_key[10], dict_key[13], dict_key[16]])
+    correct_separators = np.array(['-', '-', 'T', ':', ':'])
+    res_sep = np.array_equal(separators, correct_separators)
+
+    if not is_nan and res_sep:
+        return True 
+
+    return False
 
 def WriteToCsv(filename:str, data):
 
@@ -207,9 +247,9 @@ def read_sunpath_diagram_from_csv_file(filename):
 def sunpath_testing(filename:str, all_sun_pos: Dict[int, List[Vec3]], radius:float):
 
     print("Sunpath testing")
-    loop_pts = read_sunpath_diagram_loops_from_csv_file(filename)
+    loop_pts = read_analemmas_from_csv_file(filename)
 
-    loop_pts = match_scale_of_imported_sunpath_diagram(loop_pts, radius)
+    loop_pts = match_sunpath_scale(loop_pts, radius)
     
     loops = create_sunpath_loops_as_linear_rings(loop_pts)
 
@@ -239,7 +279,7 @@ def sunpath_testing(filename:str, all_sun_pos: Dict[int, List[Vec3]], radius:flo
 
     return True
 
-def read_sunpath_diagram_loops_from_csv_file(filename:str):
+def read_analemmas_from_csv_file(filename:str):
 
     pts = []
     loop_pts = dict.fromkeys(range(0,24))
@@ -265,7 +305,7 @@ def read_sunpath_diagram_loops_from_csv_file(filename:str):
 
     return loop_pts
 
-def match_scale_of_imported_sunpath_diagram(loop_pts:Dict[int, List[Vec3]], radius: float) -> Dict[int, List[Vec3]]:
+def match_sunpath_scale(loop_pts:Dict[int, List[Vec3]], radius: float) -> Dict[int, List[Vec3]]:
     # Calculate the correct scale factor for the imported sunpath diagram
     pt = loop_pts[0][0]
     current_raduis = math.sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z) 

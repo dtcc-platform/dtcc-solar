@@ -56,7 +56,7 @@ def get_timezone_from_long_lat(lat, long):
 
     return h_offset
 
-def read_sunpath_diagram_loops_from_csv_file(filename:str):
+def read_analemmas_from_csv_file(filename:str):
 
     pts = []
     loop_pts = dict.fromkeys(range(0,24))
@@ -207,6 +207,21 @@ def initialise_plot(r, title):
     ax.set_xlim(-r, r)
     ax.set_ylim(-r, r)
     ax.set_zlim(-r, r)
+    return ax
+
+def plot_weather_data(x_data, y_data):
+    plt.plot(x_data, y_data)
+    pass 
+
+
+def initialise_plot_2D(x_min, x_max, y_min, y_max, title):
+    plt.rcParams['figure.figsize'] = (14,9)
+    plt.title(label=title, fontsize=44, color="black")
+    ax = plt.axes()
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
     return ax
 
 def plot_imported_sunpath_diagarm(pts, radius, ax, cmap):

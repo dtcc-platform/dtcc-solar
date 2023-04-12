@@ -13,6 +13,12 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import List, Dict
 
+class DataSource(Enum):
+    smhi = 1
+    meteo = 2
+    clm = 3
+    epw = 4
+
 class ColorBy(Enum):
     face_sun_angle = 1
     face_sun_angle_shadows = 2

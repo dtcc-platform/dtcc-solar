@@ -3,13 +3,10 @@ import pandas as pd
 import numpy as np
 import os
 import math
-import sys
-import pathlib
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
 
 from dtcc_solar import utils
 from dtcc_solar.utils import Vec3
+from typing import List, Dict
 
 class Sunpath():
 
@@ -18,11 +15,12 @@ class Sunpath():
     origin: np.ndarray
     radius: float
 
-    def __init__(self, lat:float, lon:float, radius:float, origin:np.ndarray):
+    def __init__(self, lat:float, lon:float, radius:float):
         self.lat = lat
         self.lon = lon
-        self.origin = origin
         self.radius = radius
+        self.origin = np.array([0,0,0])
+        
         
     def get_analemmas(self, year:int, sample_rate:int):
         start_date = str(year) + '-01-01 12:00:00'
@@ -112,7 +110,8 @@ class Sunpath():
         sun_positions = np.c_[sun_pos[0], sun_pos[1], sun_pos[2]]
         return sun_positions
 
-    def get_multiple_suns(self, dates: pd.DatetimeIndex):
+    def get_multiple_suns(self, dict_keys: List[str]):
+        dates = pd.to_datetime(dict_keys)
         solpos = solarposition.get_solarposition(dates, self.lat, self.lon)
         elev = np.radians(solpos.apparent_elevation.to_list())
         azim = np.radians(solpos.azimuth.to_list())
@@ -123,13 +122,12 @@ class Sunpath():
                 
         return sun_positions    
 
-    def remove_sun_under_horizon(self, horizon_z, sun_positions, dates, dict_keys):
+    def remove_sun_under_horizon(self, horizon_z, sun_positions, dict_keys):
         z = sun_positions[:,2]
         z_mask = (z >= horizon_z)
         sun_positions = sun_positions[z_mask]
         dict_keys = dict_keys[z_mask]   
-        dates = dates[z_mask]
-        return sun_positions, dates, dict_keys
+        return sun_positions, dict_keys
 
 
 

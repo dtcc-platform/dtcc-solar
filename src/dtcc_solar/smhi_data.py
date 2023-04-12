@@ -1,21 +1,23 @@
 import requests
 import os
 import pandas as pd
+import numpy as np
 from pandas import Timestamp
 from pprint import pp
 from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
+from dtcc_solar import data_io
 import json
 
-def get_smhi_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Timestamp):
+def get_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Timestamp):
 
     [lon, lat] = check_geo_data(lon, lat)
     strong_data_path = "https://opendata-download-metanalys.smhi.se/api/category/strang1g/version/1/geotype/point/"
     point_data_path_ni = "lon/" + str(lon) + "/lat/" + str(lat) + "/parameter/118/data.json"
     point_data_path_hi = "lon/" + str(lon) + "/lat/" + str(lat) + "/parameter/121/data.json"
 
-    date_from_str = get_datetime_in_api_format_from_timestamp(date_from)
-    date_to_str = get_datetime_in_api_format_from_timestamp(date_to)
+    date_from_str = timestamp_str(date_from)
+    date_to_str = timestamp_str(date_to)
 
     date_from_to_str = "?from=" + str(date_from_str) + "&to=" + str(date_to_str)
 
@@ -34,8 +36,11 @@ def get_smhi_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_
         keys = []
         for i in range(len(ni_json)):
             key = ni_json[i]['date_time']
-            dt = pd.to_datetime(key)
-            keys.append(key)
+            key = format_dict_key(key)
+            if key:
+                keys.append(key)
+            else:
+                return None    
 
         w_data_dict = dict.fromkeys(keys)
         for i, key in enumerate(keys):
@@ -47,7 +52,8 @@ def get_smhi_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_
             data_dict['horizontal_irradiance'] = hi
             w_data_dict[key] = data_dict
         
-        return w_data_dict
+        keys = np.array(keys)
+        return w_data_dict, keys
 
     elif (status_ni == 404 or status_hi == 404):
         print("SMHI Open Data API Docs HTTP code 404:")
@@ -65,7 +71,7 @@ def get_smhi_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_
 
     return None    
 
-def get_datetime_in_api_format_from_timestamp(ts:Timestamp):
+def timestamp_str(ts:Timestamp):
     date_time_str =  str(ts).split(' ')
     date = date_time_str[0]
     time = date_time_str[1]
@@ -75,7 +81,18 @@ def get_datetime_in_api_format_from_timestamp(ts:Timestamp):
 def make_double_digit_str(s:str):
     if len(s) == 1:
         s = '0' + s
-    return s    
+    return s 
+
+def format_dict_key(dict_key:str):
+    
+    new_dict_key = dict_key[0:19]
+    is_format_ok = data_io.is_dict_key_format_correct(new_dict_key)
+    if(is_format_ok):
+        return new_dict_key
+        
+    return None    
+
+
 
 def check_geo_data(lon, lat):
 
@@ -163,15 +180,11 @@ if __name__ == "__main__":
     time_to = pd.to_datetime("2020-04-01")
     lon = 16.158
     lat = 58.5812
-    w_data_dict = get_smhi_data_from_api_call(lon, lat, time_from, time_to)
+    [w_data_dict, dict_keys] = get_data_from_api_call(lon, lat, time_from, time_to)
 
-    #pp(w_data_dict)
+    pp(dict_keys, width= 100)
 
-    #result = assert_no_summer_time_in_data()
-
-    #print(result)
-
-    pos_dict = get_shmi_stations_from_api()
+    #pos_dict = get_shmi_stations_from_api()
 
 
 

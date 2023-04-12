@@ -1,8 +1,3 @@
-import sys
-import pathlib
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
-
 import numpy as np
 import pandas as pd
 import time
@@ -14,7 +9,7 @@ from dtcc_solar import utils
 from dtcc_solar import data_io 
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.solarviewer import SolarViewer
-from dtcc_solar.utils import ColorBy, AnalysisType
+from dtcc_solar.utils import ColorBy, AnalysisType, DataSource
 from dtcc_solar.model import Model
 from dtcc_solar.results import Results
 from dtcc_solar.data_io import Parameters
@@ -23,6 +18,12 @@ from dtcc_solar.sun_analysis import SunAnalysis
 from dtcc_solar.sky_analysis import SkyAnalysis
 from dtcc_solar.combind_analysis import CombinedAnalysis
 from dtcc_solar.multi_skydomes import MultiSkyDomes
+
+from pprint import pp
+from typing import List, Dict
+
+import dtcc_solar.smhi_data as smhi
+import dtcc_solar.open_meteo_data as meteo  
 
 def register_args(args):    
     
@@ -33,11 +34,11 @@ def register_args(args):
     parser.add_argument('-lon', '--longitude' , type=float, metavar='', default=-0.12, help='Longitude for location of analysis')
     parser.add_argument('-f', '--inputfile'   , type=str  , metavar='', default=default_path, help='Filename (incl. path) for city mesh (*.stl, *.vtu)')
     parser.add_argument('-d', '--one_date'    , type=str  , metavar='', default='2015-03-30 09:00:00', help='Date and time for instant analysis')
-    parser.add_argument('-ds', '--start_date' , type=str  , metavar='', default='2015-03-30 07:00:00', help='Start date for iterative analysis')
-    parser.add_argument('-de', '--end_date'   , type=str  , metavar='', default='2015-03-30 21:00:00', help='End date for iterative analysis')
+    parser.add_argument('-sd', '--start_date' , type=str  , metavar='', default='2015-03-30 07:00:00', help='Start date for iterative analysis')
+    parser.add_argument('-ed', '--end_date'   , type=str  , metavar='', default='2015-03-30 21:00:00', help='End date for iterative analysis')
     parser.add_argument('-disp', '--display'  , type=int  , metavar='', default=1, help='Display results with pyglet')
     parser.add_argument('-pd', '--prep_disp'  , type=int  , metavar='', default=1, help='Preproscess colors and other graphic for display')
-    parser.add_argument('-o', '--origin'      , type=float, metavar='', default=[0,0,0], help='Origin for the model')
+    parser.add_argument('-ds', '--data_source', type=int  , metavar='', default=3, help='Enum for data source. 1 = SMHI, 2 = Open Meteo, 3 = Clm file, 4 = Epw file')
     parser.add_argument('-c', '--colorby'     , type=int  , metavar='', default=2, help='Colo_by: face_sun_angle =1, face_sun_angle_shadows = 2, face_irradiance = 3 , face_shadows = 4, face_in_sky = 5, face_diffusion = 6')
     parser.add_argument('-e', '--export'      , type=bool , metavar='', default=True, help='Export data')
     parser.add_argument('-ep', '--exportpath' , type=str  , metavar='', default='./data/dataExport.txt', help='Path for data export of type *.txt')
@@ -70,19 +71,19 @@ def run_instant(p:Parameters, sunpath:Sunpath, city_model:Model, sun_analysis:Su
         
     return sun_pos
 
-def run_iterative(p:Parameters, sunpath:Sunpath, city_model:Model, sun_analysis:SunAnalysis, dict_keys, dates, w_data):
+def run_iterative(p:Parameters, sunpath:Sunpath, city_model:Model, sun_analysis:SunAnalysis, dict_keys, w_data):
     #Get multiple solar positions for iterative analysis     
-    sun_positions = sunpath.get_multiple_suns(dates)
-    [sun_positions, dates, dict_keys] = sunpath.remove_sun_under_horizon(city_model.horizon_z, sun_positions, dates, dict_keys)
+    sun_positions = sunpath.get_multiple_suns(dict_keys)
+    [sun_positions, dict_keys] = sunpath.remove_sun_under_horizon(city_model.horizon_z, sun_positions, dict_keys)
     print(sun_positions)
     sun_vectors_dict = utils.get_sun_vecs_dict_from_sun_pos(sun_positions, city_model.origin, dict_keys)
     sun_analysis.execute_raycasting_iterative(sun_vectors_dict, dict_keys, w_data)
     sun_analysis.set_city_mesh_out()
     return sun_positions
 
-def run_combined(sunpath:Sunpath, city_model:Model, com_analysis:CombinedAnalysis, dict_keys, dates, w_data):
+def run_combined(sunpath:Sunpath, city_model:Model, com_analysis:CombinedAnalysis, dict_keys, w_data):
     #Get multiple solar positions for iterative analysis      
-    sun_positions = sunpath.get_multiple_suns(dates)
+    sun_positions = sunpath.get_multiple_suns(dict_keys)
     [sun_positions, dates, dict_keys] = sunpath.remove_sun_under_horizon(city_model.horizon_z, sun_positions, dates, dict_keys)
     sun_vectors_dict = utils.get_sun_vecs_dict_from_sun_pos(sun_positions, city_model.origin, dict_keys)
     com_analysis.execute(sun_vectors_dict, dict_keys, w_data)
@@ -121,6 +122,23 @@ def create_sunpath(sunpath:Sunpath, viewer:SolarViewer, city_model:Model, sun_po
     sun_mesh = viewer.create_solar_spheres(sun_positions, city_model.sun_size)
     viewer.add_meshes(city_results.get_city_mesh_out(), sun_mesh, sun_path_meshes)
 
+def get_weahter_data(p: Parameters):
+    if p.data_source == DataSource.smhi:
+        [w_data, dict_keys] = smhi.get_data_from_api_call(p.longitude, p.latitude, p.start_date, p.end_date)
+
+    if p.data_source == DataSource.meteo:
+        [w_data, dict_keys] = meteo.get_data_from_api_call(p.longitude, p.latitude, p.start_date, p.end_date)
+
+    elif p.data_source == DataSource.clm:
+        [w_data, dict_keys] = data_io.import_weather_data_clm(p)
+        
+    elif p.data_source == DataSource.epw:
+        [w_data, dict_keys] = data_io.import_weather_data_epw(p)
+
+    return w_data, dict_keys
+
+    
+
 ###############################################################################################################################
 
 def run_script(command_line_args):
@@ -133,17 +151,15 @@ def run_script(command_line_args):
     print(command_line_args)
 
     #Convert command line input to enums and data formated for the analysis
-    p = Parameters( args.analysis,  args.inputfile,  args.latitude,   args.longitude, 
-                    args.prep_disp, args.display,    args.origin,     args.colorby,  
-                    args.export,    args.one_date,   args.start_date, args.end_date)    
+    p = Parameters( args.analysis,  args.inputfile,  args.latitude,    args.longitude, 
+                    args.prep_disp, args.display,    args.data_source, args.colorby,  
+                    args.export,    args.one_date,   args.start_date,  args.end_date)    
     
     print_args(args)
-    
-    dict_keys = utils.create_dict_keys(pd.to_datetime('2015-01-01 00:00:00'), pd.to_datetime('2015-01-02 00:00:00'))
+
+    [w_data, dict_keys] = get_weahter_data(p)
 
     #Main object for the analysis 
-    [w_data, dict_keys, dates] = data_io.import_weather_data_clm(p)
-    data_io.import_weather_date_epw(p)
     city_mesh = trimesh.load_mesh(p.file_name)
     city_model = Model(city_mesh)
     city_results = Results(city_model)
@@ -152,13 +168,13 @@ def run_script(command_line_args):
     sun_analysis = SunAnalysis(city_model, city_results)
     sky_analysis = SkyAnalysis(city_model, city_results, skydome, multi_skydomes)
     com_analysis = CombinedAnalysis(city_model, city_results, skydome, sun_analysis, sky_analysis)
-    sunpath = Sunpath(p.latitude, p.longitude, city_model.sunpath_radius, p.origin)
+    sunpath = Sunpath(p.latitude, p.longitude, city_model.sunpath_radius)
 
     #Execute analysis        
     if(p.a_type == AnalysisType.sun_raycast_iterative):    
-        sun_positions = run_iterative(p, sunpath, city_model, sun_analysis, dict_keys, dates, w_data)
+        sun_positions = run_iterative(p, sunpath, city_model, sun_analysis, dict_keys, w_data)
     elif(p.a_type == AnalysisType.com_iterative):    
-        sun_positions = run_combined(sunpath, city_model, com_analysis, dict_keys, dates, w_data)
+        sun_positions = run_combined(sunpath, city_model, com_analysis, dict_keys, w_data)
     else:    
         sun_positions = run_instant(p, sunpath, city_model, sun_analysis, sky_analysis, dict_keys, w_data)
         
@@ -181,37 +197,43 @@ if __name__ == "__main__":
     inputfile_M = '../../../data/models/CitySurfaceM.stl'
     inputfile_L = '../../../data/models/CitySurfaceL.stl'
 
-
     args_1 = ['--inputfile', inputfile_L, 
               '--analysis', '1',
               '--one_date', '2015-03-30 09:00:00',
+              '--data_source', '3',
               '--display', '1',
               '--colorby', '2']
 
     args_2 = ['--inputfile', inputfile_S, 
               '--analysis', '2',
+              '--one_date', '2015-03-30 09:00:00', 
+              '--data_source', '3',
               '--colorby', '6']
 
     args_3 = ['--inputfile', inputfile_S, 
               '--analysis', '3',
               '--one_date', '2015-03-30 12:00:00',
+              '--data_source', '3',
               '--colorby', '6']        
 
     args_4 = ['--inputfile', inputfile_L, 
               '--analysis', '4',
-              '--one_date', '2015-03-30 09:00:00', 
+              '--one_date', '2015-03-30 09:00:00',
+              '--data_source', '3', 
               '--colorby', '3']
 
     args_5 = ['--inputfile', inputfile_S, 
               '--analysis', '5',
               '--start_date', '2015-03-30 06:00:00',
               '--end_date', '2015-03-30 21:00:00',
+              '--data_source', '3',
               '--colorby', '3']        
 
     args_6 = ['--inputfile', inputfile_L, 
               '--analysis', '5',
               '--start_date', '2015-03-30 07:00:00',
               '--end_date', '2015-03-30 21:00:00',
+              '--data_source', '3',
               '--colorby', '3']        
 
 
