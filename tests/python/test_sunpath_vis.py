@@ -24,7 +24,7 @@ class TestSunpathVisual:
         self.radius = 5
         self.horizon_z = 0.0
         self.origin = np.array([0,0,0])
-        self.sunpath = Sunpath(self.lat, self.lon, self.radius, self.origin)
+        self.sunpath = Sunpath(self.lat, self.lon, self.radius)
 
     def test_analemmas(self):
         year = 2018

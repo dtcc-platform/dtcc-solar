@@ -13,7 +13,7 @@ class TestSmhiApi:
     def test_smhi_api_weather_data(self):
         time_from = pd.to_datetime("2020-03-22")
         time_to = pd.to_datetime("2020-04-01")
-        w_data_dict = smhi_data.get_smhi_data_from_api_call(self.lon, self.lat, time_from, time_to)
+        w_data_dict = smhi_data.get_data_from_api_call(self.lon, self.lat, time_from, time_to)
         assert w_data_dict
 
     def test_summer_time(self):
@@ -50,7 +50,7 @@ class TestSmhiApi:
         for i in range(0, len(dst_test_from)):
             time_from = dst_test_from[i]
             time_to =   dst_test_to[i]
-            w_data_dict = smhi_data.get_smhi_data_from_api_call(self.lon, self.lat, time_from, time_to)
+            [w_data_dict, dict_keys] = smhi_data.get_data_from_api_call(self.lon, self.lat, time_from, time_to)
             for key in w_data_dict:
                 parts = key.split('T')
                 part2 = parts[1]

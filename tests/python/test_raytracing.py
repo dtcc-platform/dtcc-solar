@@ -24,7 +24,7 @@ class TestRaytracing:
     city_mesh:Any
     city_model:Model
     city_results:Results
-    skydome:SkyDome
+    skydome:SkyDome 
     multi_skydomes:MultiSkyDomes
     sun_analysis: SunAnalysis
     sky_analysis: SkyAnalysis

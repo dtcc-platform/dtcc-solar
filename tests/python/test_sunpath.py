@@ -60,15 +60,13 @@ class TestSunpath:
         gmt_diff = location["GMT_diff"]
         cmap = location["cmap"]
 
-        radius  = 1
-        origin = np.array([0, 0, 0])
-
+        radius  = 1.0
         # Create sunpath
-        sunpath = Sunpath(lat, lon, radius, origin)
+        sunpath = Sunpath(lat, lon, radius)
         [x, y, z, all_sun_pos] = sunpath.get_analemmas(2019, 5)
 
         # Import sunpath for the same location
-        loop_pts = sun_utils.read_sunpath_diagram_loops_from_csv_file(filename)
+        loop_pts = sun_utils.read_analemmas_from_csv_file(filename)
     
         # Prepare for comparison
         loop_pts = sun_utils.match_scale_of_imported_sunpath_diagram(loop_pts, radius)
