@@ -61,8 +61,8 @@ class TestRaytracing:
     
     def test_raytracing_instant_sky(self):
         is_error = False
-        dict_keys = ['2015-03-30 09:00:00']
-        w_data = {dict_keys[0]: {'diffuse_radiation': 181.0, 'direct_normal_radiation': 570.0}}
+        dict_keys = ['2019-03-30T09:00:00']
+        w_data = {dict_keys[0]: {'normal_irradiance': 570.0, 'horizontal_irradiance': 181.0}}
         self.sky_analysis.execute_raycasting(self.sun_vec, dict_keys, w_data)
         sky_irr_dict = self.city_results.get_sky_irradiance_dict()
         

@@ -24,6 +24,8 @@ from typing import List, Dict
 
 import dtcc_solar.smhi_data as smhi
 import dtcc_solar.meteo_data as meteo  
+import dtcc_solar.epw_data as epw
+import dtcc_solar.clm_data as clm
 
 def register_args(args):    
     
@@ -33,15 +35,16 @@ def register_args(args):
     parser.add_argument('-lat', '--latitude'  , type=float, metavar='', default=51.5 , help='Latitude for location of analysis')
     parser.add_argument('-lon', '--longitude' , type=float, metavar='', default=-0.12, help='Longitude for location of analysis')
     parser.add_argument('-f', '--inputfile'   , type=str  , metavar='', default=default_path, help='Filename (incl. path) for city mesh (*.stl, *.vtu)')
-    parser.add_argument('-d', '--one_date'    , type=str  , metavar='', default='2015-03-30 09:00:00', help='Date and time for instant analysis')
-    parser.add_argument('-sd', '--start_date' , type=str  , metavar='', default='2015-03-30 07:00:00', help='Start date for iterative analysis')
-    parser.add_argument('-ed', '--end_date'   , type=str  , metavar='', default='2015-03-30 21:00:00', help='End date for iterative analysis')
+    parser.add_argument('-d', '--one_date'    , type=str  , metavar='', default='2019-03-30 09:00:00', help='Date and time for instant analysis')
+    parser.add_argument('-sd', '--start_date' , type=str  , metavar='', default='2019-03-30 07:00:00', help='Start date for iterative analysis')
+    parser.add_argument('-ed', '--end_date'   , type=str  , metavar='', default='2019-03-30 21:00:00', help='End date for iterative analysis')
     parser.add_argument('-disp', '--display'  , type=int  , metavar='', default=1, help='Display results with pyglet')
     parser.add_argument('-pd', '--prep_disp'  , type=int  , metavar='', default=1, help='Preproscess colors and other graphic for display')
     parser.add_argument('-ds', '--data_source', type=int  , metavar='', default=3, help='Enum for data source. 1 = SMHI, 2 = Open Meteo, 3 = Clm file, 4 = Epw file')
     parser.add_argument('-c', '--colorby'     , type=int  , metavar='', default=2, help='Colo_by: face_sun_angle =1, face_sun_angle_shadows = 2, face_irradiance = 3 , face_shadows = 4, face_in_sky = 5, face_diffusion = 6')
     parser.add_argument('-e', '--export'      , type=bool , metavar='', default=True, help='Export data')
     parser.add_argument('-ep', '--exportpath' , type=str  , metavar='', default='./data/dataExport.txt', help='Path for data export of type *.txt')
+    parser.add_argument('-wf', '--w_file' , type=str  , metavar='', default='./data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm', help='Weather data file to be uploaded by the user')
     new_args = parser.parse_args(args)
     return new_args
 
@@ -84,7 +87,7 @@ def run_iterative(p:Parameters, sunpath:Sunpath, city_model:Model, sun_analysis:
 def run_combined(sunpath:Sunpath, city_model:Model, com_analysis:CombinedAnalysis, dict_keys, w_data):
     #Get multiple solar positions for iterative analysis      
     sun_positions = sunpath.get_multiple_suns(dict_keys)
-    [sun_positions, dates, dict_keys] = sunpath.remove_sun_under_horizon(city_model.horizon_z, sun_positions, dates, dict_keys)
+    [sun_positions, dict_keys] = sunpath.remove_sun_under_horizon(city_model.horizon_z, sun_positions, dict_keys)
     sun_vectors_dict = utils.get_sun_vecs_dict_from_sun_pos(sun_positions, city_model.origin, dict_keys)
     com_analysis.execute(sun_vectors_dict, dict_keys, w_data)
     com_analysis.set_city_mesh_out()
@@ -116,24 +119,28 @@ def color_mesh(p:Parameters, city_results:Results, viewer:SolarViewer):
 def create_sunpath(sunpath:Sunpath, viewer:SolarViewer, city_model:Model, sun_positions, city_results:Results):
     [sunX, sunY, sunZ, pos_dict] = sunpath.get_analemmas(2019, 5)
     sun_path_meshes = viewer.create_sunpath_loops(sunX, sunY, sunZ, city_model.sunpath_radius)
-    [sunX, sunY, sunZ] = sunpath.get_daypaths(pd.to_datetime(['2015-06-21', '2015-03-21', '2015-12-21']), 10)
+    [sunX, sunY, sunZ] = sunpath.get_daypaths(pd.to_datetime(['2019-06-21', '2019-03-21', '2019-12-21']), 10)
     sun_path_meshes_day = viewer.create_sunpath_loops(sunX, sunY, sunZ, city_model.sunpath_radius)
     sun_path_meshes.extend(sun_path_meshes_day)
     sun_mesh = viewer.create_solar_spheres(sun_positions, city_model.sun_size)
     viewer.add_meshes(city_results.get_city_mesh_out(), sun_mesh, sun_path_meshes)
 
-def get_weahter_data(p: Parameters):
+def get_weather_data(p: Parameters):
+    
+    time_from = pd.to_datetime(p.start_date)
+    time_to = pd.to_datetime(p.end_date)
+
     if p.data_source == DataSource.smhi:
-        [w_data, dict_keys] = smhi.get_data_from_api_call(p.longitude, p.latitude, p.start_date, p.end_date)
+        [w_data, dict_keys] = smhi.get_data_from_api_call(p.longitude, p.latitude, time_from, time_to)
 
     if p.data_source == DataSource.meteo:
-        [w_data, dict_keys] = meteo.get_data_from_api_call(p.longitude, p.latitude, p.start_date, p.end_date)
+        [w_data, dict_keys] = meteo.get_data_from_api_call(p.longitude, p.latitude, time_from, time_to)
 
     elif p.data_source == DataSource.clm:
-        [w_data, dict_keys] = data_io.import_weather_data_clm(p)
+        [w_data, dict_keys] = clm.import_weather_data_clm(time_from, time_to, p.weather_file)
         
     elif p.data_source == DataSource.epw:
-        [w_data, dict_keys] = data_io.import_weather_data_epw(p)
+        [w_data, dict_keys] = epw.import_weather_data_epw(time_from, time_to, p.weather_file)
 
     return w_data, dict_keys
 
@@ -153,22 +160,23 @@ def run_script(command_line_args):
     #Convert command line input to enums and data formated for the analysis
     p = Parameters( args.analysis,  args.inputfile,  args.latitude,    args.longitude, 
                     args.prep_disp, args.display,    args.data_source, args.colorby,  
-                    args.export,    args.one_date,   args.start_date,  args.end_date)    
+                    args.export,    args.one_date,   args.start_date,  args.end_date,  args.w_file)    
     
     print_args(args)
 
-    [w_data, dict_keys] = get_weahter_data(p)
+    [w_data, dict_keys] = get_weather_data(p)
 
     #Main object for the analysis 
     city_mesh = trimesh.load_mesh(p.file_name)
     city_model = Model(city_mesh)
     city_results = Results(city_model)
+    sunpath = Sunpath(p.latitude, p.longitude, city_model.sunpath_radius)
     skydome = SkyDome(city_model.dome_radius)
     multi_skydomes = MultiSkyDomes(skydome)
     sun_analysis = SunAnalysis(city_model, city_results)
     sky_analysis = SkyAnalysis(city_model, city_results, skydome, multi_skydomes)
     com_analysis = CombinedAnalysis(city_model, city_results, skydome, sun_analysis, sky_analysis)
-    sunpath = Sunpath(p.latitude, p.longitude, city_model.sunpath_radius)
+    
 
     #Execute analysis        
     if(p.a_type == AnalysisType.sun_raycast_iterative):    
@@ -197,46 +205,55 @@ if __name__ == "__main__":
     inputfile_M = '../../../data/models/CitySurfaceM.stl'
     inputfile_L = '../../../data/models/CitySurfaceL.stl'
 
+    weather_file_clm = '../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm'
+
     args_1 = ['--inputfile', inputfile_L, 
               '--analysis', '1',
-              '--one_date', '2015-03-30 09:00:00',
+              '--one_date', '2019-03-30 09:00:00',
               '--data_source', '3',
+              '--w_file', weather_file_clm,
               '--display', '1',
               '--colorby', '2']
 
     args_2 = ['--inputfile', inputfile_S, 
               '--analysis', '2',
-              '--one_date', '2015-03-30 09:00:00', 
+              '--one_date', '2019-03-30 09:00:00', 
               '--data_source', '3',
+              '--w_file', weather_file_clm,
               '--colorby', '6']
 
     args_3 = ['--inputfile', inputfile_S, 
               '--analysis', '3',
               '--one_date', '2015-03-30 12:00:00',
               '--data_source', '3',
+              '--w_file', weather_file_clm,
               '--colorby', '6']        
 
     args_4 = ['--inputfile', inputfile_L, 
               '--analysis', '4',
-              '--one_date', '2015-03-30 09:00:00',
-              '--data_source', '3', 
+              '--start_date', '2019-03-30 06:00:00',
+              '--end_date', '2019-03-30 21:00:00',
+              '--data_source', '3',
+              '--w_file', weather_file_clm, 
               '--colorby', '3']
 
     args_5 = ['--inputfile', inputfile_S, 
               '--analysis', '5',
-              '--start_date', '2015-03-30 06:00:00',
-              '--end_date', '2015-03-30 21:00:00',
+              '--start_date', '2019-03-30 06:00:00',
+              '--end_date', '2019-03-30 21:00:00',
               '--data_source', '3',
+              '--w_file', weather_file_clm,
               '--colorby', '3']        
 
     args_6 = ['--inputfile', inputfile_L, 
               '--analysis', '5',
-              '--start_date', '2015-03-30 07:00:00',
-              '--end_date', '2015-03-30 21:00:00',
+              '--start_date', '2019-03-30 07:00:00',
+              '--end_date', '2019-03-30 21:00:00',
               '--data_source', '3',
+              '--w_file', weather_file_clm,
               '--colorby', '3']        
 
 
-    run_script(args_4)
+    run_script(args_3)
 
 

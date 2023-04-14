@@ -64,7 +64,7 @@ class SkyAnalysis:
         
         sky_irradiance_dict = dict.fromkeys(dict_keys)
         for key in dict_keys:
-            flux = w_data[key]['diffuse_radiation']
+            flux = w_data[key]['horizontal_irradiance']
             sky_portion_copy = copy.deepcopy(sky_portion)
             sky_irradiance_dict[key] = flux * sky_portion_copy
         

@@ -5,6 +5,7 @@ import numpy as np
 from pandas import Timestamp
 from pprint import pp
 from dtcc_solar import data_io
+from dtcc_solar import utils
 from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
 from typing import Dict, List
@@ -21,7 +22,7 @@ def get_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Ti
     url_2 = "latitude=" + str(lat) + "&longitude=" + str(lon)
     url_3 = "&start_date=" + date_from_str + "&end_date=" + date_to_str
     url_4 = "&hourly=direct_normal_irradiance"
-    url_5 = "&hourly=diffuse_radiation"
+    url_5 = "&hourly=direct_radiation" #diffuse_radiation"
     
     # Direct normal irradiance:
     # Average of the preceding hour on the normal plane (perpendicular to the sun)
@@ -37,17 +38,13 @@ def get_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Ti
     horizon_radiation = requests.get(url_hr)
     status_hr = horizon_radiation.status_code
     
-    print("API call status: ")
-    print(status_ni)
-    print(status_hr)
-
     if (status_ni == 200 and status_hr == 200):
         dict_keys = normal_irradiance.json()["hourly"]["time"]
         dict_keys = format_dict_keys(dict_keys)
         
-        if(data_io.check_dict_keys_format(dict_keys)):
+        if(utils.check_dict_keys_format(dict_keys)):
             normal_irradiance_hourly = normal_irradiance.json()["hourly"]["direct_normal_irradiance"]
-            horizon_radiation_hourly = horizon_radiation.json()["hourly"]["diffuse_radiation"]
+            horizon_radiation_hourly = horizon_radiation.json()["hourly"]["direct_radiation"]#["diffuse_radiation"]
 
             w_data_dict = dict.fromkeys(dict_keys)
             for i, key in enumerate(dict_keys):
@@ -58,8 +55,6 @@ def get_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Ti
                 data_dict['normal_irradiance'] = ni
                 data_dict['horizontal_irradiance'] = hr
                 w_data_dict[key] = data_dict
-        
-            pp(w_data_dict, width=100)
 
             # Get time dependent sub set of data.
             [w_data_dict_sub, dict_keys_sub] = get_data_subset(time_from_str, time_to_str, dict_keys, w_data_dict)
@@ -102,7 +97,7 @@ def get_data_subset(time_from:str, time_to:str, dict_keys: List[str], w_data_dic
     hour_from = int(time_from[0:2])
     hour_to = int(time_to[0:2])
     # Remove the first and last  
-    dict_keys_subset = dict_keys[hour_from: (len(dict_keys)-(24 - hour_to))]
+    dict_keys_subset = dict_keys[hour_from: (len(dict_keys)-(23 - hour_to))]
     w_data_dict_subset = dict.fromkeys(dict_keys_subset)
     for key in dict_keys_subset:
         w_data_dict_subset[key] = w_data_dict[key]

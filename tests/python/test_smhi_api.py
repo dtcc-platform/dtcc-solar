@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from dtcc_solar import smhi_data
 
@@ -10,9 +11,9 @@ class TestSmhiApi:
         self.lon = 16.158
         self.lat = 58.5812
 
-    def test_smhi_api_weather_data(self):
-        time_from = pd.to_datetime("2020-03-22")
-        time_to = pd.to_datetime("2020-04-01")
+    def test_weather_data(self):
+        time_from = pd.to_datetime("2019-03-22")
+        time_to = pd.to_datetime("2019-04-01")
         w_data_dict = smhi_data.get_data_from_api_call(self.lon, self.lat, time_from, time_to)
         assert w_data_dict
 
@@ -67,12 +68,13 @@ class TestSmhiApi:
 
 if __name__ == "__main__":
 
+    os.system('clear')    
+    print("--------------------- SMHI Open Data API test started -----------------------")
+
     test = TestSmhiApi()
-
     test.setup_method()
+    test.test_weather_data()
 
-
-    pass
 
 
 

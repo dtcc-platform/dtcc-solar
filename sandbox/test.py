@@ -323,3 +323,24 @@ dict_keys_subset = dict_keys[hour_from: (len(dict_keys)-(24 - hour_to) + 1)]
 pp(dict_keys_subset)
 
 
+a = np.repeat("somefakekey", 5)
+
+print(a.shape)
+
+try:
+    year = 2022
+    month = 11
+    day = 32
+    t = pd.to_datetime(str(year) + '-' + str(month) + '-' + str(day))
+except:
+    day = 1
+    month += 1
+    if(month > 12):
+        month = 1
+
+    t = pd.to_datetime(str(year) + '-' + str(month) + '-' + str(day))
+    print(t)
+
+date = pd.to_datetime("2020-1-1")
+
+print(date)

@@ -39,7 +39,7 @@ class SunAnalysis:
             sun_vec_rev = utils.reverse_vector(sun_vec)
             face_in_sun = raycasting.ray_trace_faces(self.model, sun_vec_rev)
             face_sun_angles = mc.sun_face_angle(self.model.city_mesh, sun_vec)
-            flux = w_data[key]['direct_normal_radiation']
+            flux = w_data[key]['normal_irradiance']
             irradianceF = mc.compute_irradiance(face_in_sun, face_sun_angles, self.model.f_count, flux)
             
             all_irradiance[key] = irradianceF

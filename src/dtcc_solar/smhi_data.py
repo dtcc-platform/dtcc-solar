@@ -7,6 +7,7 @@ from pprint import pp
 from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
 from dtcc_solar import data_io
+from dtcc_solar import utils
 import json
 
 def get_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Timestamp):
@@ -86,7 +87,7 @@ def make_double_digit_str(s:str):
 def format_dict_key(dict_key:str):
     
     new_dict_key = dict_key[0:19]
-    is_format_ok = data_io.is_dict_key_format_correct(new_dict_key)
+    is_format_ok = utils.is_dict_key_format_correct(new_dict_key)
     if(is_format_ok):
         return new_dict_key
         

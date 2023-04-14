@@ -1,8 +1,3 @@
-import sys
-import pathlib
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
-
 import numpy as np
 import math
 from pvlib import solarposition
@@ -267,7 +262,6 @@ def GetBlendedSunColor(max, value):
         frac = 1 - percentage/100
         return [1.0, (frac * 1.0), 0.0, 1.0]
 
-
 def ReverseMask(mask):
     revMask = [not elem for elem in mask]
     return revMask
@@ -279,7 +273,6 @@ def CountElementsInDict(dict):
         count += n    
     
     return count 
-
 
 def get_index_of_closest_point(point, array_of_points):
     
@@ -318,3 +311,54 @@ def count_elements_in_dict(a_dict: Dict[int, List[Vec3]]):
         counter += len(a_dict[key])
 
     return counter
+
+
+# The dict key format is (without blank spaces):
+# Year - Month - Day T hour : minute : second
+# Example 2018-03-23T12:00:00
+def check_dict_keys_format(dict_keys: List[str]):
+    for key in dict_keys:
+        if not is_dict_key_format_correct(key):
+            return False
+    return True
+
+# Correct format example 2018-03-23T12:00:00
+def is_dict_key_format_correct(dict_key:str):
+
+    if(len(dict_key) < 19):
+        return False
+
+    year = dict_key[0:4]
+    month = dict_key[5:7]
+    day = dict_key[8:10]
+    hour = dict_key[11:13]
+    min = dict_key[14:16]
+    sec = dict_key[17:19]
+    
+    is_nan = np.all(np.array([int(year), int(month), int(day), int(hour), int(min), int(sec)]))    
+    separators = np.array([dict_key[4], dict_key[7], dict_key[10], dict_key[13], dict_key[16]])
+    correct_separators = np.array(['-', '-', 'T', ':', ':'])
+    res_sep = np.array_equal(separators, correct_separators)
+
+    if not is_nan and res_sep:
+        return True 
+
+    return False
+
+
+def format_dict_keys(dict_keys):
+    new_dict_keys = []
+    for key in dict_keys:
+        new_key = key.replace(' ', 'T')
+        new_dict_keys.append(new_key)
+
+    new_dict_keys = np.array(new_dict_keys)
+    return new_dict_keys
+
+def get_weather_data_subset(year_weather_data, sub_dict_keys):
+    sub_weather_data = dict.fromkeys(sub_dict_keys)
+    for key in sub_dict_keys:
+        sub_weather_data[key] = year_weather_data[key]
+
+    return sub_weather_data
+
