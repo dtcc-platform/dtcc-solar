@@ -78,7 +78,6 @@ def run_iterative(p:Parameters, sunpath:Sunpath, city_model:Model, sun_analysis:
     #Get multiple solar positions for iterative analysis     
     sun_positions = sunpath.get_multiple_suns(dict_keys)
     [sun_positions, dict_keys] = sunpath.remove_sun_under_horizon(city_model.horizon_z, sun_positions, dict_keys)
-    print(sun_positions)
     sun_vectors_dict = utils.get_sun_vecs_dict_from_sun_pos(sun_positions, city_model.origin, dict_keys)
     sun_analysis.execute_raycasting_iterative(sun_vectors_dict, dict_keys, w_data)
     sun_analysis.set_city_mesh_out()
@@ -93,7 +92,7 @@ def run_combined(sunpath:Sunpath, city_model:Model, com_analysis:CombinedAnalysi
     com_analysis.set_city_mesh_out()
     return sun_positions
 
-def export(p:Parameters, city_results:Results, exportpath):
+def export(p:Parameters, city_results:Results, exportpath:str):
     if p.color_by == ColorBy.face_sun_angle: 
         data_io.print_list(city_results.get_face_sun_angles(), exportpath)
     elif p.color_by == ColorBy.face_sun_angle_shadows: 
@@ -254,6 +253,6 @@ if __name__ == "__main__":
               '--colorby', '3']        
 
 
-    run_script(args_3)
+    run_script(args_4)
 
 

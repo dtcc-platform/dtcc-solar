@@ -102,6 +102,8 @@ def get_data_subset(time_from:str, time_to:str, dict_keys: List[str], w_data_dic
     for key in dict_keys_subset:
         w_data_dict_subset[key] = w_data_dict[key]
 
+    dict_keys_subset = np.array(dict_keys_subset)
+
     return w_data_dict_subset, dict_keys_subset
 
 def get_hour_from_dict_key(dict_key: str):
@@ -118,7 +120,7 @@ def timestamp_str(ts:Timestamp):
 if __name__ == "__main__":
 
     os.system('clear')
-    print("------------------ Open Meteo API test -------------------")
+    print("------------------ Running main function for Open Meteo data import -------------------")
     
     time_from = pd.to_datetime("2020-03-22 10:00:00")
     time_to = pd.to_datetime("2020-03-23 12:00:00")

@@ -85,8 +85,6 @@ def get_sun_vecs_from_sun_pos(sunPosList, origin):
 def get_sun_vecs_dict_from_sun_pos(sunPosList, origin, dict_keys):
     sunVecs = dict.fromkeys(dict_keys)
     counter = 0
-    print(len(dict_keys))
-    print(len(sunPosList))
     for key in dict_keys:
         sunPos = sunPosList[counter]
         sunVec = origin - sunPos

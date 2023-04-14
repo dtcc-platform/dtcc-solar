@@ -17,8 +17,11 @@ def import_weather_data_clm(start_date:pd.Timestamp, end_date:pd.Timestamp, weat
 
     line_index = 0
     data_counter = 0
+    full_year_start_date = str(start_date.year) + "-01-01 00:00:00"
+    full_year_end_date = str(end_date.year) + "-12-31 23:59:00"
+
     #The data file contains weather data for an entire year
-    year_dates = pd.date_range(start = '2019-01-01 00:00:00', end = '2019-12-31 23:59:00', freq = '1H')
+    year_dates = pd.date_range(start = full_year_start_date, end = full_year_end_date, freq = '1H')
     year_dict_keys = np.array([str(d) for d in year_dates])
     year_dict_keys = utils.format_dict_keys(year_dict_keys)
     year_weather_data = dict.fromkeys(year_dict_keys)
@@ -63,7 +66,4 @@ if __name__ == "__main__":
 
     [sub_weather_data, sub_dict_keys] = import_weather_data_clm(time_from, time_to, weather_file)
 
-    pp(sub_weather_data, width = 100)
-
-    pp(sub_dict_keys, width = 100)
 

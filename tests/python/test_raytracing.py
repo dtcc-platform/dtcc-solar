@@ -1,5 +1,7 @@
+import os
 import trimesh
 import numpy as np
+import pandas as pd
 import math
 
 from dtcc_solar import utils
@@ -15,8 +17,10 @@ from dtcc_solar.sun_analysis import SunAnalysis
 from dtcc_solar.sky_analysis import SkyAnalysis
 from dtcc_solar.combind_analysis import CombinedAnalysis
 from dtcc_solar.multi_skydomes import MultiSkyDomes
-from typing import Any
 
+import dtcc_solar.meteo_data as meteo
+
+from typing import Any
 from pprint import pp
 
 class TestRaytracing:
@@ -29,6 +33,7 @@ class TestRaytracing:
     sun_analysis: SunAnalysis
     sky_analysis: SkyAnalysis
     com_analysis: CombinedAnalysis
+    sunpath: Sunpath
     file_name = "data/models/CitySurfaceS.stl"
 
     def setup_method(self):        
@@ -73,18 +78,35 @@ class TestRaytracing:
         assert not is_error
 
     def test_raytracing_iterative(self):
-        #Get multiple solar positions for iterative analysis     
-        #sun_positions = sunpath.get_sun_position_for_dates(dates, False, False)
-        #[sun_positions, dates, dict_keys] = sunpath.remove_position_under_horizon(city_model.horizon_z, sun_positions, dates, dict_keys)
-        #sun_vectors_dict = utils.get_sun_vecs_dict_from_sun_pos(sun_positions, city_model.origin, dict_keys)
-        #sun_analysis.execute_raycasting_iterative(sun_vectors_dict, dict_keys, w_data)
-        #sun_analysis.set_city_mesh_out()
-        #return sun_positions
-        pass
+        #Get multiple solar positions for iterative analysis
+        lat = 51.5
+        lon = -0.12 
+        self.sunpath = Sunpath(lat, lon, self.city_model.sunpath_radius)  
+        time_from = pd.to_datetime('2019-03-30 07:00:00')
+        time_to = pd.to_datetime('2019-03-30 21:00:00')
+        [w_data, dict_keys] = meteo.get_data_from_api_call(lon, lat, time_from, time_to)
+        sun_positions = self.sunpath.get_multiple_suns(dict_keys)
+        [sun_positions, dict_keys] = self.sunpath.remove_sun_under_horizon(self.city_model.horizon_z, sun_positions, dict_keys)
+        sun_vectors_dict = utils.get_sun_vecs_dict_from_sun_pos(sun_positions, self.city_model.origin, dict_keys)
+        self.sun_analysis.execute_raycasting_iterative(sun_vectors_dict, dict_keys, w_data)
+        self.sun_analysis.set_city_mesh_out()
+        assert self.city_results.get_face_in_sun_dict
 
     def run_instant(self):
         #sky_analysis.execute_raycasting_some(sun_vec)
         #sky_analysis.set_city_mesh_out()
         #sky_analysis.set_dome_mesh_out()
         pass
+
+if __name__ == "__main__":
+
+    os.system('clear')    
+    print("--------------------- Raytracing test started -----------------------")
+
+    test = TestRaytracing()
+    test.setup_method()
+    test.test_raytracing_iterative()
+
+
+
 

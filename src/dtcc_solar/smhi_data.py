@@ -175,7 +175,7 @@ def get_shmi_stations_from_api():
 if __name__ == "__main__":
 
     os.system('clear')
-    print("------------------ SMHI API test -------------------")
+    print("------------------ Running main function for SMHI API data import -------------------")
     
     time_from = pd.to_datetime("2020-03-22")
     time_to = pd.to_datetime("2020-04-01")

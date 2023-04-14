@@ -252,12 +252,12 @@ if __name__ == "__main__":
 
     os.system('clear')
     
-    print("--------------------- API Comparision started -----------------------")
+    print("--------------------- API Comparision test started -----------------------")
 
     test = TestWeatherDataComparison()
     test.setup_method()
-    test.test_compare_weather_data()
-    #test.test_compare_dict_keys()
+    #test.test_compare_weather_data()
+    test.test_compare_dict_keys()
     pass
 
 

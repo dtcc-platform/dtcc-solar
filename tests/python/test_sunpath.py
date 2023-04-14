@@ -110,6 +110,9 @@ class TestSunpath:
 if __name__ == "__main__":
 
     os.system('clear')
+
+    print("--------------------- Sunpath test started -----------------------")
+
     test = TestSunpath()
     test.setup_method()
     test.test_sunpaths()
