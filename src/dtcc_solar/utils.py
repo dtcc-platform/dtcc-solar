@@ -52,7 +52,24 @@ class Shading(Enum):
 class Vec3:
     x: float
     y: float
-    z: float    
+    z: float
+
+@dataclass
+class Sun:
+    zenith: float                       # Angle between earth surface normal and the reversed solar vector (both pointing away for the earth surface)
+    position: Vec3                      # Position of the  sun in cartesian coordinates assuming the radius to be 1.0
+    datetime_str: str                   # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
+    datetime_ts: pd.Timestamp           # TimeStamp object with the same date and time
+    DNI: float                          # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth  
+    DHI: float                          # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
+
+@dataclass
+class Sky:
+    datetime_str: str                   # Date and time of the sky data as a string in the format: 2020-10-23T12:00:00
+    datetime_ts: pd.Timestamp           # TimeStamp object with the same date and time
+    DI: float                           # Diffuse Irradiance that is solar radiation diffused by athmosphere, clouds and particles
+
+
 
 def create_list_of_vectors(x_list, y_list, z_list) -> List[Vec3]:
     vector_list = []
