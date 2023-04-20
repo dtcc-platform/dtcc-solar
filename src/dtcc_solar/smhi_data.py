@@ -1,5 +1,6 @@
 import requests
 import os
+import time
 import pandas as pd
 import numpy as np
 from pandas import Timestamp
@@ -8,17 +9,19 @@ from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
 from dtcc_solar import data_io
 from dtcc_solar import utils
+from dtcc_solar.utils import Sun, Sky
+from typing import List, Dict
 import json
 
-def get_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Timestamp):
+def get_data_from_api_call(lon:float, lat:float, suns:List[Sun], skys:List[Sky]):
 
     [lon, lat] = check_geo_data(lon, lat)
     strong_data_path = "https://opendata-download-metanalys.smhi.se/api/category/strang1g/version/1/geotype/point/"
     point_data_path_ni = "lon/" + str(lon) + "/lat/" + str(lat) + "/parameter/118/data.json"
     point_data_path_hi = "lon/" + str(lon) + "/lat/" + str(lat) + "/parameter/121/data.json"
 
-    date_from_str = timestamp_str(date_from)
-    date_to_str = timestamp_str(date_to)
+    date_from_str = timestamp_str(suns[0].datetime_ts)
+    date_to_str = timestamp_str(suns[-1].datetime_ts)
 
     date_from_to_str = "?from=" + str(date_from_str) + "&to=" + str(date_to_str)
 
@@ -33,29 +36,21 @@ def get_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Ti
     if(status_ni == 200 and status_hi == 200):
         ni_json = normal_irradiance.json()
         hi_json = horizon_irradiance.json()
-        #Store the data in a dictionary
-        keys = []
-        for i in range(len(ni_json)):
-            key = ni_json[i]['date_time']
-            key = format_dict_key(key)
-            if key:
-                keys.append(key)
-            else:
-                return None    
 
-        w_data_dict = dict.fromkeys(keys)
-        for i, key in enumerate(keys):
-            ni = ni_json[i]['value']
-            hi = hi_json[i]['value']
-            types = ['normal_irradiance', 'horizontal_irradiance']
-            data_dict = dict.fromkeys([t for t in types])
-            data_dict['normal_irradiance'] = ni
-            data_dict['horizontal_irradiance'] = hi
-            w_data_dict[key] = data_dict
+        if len(ni_json) != len(suns) or len(hi_json) != len(skys):
+            print("Missmatch between suns, skys and API data")
+            return None
+
+        for i in range(len(suns)):
+            api_date = ni_json[i]['date_time']
+            sun_date = suns[i].datetime_str
+            if date_match(api_date, sun_date):
+                suns[i].irradiance_dn = ni_json[i]['value']
+                skys[i].irradiance_dh = hi_json[i]['value']
         
-        keys = np.array(keys)
-        return w_data_dict, keys
 
+        return suns, skys
+    
     elif (status_ni == 404 or status_hi == 404):
         print("SMHI Open Data API Docs HTTP code 404:")
         print("The request points to a resource that do not exist." +
@@ -71,6 +66,18 @@ def get_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Ti
                "might be fixed after a while so try again later on.")
 
     return None    
+
+# Compare the date stamp from the api data with the date stamp for the generated sun and sky data.
+def date_match(api_date, sun_date):
+    api_day = api_date[0:10]
+    sun_day = sun_date[0:10]
+    api_time = api_date[11:19]
+    sun_time = api_date[11:19]
+
+    if api_day == sun_day and api_time == sun_time:
+        return True
+
+    return False
 
 def timestamp_str(ts:Timestamp):
     date_time_str =  str(ts).split(' ')
@@ -177,15 +184,20 @@ if __name__ == "__main__":
     os.system('clear')
     print("------------------ Running main function for SMHI API data import -------------------")
     
-    time_from = pd.to_datetime("2020-03-22")
-    time_to = pd.to_datetime("2020-04-01")
+    time_from_str = "2020-03-22"
+    time_to_str = "2020-04-01"
+    time_from = pd.to_datetime(time_from_str)
+    time_to = pd.to_datetime(time_to_str)
+
+    [suns, skys] = utils.create_sun_and_sky(time_from_str, time_to_str)
+
     lon = 16.158
     lat = 58.5812
-    [w_data_dict, dict_keys] = get_data_from_api_call(lon, lat, time_from, time_to)
+    [suns, skys] = get_data_from_api_call(lon, lat, suns, skys)
 
-    pp(dict_keys, width= 100)
+    pp(suns)
+    pp(skys)
 
-    #pos_dict = get_shmi_stations_from_api()
 
 
 

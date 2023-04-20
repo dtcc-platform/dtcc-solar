@@ -1,5 +1,6 @@
 import requests
 import os
+import time
 import pandas as pd
 import numpy as np
 from pandas import Timestamp
@@ -9,11 +10,12 @@ from dtcc_solar import utils
 from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
 from typing import Dict, List
+from dtcc_solar.utils import Sun, Sky
 
-def get_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Timestamp):
+def get_data_from_api_call(lon:float, lat:float, suns:List[Sun], skys:List[Sky]):
 
-    date_from_str, time_from_str = timestamp_str(date_from)
-    date_to_str, time_to_str = timestamp_str(date_to)
+    date_from_str = timestamp_str(suns[0].datetime_ts)
+    date_to_str = timestamp_str(suns[-1].datetime_ts)
 
     # API call cannot handle time as part of the date variable. So the data is first
     # collected based on the date and then a subset is retriwed which also considers
@@ -23,48 +25,48 @@ def get_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Ti
     url_3 = "&start_date=" + date_from_str + "&end_date=" + date_to_str
     url_4 = "&hourly=direct_normal_irradiance"
     url_5 = "&hourly=direct_radiation" #diffuse_radiation"
+    url_6 = "&hourly=diffuse_radiation"
     
-    # Direct normal irradiance:
+    # Direct normal irradiance, units W/m2
     # Average of the preceding hour on the normal plane (perpendicular to the sun)
-    # Units W/m2
     url_ni = url_1 + url_2 + url_3 + url_4
     normal_irradiance = requests.get(url_ni)
     status_ni = normal_irradiance.status_code
 
-    # Diffuse solar radiation
-    # Diffuse solar radiation as average of the preceding hour
-    # Units W/m2
+    # Direct solar radiation, units W/m2
+    # Direct solar radiation as average of the preceding hour
     url_hr = url_1 + url_2 + url_3 + url_5
-    horizon_radiation = requests.get(url_hr)
-    status_hr = horizon_radiation.status_code
+    direct_radiation = requests.get(url_hr)
+    status_dr = direct_radiation.status_code
     
-    if (status_ni == 200 and status_hr == 200):
-        dict_keys = normal_irradiance.json()["hourly"]["time"]
-        dict_keys = format_dict_keys(dict_keys)
+    # Diffuse solar radiation, units W/m2
+    # Diffuse solar radiation as average of the preceding hour
+    url_hr = url_1 + url_2 + url_3 + url_6
+    diffuse_radiation = requests.get(url_hr)
+    status_hr = diffuse_radiation.status_code
+    
+    sun_counter = 0
+
+    if (status_ni == 200 and status_dr == 200 and status_hr == 200):
+        api_dates = normal_irradiance.json()["hourly"]["time"]
+        api_dates = format_api_dates(api_dates)
         
-        if(utils.check_dict_keys_format(dict_keys)):
-            normal_irradiance_hourly = normal_irradiance.json()["hourly"]["direct_normal_irradiance"]
-            horizon_radiation_hourly = horizon_radiation.json()["hourly"]["direct_radiation"]#["diffuse_radiation"]
+        normal_irradiance_hourly = normal_irradiance.json()["hourly"]["direct_normal_irradiance"]
+        direct_radiation_hourly = direct_radiation.json()["hourly"]["direct_radiation"]
+        diffuse_radiation_hourly = diffuse_radiation.json()["hourly"]["diffuse_radiation"]
 
-            w_data_dict = dict.fromkeys(dict_keys)
-            for i, key in enumerate(dict_keys):
-                ni = normal_irradiance_hourly[i]
-                hr = horizon_radiation_hourly[i]
-                types = ['normal_irradiance', 'horizontal_irradiance']
-                data_dict = dict.fromkeys([t for t in types])
-                data_dict['normal_irradiance'] = ni
-                data_dict['horizontal_irradiance'] = hr
-                w_data_dict[key] = data_dict
-
-            # Get time dependent sub set of data.
-            [w_data_dict_sub, dict_keys_sub] = get_data_subset(time_from_str, time_to_str, dict_keys, w_data_dict)
-
-            return w_data_dict_sub, dict_keys_sub
-        else:
-            print("Problem with the format of the weather data dict keys!")
-            return None
-
-    elif (status_ni == 400 or status_hr == 400):
+        for i in range(len(api_dates)):
+            if sun_counter < len(suns):
+                sun_date = suns[sun_counter].datetime_str
+                if date_match(api_dates[i], sun_date):
+                    suns[sun_counter].irradiance_dn = normal_irradiance_hourly[i]
+                    suns[sun_counter].irradiance_hi = direct_radiation_hourly[i]
+                    skys[sun_counter].irradiance_dh = diffuse_radiation_hourly[i]
+                    sun_counter += 1
+        
+        return suns, skys
+        
+    elif (status_ni == 400 or status_dr == 400):
         print("Open Meteo HTTP status code 400:")
         print("The request points to a resource that do not exist." +
         "This might happen if you query for a station that do" +
@@ -73,11 +75,22 @@ def get_data_from_api_call(lon:float, lat:float, date_from:Timestamp, date_to:Ti
         "removed. It might also be the case that the specified" +
         "station do not have any data for the latest hour.")
         return False
-        
+
+
+# Compare the date stamp from the api data with the date stamp for the generated sun and sky data.
+def date_match(api_date, sun_date):
+    api_day = api_date[0:10]
+    sun_day = sun_date[0:10]
+    api_time = api_date[11:19]
+    sun_time = api_date[11:19]
+    if api_day == sun_day and api_time == sun_time:
+        return True
+    return False
+
 # The dict key format is (without blank spaces):
 # Year - Month - Day T hour : minute : second
 # Example 2018-03-23T12:00:00      
-def format_dict_keys(dict_keys: List[str]):
+def format_api_dates(dict_keys: List[str]):
     for i in range(len(dict_keys)):
         dict_keys[i] += ":00"
     return dict_keys
@@ -89,43 +102,29 @@ def format_date_range(dict_keys_subset: pd.DatetimeIndex):
         dict_keys_list.append(key)
     pass
 
-# Based on the assumption that time_from is part of the first day
-# and time_to is part of the last day this function returns the 
-# time dependent subset of the data from the API call
-def get_data_subset(time_from:str, time_to:str, dict_keys: List[str], w_data_dict):
-    
-    hour_from = int(time_from[0:2])
-    hour_to = int(time_to[0:2])
-    # Remove the first and last  
-    dict_keys_subset = dict_keys[hour_from: (len(dict_keys)-(23 - hour_to))]
-    w_data_dict_subset = dict.fromkeys(dict_keys_subset)
-    for key in dict_keys_subset:
-        w_data_dict_subset[key] = w_data_dict[key]
-
-    dict_keys_subset = np.array(dict_keys_subset)
-
-    return w_data_dict_subset, dict_keys_subset
-
-def get_hour_from_dict_key(dict_key: str):
-    return  int(dict_key[11:13])
-
-
 def timestamp_str(ts:Timestamp):
     date_time_str =  str(ts).split(' ')
-    date_str = date_time_str[0]
-    time_str = date_time_str[1] 
-    return date_str, time_str
+    date_str = date_time_str[0] 
+    return date_str
 
 
 if __name__ == "__main__":
 
     os.system('clear')
     print("------------------ Running main function for Open Meteo data import -------------------")
-    
-    time_from = pd.to_datetime("2020-03-22 10:00:00")
-    time_to = pd.to_datetime("2020-03-23 12:00:00")
+
+    time_from_str = "2020-03-22 10:00:00"
+    time_to_str = "2020-03-23 12:00:00"
+    time_from = pd.to_datetime(time_from_str)
+    time_to = pd.to_datetime(time_to_str)
+
+    [suns, skys] = utils.create_sun_and_sky(time_from_str, time_to_str)
 
     lon = 16.158
     lat = 58.5812
-    [w_data_dict, dict_keys] = get_data_from_api_call(lon, lat, time_from, time_to)
+
+    [suns, skys] = get_data_from_api_call(lon, lat, suns, skys)
+
+    pp(suns)
+    pp(skys)
 

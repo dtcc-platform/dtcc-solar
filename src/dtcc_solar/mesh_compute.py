@@ -23,7 +23,7 @@ def sun_face_angle(mesh, sunVec):
     for i in range(0, len(mesh_faces)):
         face_normal = mesh_face_normals[i]
         face_sun_angle = 0.0  
-        face_sun_angle = utils.VectorAngle(sunVec, face_normal)
+        face_sun_angle = utils.vector_angle(sunVec, face_normal)
         face_sun_angles[i] = face_sun_angle 
         #for vi in mesh_faces[i]:
         #    vertex_sun_angles[vi] += face_sun_angle / 3.0 

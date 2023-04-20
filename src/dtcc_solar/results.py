@@ -1,7 +1,8 @@
 
 import numpy as np
 import dtcc_solar.mesh_compute as mc
-from dtcc_solar.utils import ColorBy
+from dtcc_solar.utils import ColorBy, Sky, Sun
+from typing import List, Dict
 
 
 #This class contains all the results from analysis that will be accessed for visualisation
@@ -28,6 +29,7 @@ class Results:
         #Sky values
         self.__face_in_sky = 0                  # Defined as: np.ones(f_count, dtype=bool)
         self.__sky_irradiance = 0               # Defined as: np.zeros(f_count, dtype=float)
+        self.__avrg_sky_irradiance = 0          # Defined as: np.zeros(f_count, dtype=float)
         
         #Sky values iterative analysis
         self.__sky_irradiance_dict = 0
@@ -98,7 +100,13 @@ class Results:
         self.__sky_irradiance = value    
 
     def get_sky_irradiance(self):
-        return self.__sky_irradiance    
+        return self.__sky_irradiance
+
+    def set_avrg_sky_irradiance(self, value):
+        self.__avrg_sky_irradiance = value    
+
+    def get_avrg_sky_irradiance(self):
+        return self.__avrg_sky_irradiance    
 
     def set_sky_irradiance_dict(self, value):
         self.__sky_irradiance_dict = value    
@@ -233,19 +241,45 @@ class Results:
         self.set_face_sun_angles(avrg_face_sun_angles)
 
 
-    def calc_average_results_from_sky_dict(self, dict_keys):
-        
+    def calc_average_results_from_sky_dict(self, skys: List[Sky]):
         face_count = self.f_count
         avrg_sky_irradiance = np.zeros(face_count)
-        
-        n = len(dict_keys)
+        n = len(skys)
 
         #Calcualte average values for each sun position
-        for key in dict_keys:
+        for sky in skys:
             for face_index in range(0, face_count):
+                key = sky.datetime_str
                 sid = self.__sky_irradiance_dict[key][face_index]
                 avrg_sky_irradiance[face_index] += (sid/n)
         
-        self.set_sky_irradiance(avrg_sky_irradiance)
+        self.set_avrg_sky_irradiance(avrg_sky_irradiance)
+
+    def calc_results_from_sky_dict(self, skys: List[Sky]):
+        face_count = self.f_count
+        sky_irradiance = np.zeros(face_count)
+        n = len(skys)
+
+        #Calcualte average values for each sun position
+        for sky in skys:
+            for face_index in range(0, face_count):
+                key = sky.datetime_str
+                sid = self.__sky_irradiance_dict[key][face_index]
+                sky_irradiance[face_index] += (sid/n)
         
+        self.set_sky_irradiance(sky_irradiance)    
+        
+    # Integrate the diffuse irradiance over time for given dates in the skys list
+    def integrate_sky_dict(self, skys: List[Sky]):
+        face_count = self.f_count
+        sky_irradiance = np.zeros(face_count)
+
+        #Calcualte average values for each sun position
+        for sky in skys:
+            for face_index in range(0, face_count):
+                key = sky.datetime_str
+                sid = self.__sky_irradiance_dict[key][face_index]
+                sky_irradiance[face_index] += sid
+        
+        self.set_sky_irradiance(sky_irradiance)
 

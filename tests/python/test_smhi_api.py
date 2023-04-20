@@ -1,6 +1,11 @@
 import os
 import pandas as pd
+from pprint import pp
 from dtcc_solar import smhi_data
+from dtcc_solar.sunpath import Sunpath
+from dtcc_solar.utils import AnalysisType
+from dtcc_solar.data_io import Parameters
+from dtcc_solar.scripts.main import get_sun_and_sky
 
 class TestSmhiApi:
 
@@ -10,19 +15,30 @@ class TestSmhiApi:
     def setup_method(self):
         self.lon = 16.158
         self.lat = 58.5812
+        self.w_file_clm = "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
+        self.w_file_epw = "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+        self.file_name = '../data/models/CitySurfaceS.stl'
 
     def test_weather_data(self):
-        time_from = pd.to_datetime("2019-03-22")
-        time_to = pd.to_datetime("2019-04-01")
-        w_data_dict = smhi_data.get_data_from_api_call(self.lon, self.lat, time_from, time_to)
-        assert w_data_dict
+        start_date = "2019-01-01 00:00:00"
+        end_date = "2019-12-31 00:00:00"
+        sunpath = Sunpath(self.lat, self.lon, 1.0)
+        a_type = AnalysisType.sun_raycasting
+        
+        p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
+                       False, start_date, start_date, end_date, self.w_file_clm, 2)
+        
+        [suns, skys] = get_sun_and_sky(p, sunpath)
+        [suns, skys] = smhi_data.get_data_from_api_call(self.lon, self.lat, suns, skys)
+
+        assert suns
 
     def test_summer_time(self):
         assert self.assert_no_summer_time_in_data()
 
     def test_weather_stations_location_import(self):
         pos_dict = smhi_data.get_shmi_stations_from_api()
-        print(pos_dict)
+        pp(pos_dict)
         assert pos_dict
 
     def assert_no_summer_time_in_data(self):
@@ -33,6 +49,14 @@ class TestSmhiApi:
         # october. This structure is based on an EU regulation but may not be followed by 
         # countries outside of EU. However, the SMHI Open data API only covers the north of 
         # Europe so the check is still relevant for this application.    
+
+        start_date = "2019-01-01 00:00:00"
+        end_date = "2019-12-31 00:00:00"
+        sunpath = Sunpath(self.lat, self.lon, 1.0)
+        a_type = AnalysisType.sun_raycasting
+        
+        p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
+                       False, start_date, start_date, end_date, self.w_file_clm, 2)
 
         # Checking that 02:00:00 existing in the transion from winter to summer.
         dst_test_from = ["2018-03-25 00:00:00", "2018-10-28 00:00:00", 
@@ -49,14 +73,13 @@ class TestSmhiApi:
     
         results = []
         for i in range(0, len(dst_test_from)):
-            time_from = dst_test_from[i]
-            time_to =   dst_test_to[i]
-            [w_data_dict, dict_keys] = smhi_data.get_data_from_api_call(self.lon, self.lat, time_from, time_to)
-            for key in w_data_dict:
-                parts = key.split('T')
-                part2 = parts[1]
-                hour = part2[0:2]
-                if(hour == "02"):
+            p.start_date = dst_test_from[i]
+            p.end_date = dst_test_to[i]  
+            [suns, skys] = get_sun_and_sky(p, sunpath)
+            [suns, skys] = smhi_data.get_data_from_api_call(self.lon, self.lat, suns, skys)
+            for sun in suns:
+                hour = sun.datetime_ts.hour
+                if(hour == 2):
                     results.append(True)
                     break
             
@@ -73,7 +96,10 @@ if __name__ == "__main__":
 
     test = TestSmhiApi()
     test.setup_method()
-    test.test_weather_data()
+    #test.test_weather_data()
+    #test.test_summer_time()
+    test.test_weather_stations_location_import()
+
 
 
 

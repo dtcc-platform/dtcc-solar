@@ -3,6 +3,10 @@ import pandas as pd
 from dtcc_solar import data_io
 from dtcc_solar import clm_data
 from pprint import pp
+from dtcc_solar.sunpath import Sunpath
+from dtcc_solar.utils import AnalysisType
+from dtcc_solar.data_io import Parameters
+from dtcc_solar.scripts.main import get_sun_and_sky
 
 class TestClmData:
 
@@ -10,14 +14,24 @@ class TestClmData:
     lon: float
 
     def setup_method(self):
-        self.lon = -0.12
-        self.lat = 51.5
-        self.filepath = "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
+        self.lon = 16.158
+        self.lat = 58.5812
+        self.w_file_clm = "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
+        self.w_file_epw = "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+        self.file_name = '../data/models/CitySurfaceS.stl'
 
     def test_weather_data(self):
-        time_from = pd.to_datetime("2019-03-01 00:00:00")
-        time_to = pd.to_datetime("2019-03-25 23:00:00")
-        [w_data_clm, dict_keys_clm] = clm_data.import_weather_data_clm(time_from, time_to, self.filepath)
+        
+        start_date = "2019-01-01 00:00:00"
+        end_date = "2019-12-31 00:00:00"
+        sunpath = Sunpath(self.lat, self.lon, 1.0)
+        a_type = AnalysisType.sun_raycasting
+        
+        p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
+                       False, start_date, start_date, end_date, self.w_file_clm, 2)
+        
+        [suns, skys] = get_sun_and_sky(p, sunpath)
+        [w_data_clm, dict_keys_clm] = clm_data.import_weather_data_clm(suns, skys, self.w_file_clm)
         assert w_data_clm
 
 

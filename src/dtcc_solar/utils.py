@@ -22,12 +22,15 @@ class ColorBy(Enum):
     face_in_sky = 5
     face_diffusion = 6
 
+class Mode(Enum):
+    single_sun = 1
+    multiple_sun = 2
+
 class AnalysisType(Enum):
     sun_raycasting = 1
     sky_raycasting = 2
-    sky_raycasting_some = 3
-    sun_raycast_iterative = 4
-    com_iterative = 5
+    com_raycasting = 3
+    sky_raycasting_some = 4         # Only for debugging.
 
 class AnalysisTypeDev(Enum):
     vertex_raycasting = 1
@@ -56,27 +59,43 @@ class Vec3:
 
 @dataclass
 class Sun:
-    zenith: float                       # Angle between earth surface normal and the reversed solar vector (both pointing away for the earth surface)
-    position: Vec3                      # Position of the  sun in cartesian coordinates assuming the radius to be 1.0
     datetime_str: str                   # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
     datetime_ts: pd.Timestamp           # TimeStamp object with the same date and time
-    DNI: float                          # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth  
-    DHI: float                          # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
+    irradiance_dn: float = 0.0          # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth  
+    irradiance_hi: float = 0.0          # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
+    over_horizon: bool = False          # True if the possition of over the horizon, otherwise false.
+    zenith: float = 0.0                 # Angle between earth surface normal and the reversed solar vector (both pointing away for the earth surface)
+    position: Vec3 = Vec3(0,0,0)        # Position of the  sun in cartesian coordinates based on the size of the model
+    sun_vec: Vec3 = Vec3(0,0,0)         # Normalised solar vector for calculations
 
 @dataclass
 class Sky:
     datetime_str: str                   # Date and time of the sky data as a string in the format: 2020-10-23T12:00:00
     datetime_ts: pd.Timestamp           # TimeStamp object with the same date and time
-    DI: float                           # Diffuse Irradiance that is solar radiation diffused by athmosphere, clouds and particles
+    irradiance_dh: float = 0.0          # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
 
-
+def convert_vec3_to_ndarray(vec: Vec3):
+    return np.array([vec.x, vec.y, vec.z])
 
 def create_list_of_vectors(x_list, y_list, z_list) -> List[Vec3]:
     vector_list = []
     for i in range(0, len(x_list)):
         vec = Vec3(x = x_list[i], y = y_list[i], z = z_list[i])
         vector_list.append(vec)
-    return vector_list    
+    return vector_list  
+
+def create_sun_and_sky(start_date: str, end_date: str):
+    time_from = pd.to_datetime(start_date)
+    time_to = pd.to_datetime(end_date)
+    suns, skys = [],[]
+    times = pd.date_range(start = time_from, end = time_to, freq = 'H')
+    for time in times:
+        sun = Sun(str(time), time)
+        suns.append(sun)
+        sky = Sky(str(time), time)
+        skys.append(sky)
+
+    return suns, skys  
 
 def colorFader(mix): #fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
     c1=np.array(mpl.colors.to_rgb('blue'))
@@ -98,6 +117,19 @@ def get_sun_vecs_from_sun_pos(sunPosList, origin):
         sunVecNorm = normalise_vector(sunVec)
         sunVecs.append(sunVecNorm)
     return sunVecs  
+
+def get_dict_keys_from_suns_datetime(suns: List[Sun]):
+    dates = []
+    for sun in suns:
+        if sun.over_horizon:
+            dates.append(sun.datetime_str)
+    return dates    
+
+def get_dict_keys_from_skys_datetime(skys: List[Sky]):
+    dates = []
+    for sky in skys:
+        dates.append(sky.datetime_str)
+    return dates    
 
 def get_sun_vecs_dict_from_sun_pos(sunPosList, origin, dict_keys):
     sunVecs = dict.fromkeys(dict_keys)
@@ -141,12 +173,15 @@ def scale_vector3(vec:Vec3, sf:float):
     scaled_vec = Vec3(x = sf * vec.x, y = sf * vec.y, z = sf * vec.z)
     return scaled_vec
 
-def VectorAngle(vec1, vec2):
+def vector_angle(vec1, vec2):
     lengthV1 = calc_vector_length(vec1)
     lengthV2 = calc_vector_length(vec2)
     scalarV1V2 = ScalarProduct(vec1, vec2)
-    angle = math.acos(scalarV1V2 / (lengthV1 * lengthV2))
-    return angle
+    denominator = lengthV1 * lengthV2
+    if denominator != 0:
+        angle = math.acos(scalarV1V2 / (denominator))
+        return angle
+    return 0
 
 def calculate_normal(v1, v2):
     v3 = cross_product(v1, v2)

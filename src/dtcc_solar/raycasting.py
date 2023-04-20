@@ -199,7 +199,7 @@ def ray_trace_sky_some(meshes, ray_targets, face_indices):
     return all_seg_idxs, all_face_mid_pts
 
 
-def ray_trace_sky(meshes, ray_targets, ray_areas, w_data):
+def ray_trace_sky(meshes, ray_targets, ray_areas):
 
     city_volume = meshes.volume
     city_mesh_faces = meshes.city_mesh_faces

@@ -4,16 +4,17 @@ import csv
 import math
 from csv import reader
 
-from dtcc_solar.utils import AnalysisType, ColorBy, Vec3, DataSource
+from dtcc_solar.utils import AnalysisType, ColorBy, Vec3, DataSource, Mode
 from typing import Dict, List
 import typing
 from pprint import pp
+from dataclasses import dataclass
 
 from shapely import LinearRing, Point, get_z
 
 class Parameters:
-    def __init__(self, a_type, fileName, lat, lon, prep_disp, disp, 
-                 data_source, color_by, export, one_date, s_date, e_date, w_file):
+    def __init__(self, a_type:int, fileName:str, lat:float, lon:float, prep_disp:int, disp:int, 
+                 data_source:int, color_by:int, export:bool, one_date:str, s_date:str, e_date:str, w_file:str, mode:int):
         self.a_type = AnalysisType(a_type)
         self.file_name = fileName
         self.latitude = lat
@@ -27,8 +28,29 @@ class Parameters:
         self.start_date = s_date
         self.end_date = e_date
         self.weather_file = w_file
-        self.discretisation = '1H' 
+        self.discretisation = '1H'
+        self.mode = Mode(mode) 
 
+
+@dataclass
+class Parameters_dc:    
+        file_name: str
+        weather_file: str
+        a_type: AnalysisType = AnalysisType.sky_raycasting
+        latitude: float = -0.12 
+        longitude: float = 51.5 
+        prepare_display: bool = False
+        display: bool = False
+        data_source: DataSource = DataSource.clm 
+        color_by: ColorBy = ColorBy.face_irradiance
+        export: bool = False
+        one_date: str = "2019-06-03 12:00:00"
+        start_date: str = "2019-06-03 07:00:00"
+        end_date: str = "2019-06-03 21:00:00"
+        discretisation: str = '1H'
+        mode: Mode = Mode.single_sun
+
+        
 def export_results(solpos):
     with open("sunpath.txt", "w") as f:
         

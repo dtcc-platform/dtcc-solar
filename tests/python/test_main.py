@@ -22,71 +22,71 @@ class TestSolar:
         
 
 ########################### Testig of instant analysis ##############################
-    def test_instant_face_sun_angle(self):
-        assert run_script([  '--inputfile', self.inputfile_L, 
-                            '--analysis', '1', 
-                            '--prep_disp', '1', 
-                            '--display', '0', 
+    def test_instant_solar_raycasting(self):
+        assert run_script([ '--inputfile', self.inputfile_S, 
+                            '--mode', '1',
+                            '--analysis', '1',
+                            '--prep_disp', '0', 
+                            '--display', '0',
+                            '--one_date', '2019-03-30 09:00:00',
                             '--data_source', '3',
-                            '--w_file', self.weather_file_clm,
-                            '--colorby', '1']) 
+                            '--w_file', self.weather_file_clm])
 
-    def test_instant_face_sun_angle_shadows(self):
-        assert run_script([  '--inputfile', self.inputfile_L, 
-                            '--analysis', '1',
-                            '--prep_disp', '1', 
+    def test_instant_sky_raycasting(self):
+        assert run_script([ '--inputfile', self.inputfile_S, 
+                            '--mode', '1',
+                            '--analysis', '2',
+                            '--prep_disp', '0', 
                             '--display', '0',
+                            '--one_date', '2019-03-30 09:00:00',
                             '--data_source', '3',
-                            '--w_file', self.weather_file_clm,
-                            '--colorby', '2']) 
+                            '--w_file', self.weather_file_clm]) 
 
-    def test_instant_face_irradiance(self):
-        assert run_script([  '--inputfile', self.inputfile_L,
-                            '--analysis', '1',
-                            '--prep_disp', '1', 
+    def test_instant_com_raycasting(self):
+        assert run_script([ '--inputfile', self.inputfile_S, 
+                            '--mode', '1',
+                            '--analysis', '3',
+                            '--prep_disp', '0', 
                             '--display', '0',
-                            '--data_source', '3', 
-                            '--w_file', self.weather_file_clm,
-                            '--colorby', '3']) 
-    
-    def test_instant_face_shadows(self):    
-        assert run_script([  '--inputfile', self.inputfile_L, 
-                            '--analysis', '1',
-                            '--prep_disp', '1',
-                            '--display', '0',
+                            '--one_date', '2019-03-30 09:00:00',
                             '--data_source', '3',
-                            '--w_file', self.weather_file_clm,
-                            '--colorby', '4'])
+                            '--w_file', self.weather_file_clm]) 
 
 ########################################################################################
 
 
 ########################### Testing diffusion calculations ##############################
-    def test_sky_raycasting(self):    
-        assert run_script([  '--inputfile', self.inputfile_S,
-                            '--analysis', '2',
-                            '--prep_disp', '1',
+    def test_iterative_sun_raycasting(self):    
+        assert run_script(['--inputfile', self.inputfile_S, 
+                            '--mode', '2',
+                            '--analysis', '1',
+                            '--prep_disp', '0', 
                             '--display', '0',
+                            '--start_date', '2019-03-30 10:00:00',
+                            '--end_date', '2019-03-30 15:00:00',
                             '--data_source', '3',
-                            '--w_file', self.weather_file_clm,
-                            '--colorby', '6'])
+                            '--w_file', self.weather_file_clm])
 
-    def test_sky_raycasting_some(self):    
-        assert run_script([  '--inputfile', self.inputfile_S,
-                            '--analysis', '3',
-                            '--prep_disp', '1',
+    def test_iterative_sky_raycasting(self):    
+        assert run_script(['--inputfile', self.inputfile_S, 
+                            '--mode', '2',
+                            '--analysis', '2',
+                            '--prep_disp', '0', 
                             '--display', '0',
+                            '--start_date', '2019-03-30 10:00:00',
+                            '--end_date', '2019-03-30 15:00:00',
                             '--data_source', '3',
-                            '--w_file', self.weather_file_clm,
-                            '--colorby', '6'])
+                            '--w_file', self.weather_file_clm])
 
     #Iterative testing
-    def test_iterative_irradiance(self):
-        assert run_script([  '--inputfile', self.inputfile_M, 
-                            '--analysis', '4', 
-                            '--prep_disp', '1', 
+    def test_iterative_com_raycasting(self):
+        assert run_script([ '--inputfile', self.inputfile_S, 
+                            '--mode', '2',
+                            '--analysis', '3',
+                            '--prep_disp', '0', 
                             '--display', '0',
+                            '--start_date', '2019-03-30 10:00:00',
+                            '--end_date', '2019-03-30 15:00:00',
                             '--data_source', '3',
-                            '--w_file', self.weather_file_clm,
-                            '--colorby', '3'])
+                            '--w_file', self.weather_file_clm])
     

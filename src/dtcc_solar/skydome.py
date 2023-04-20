@@ -110,7 +110,7 @@ class SkyDome:
         quad_sun_angle = np.zeros(len(self.ray_targets))
         for i in range(0, len(self.ray_targets)):
             vec_ray = self.ray_targets[i]
-            angle = utils.VectorAngle(vec_ray, sun_vec)
+            angle = utils.vector_angle(vec_ray, sun_vec)
             quad_sun_angle[i] = angle
 
         self.quad_sun_angle = quad_sun_angle
