@@ -64,7 +64,7 @@ class TestRaytracing:
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
                        False, one_date, one_date, one_date, self.w_file, 1)
 
-        [suns, skys] = get_sun_and_sky(p, self.sunpath)
+        suns = get_sun_and_sky(p, self.sunpath)
         self.sun_analysis.execute_raycasting_iterative(suns)
         
         face_sun_angles = self.city_results.get_face_sun_angles()
@@ -84,7 +84,7 @@ class TestRaytracing:
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
                        False, start_date, start_date, end_date, self.w_file, 2)
 
-        [suns, skys] = get_sun_and_sky(p, self.sunpath)
+        suns = get_sun_and_sky(p, self.sunpath)
         self.sun_analysis.execute_raycasting_iterative(suns)
         
         face_sun_angles_dict = self.city_results.get_face_sun_angles_dict()
@@ -115,8 +115,8 @@ class TestRaytracing:
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
                        False, one_date, one_date, one_date, self.w_file, 1)
 
-        [suns, skys] = get_sun_and_sky(p, self.sunpath)
-        self.sky_analysis.execute_raycasting_iterative(skys)
+        suns = get_sun_and_sky(p, self.sunpath)
+        self.sky_analysis.execute_raycasting_iterative(suns)
         
         face_in_sky = self.city_results.get_face_in_sky()
         is_error = False
@@ -135,13 +135,11 @@ class TestRaytracing:
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
                        False, start_date, start_date, end_date, self.w_file, 2)
 
-        [suns, skys] = get_sun_and_sky(p, self.sunpath)
-        self.sky_analysis.execute_raycasting_iterative(skys)
+        suns = get_sun_and_sky(p, self.sunpath)
+        self.sky_analysis.execute_raycasting_iterative(suns)
         
         sky_irradiance = self.city_results.get_sky_irradiance_dict()
         is_error = False
-
-        pp(skys)
         
         si_sum = 0
         for key in sky_irradiance:
@@ -163,8 +161,8 @@ if __name__ == "__main__":
     test.setup_method()
     #test.test_raytracing_sun_instant()
     #test.test_raytracing_sun_iterative()
-    #test.test_raytracing_sky_instant()
-    test.test_raytracing_sky_iterative()
+    test.test_raytracing_sky_instant()
+    #test.test_raytracing_sky_iterative()
 
 
 

@@ -9,11 +9,11 @@ from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
 from dtcc_solar import data_io
 from dtcc_solar import utils
-from dtcc_solar.utils import Sun, Sky
+from dtcc_solar.utils import Sun
 from typing import List, Dict
 import json
 
-def get_data_from_api_call(lon:float, lat:float, suns:List[Sun], skys:List[Sky]):
+def get_data_from_api_call(lon:float, lat:float, suns:List[Sun]):
 
     [lon, lat] = check_geo_data(lon, lat)
     strong_data_path = "https://opendata-download-metanalys.smhi.se/api/category/strang1g/version/1/geotype/point/"
@@ -37,8 +37,8 @@ def get_data_from_api_call(lon:float, lat:float, suns:List[Sun], skys:List[Sky])
         ni_json = normal_irradiance.json()
         hi_json = horizon_irradiance.json()
 
-        if len(ni_json) != len(suns) or len(hi_json) != len(skys):
-            print("Missmatch between suns, skys and API data")
+        if len(ni_json) != len(suns):
+            print("Missmatch between suns and API data")
             return None
 
         for i in range(len(suns)):
@@ -46,10 +46,11 @@ def get_data_from_api_call(lon:float, lat:float, suns:List[Sun], skys:List[Sky])
             sun_date = suns[i].datetime_str
             if date_match(api_date, sun_date):
                 suns[i].irradiance_dn = ni_json[i]['value']
-                skys[i].irradiance_dh = hi_json[i]['value']
+                suns[i].irradiance_dh = hi_json[i]['value']
         
 
-        return suns, skys
+        return suns
+
     
     elif (status_ni == 404 or status_hi == 404):
         print("SMHI Open Data API Docs HTTP code 404:")
@@ -67,7 +68,7 @@ def get_data_from_api_call(lon:float, lat:float, suns:List[Sun], skys:List[Sky])
 
     return None    
 
-# Compare the date stamp from the api data with the date stamp for the generated sun and sky data.
+# Compare the date stamp from the api data with the date stamp for the generated suns data.
 def date_match(api_date, sun_date):
     api_day = api_date[0:10]
     sun_day = sun_date[0:10]
@@ -99,7 +100,6 @@ def format_dict_key(dict_key:str):
         return new_dict_key
         
     return None    
-
 
 
 def check_geo_data(lon, lat):
@@ -189,14 +189,13 @@ if __name__ == "__main__":
     time_from = pd.to_datetime(time_from_str)
     time_to = pd.to_datetime(time_to_str)
 
-    [suns, skys] = utils.create_sun_and_sky(time_from_str, time_to_str)
+    suns = utils.create_suns(time_from_str, time_to_str)
 
     lon = 16.158
     lat = 58.5812
-    [suns, skys] = get_data_from_api_call(lon, lat, suns, skys)
+    suns = get_data_from_api_call(lon, lat, suns)
 
     pp(suns)
-    pp(skys)
 
 
 

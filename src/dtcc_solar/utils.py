@@ -63,17 +63,13 @@ class Sun:
     datetime_ts: pd.Timestamp           # TimeStamp object with the same date and time
     irradiance_dn: float = 0.0          # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth  
     irradiance_hi: float = 0.0          # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
+    irradiance_dh: float = 0.0          # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
     over_horizon: bool = False          # True if the possition of over the horizon, otherwise false.
     zenith: float = 0.0                 # Angle between earth surface normal and the reversed solar vector (both pointing away for the earth surface)
     position: Vec3 = Vec3(0,0,0)        # Position of the  sun in cartesian coordinates based on the size of the model
     sun_vec: Vec3 = Vec3(0,0,0)         # Normalised solar vector for calculations
 
-@dataclass
-class Sky:
-    datetime_str: str                   # Date and time of the sky data as a string in the format: 2020-10-23T12:00:00
-    datetime_ts: pd.Timestamp           # TimeStamp object with the same date and time
-    irradiance_dh: float = 0.0          # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
-
+    
 def convert_vec3_to_ndarray(vec: Vec3):
     return np.array([vec.x, vec.y, vec.z])
 
@@ -84,18 +80,16 @@ def create_list_of_vectors(x_list, y_list, z_list) -> List[Vec3]:
         vector_list.append(vec)
     return vector_list  
 
-def create_sun_and_sky(start_date: str, end_date: str):
+def create_suns(start_date: str, end_date: str):
     time_from = pd.to_datetime(start_date)
     time_to = pd.to_datetime(end_date)
-    suns, skys = [],[]
+    suns = []
     times = pd.date_range(start = time_from, end = time_to, freq = 'H')
     for time in times:
         sun = Sun(str(time), time)
         suns.append(sun)
-        sky = Sky(str(time), time)
-        skys.append(sky)
-
-    return suns, skys  
+        
+    return suns  
 
 def colorFader(mix): #fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
     c1=np.array(mpl.colors.to_rgb('blue'))
@@ -124,13 +118,7 @@ def get_dict_keys_from_suns_datetime(suns: List[Sun]):
         if sun.over_horizon:
             dates.append(sun.datetime_str)
     return dates    
-
-def get_dict_keys_from_skys_datetime(skys: List[Sky]):
-    dates = []
-    for sky in skys:
-        dates.append(sky.datetime_str)
-    return dates    
-
+ 
 def get_sun_vecs_dict_from_sun_pos(sunPosList, origin, dict_keys):
     sunVecs = dict.fromkeys(dict_keys)
     counter = 0

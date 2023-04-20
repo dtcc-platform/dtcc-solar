@@ -31,7 +31,6 @@ class Parameters:
         self.discretisation = '1H'
         self.mode = Mode(mode) 
 
-
 @dataclass
 class Parameters_dc:    
         file_name: str

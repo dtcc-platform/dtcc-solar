@@ -4,12 +4,12 @@ import numpy as np
 from pprint import pp
 from typing import List, Dict
 from dtcc_solar import utils
-from dtcc_solar.utils import Sun, Sky
+from dtcc_solar.utils import Sun
 
 # This function reads a *.clm weather file, which contains recorde data for a full year which has been
 # compiled by combining data from different months for the years inbetween 2007 and 2021. The time span
 # defined in by arguments if then used to obain a sub set of the data for analysis. 
-def import_weather_data_clm(suns:List[Sun], skys:List[Sky], weather_file:str):
+def import_weather_data_clm(suns:List[Sun], weather_file:str):
 
     name_parts = weather_file.split('.')
     if (name_parts[-1] != 'clm'):
@@ -47,10 +47,10 @@ def import_weather_data_clm(suns:List[Sun], skys:List[Sky], weather_file:str):
             sun_date = suns[sun_index].datetime_str
             if date_match(clm_date, sun_date):
                 suns[sun_index].irradiance_dn = year_normal_irradiance[clm_date]
-                skys[sun_index].irradiance_dh = year_diffuse_irradiance[clm_date]
+                suns[sun_index].irradiance_dh = year_diffuse_irradiance[clm_date]
                 sun_index += 1         
 
-    return suns, skys
+    return suns
 
 # Compare the date stamp from the api data with the date stamp for the generated sun and sky data.
 def date_match(api_date, sun_date):
@@ -83,15 +83,12 @@ if __name__ == "__main__":
     time_from = pd.to_datetime(time_from_str)
     time_to = pd.to_datetime(time_to_str)
 
-    [suns, skys] = utils.create_sun_and_sky(time_from_str, time_to_str)
-
     # Run from the location of the file
     weather_file = "../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
 
-    [suns, skys] = import_weather_data_clm(suns, skys, weather_file)
+    suns = utils.create_suns(time_from_str, time_to_str)
+    suns = import_weather_data_clm(suns, weather_file)
 
     pp(suns)
-
-    #pp(skys)
 
 

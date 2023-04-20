@@ -1,7 +1,7 @@
 
 import numpy as np
 import dtcc_solar.mesh_compute as mc
-from dtcc_solar.utils import ColorBy, Sky, Sun
+from dtcc_solar.utils import ColorBy, Sun
 from typing import List, Dict
 
 
@@ -241,13 +241,13 @@ class Results:
         self.set_face_sun_angles(avrg_face_sun_angles)
 
 
-    def calc_average_results_from_sky_dict(self, skys: List[Sky]):
+    def calc_average_results_from_sky_dict(self, suns: List[Sun]):
         face_count = self.f_count
         avrg_sky_irradiance = np.zeros(face_count)
-        n = len(skys)
+        n = len(suns)
 
         #Calcualte average values for each sun position
-        for sky in skys:
+        for sky in suns:
             for face_index in range(0, face_count):
                 key = sky.datetime_str
                 sid = self.__sky_irradiance_dict[key][face_index]
@@ -255,29 +255,29 @@ class Results:
         
         self.set_avrg_sky_irradiance(avrg_sky_irradiance)
 
-    def calc_results_from_sky_dict(self, skys: List[Sky]):
+    def calc_results_from_sky_dict(self, suns: List[Sun]):
         face_count = self.f_count
         sky_irradiance = np.zeros(face_count)
-        n = len(skys)
+        n = len(suns)
 
         #Calcualte average values for each sun position
-        for sky in skys:
+        for sun in suns:
             for face_index in range(0, face_count):
-                key = sky.datetime_str
+                key = sun.datetime_str
                 sid = self.__sky_irradiance_dict[key][face_index]
                 sky_irradiance[face_index] += (sid/n)
         
         self.set_sky_irradiance(sky_irradiance)    
         
     # Integrate the diffuse irradiance over time for given dates in the skys list
-    def integrate_sky_dict(self, skys: List[Sky]):
+    def integrate_sky_dict(self, suns: List[Sun]):
         face_count = self.f_count
         sky_irradiance = np.zeros(face_count)
 
         #Calcualte average values for each sun position
-        for sky in skys:
+        for sun in suns:
             for face_index in range(0, face_count):
-                key = sky.datetime_str
+                key = sun.datetime_str
                 sid = self.__sky_irradiance_dict[key][face_index]
                 sky_irradiance[face_index] += sid
         

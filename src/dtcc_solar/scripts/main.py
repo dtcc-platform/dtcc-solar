@@ -18,7 +18,7 @@ from dtcc_solar.skydome import SkyDome
 from dtcc_solar.sun_analysis import SunAnalysis
 from dtcc_solar.sky_analysis import SkyAnalysis
 from dtcc_solar.multi_skydomes import MultiSkyDomes
-from dtcc_solar.utils import Sun, Sky
+from dtcc_solar.utils import Sun
 
 from pprint import pp
 from typing import List, Dict
@@ -62,16 +62,16 @@ def run_iterative_sun(sun_analysis:SunAnalysis, suns:List[Sun]):
     sun_analysis.execute_raycasting_iterative(suns)
     sun_analysis.set_city_mesh_out()
     
-def run_iterative_sky(sky_analysis:SkyAnalysis, skys:List[Sky]):    
-    sky_analysis.execute_raycasting_iterative(skys)
+def run_iterative_sky(sky_analysis:SkyAnalysis, suns:List[Sun]):    
+    sky_analysis.execute_raycasting_iterative(suns)
     sky_analysis.set_city_mesh_out()
     
-def run_combined(sun_analysis:SunAnalysis, sky_analysis:SkyAnalysis, suns:List[Sun], skys:List[Sky]):  
+def run_combined(sun_analysis:SunAnalysis, sky_analysis:SkyAnalysis, suns:List[Sun]):  
     sun_analysis.execute_raycasting_iterative(suns)    
-    sky_analysis.execute_raycasting_iterative(skys)
+    sky_analysis.execute_raycasting_iterative(suns)
     sun_analysis.set_city_mesh_out()
     
-def run_sky_domes(sky_analysis:SkyAnalysis, suns:List[Sun], skys:List[Sky]):  
+def run_sky_domes(sky_analysis:SkyAnalysis, suns:List[Sun]):  
     sky_analysis.execute_raycasting_some(suns)
     sky_analysis.set_city_mesh_out()
     sky_analysis.set_dome_mesh_out()
@@ -98,34 +98,34 @@ def color_mesh(p:Parameters, city_results:Results, viewer:Viewer):
         city_results.color_city_mesh_com_iterative(p.color_by)    
 
 
-def get_weather_data(p:Parameters, suns:List[Sun], skys:List[Sky]):
+def get_weather_data(p:Parameters, suns:List[Sun]):
     if p.data_source == DataSource.smhi:
-        [suns, skys] = smhi.get_data_from_api_call(p.longitude, p.latitude, suns, skys)
+        suns = smhi.get_data_from_api_call(p.longitude, p.latitude, suns)
     if p.data_source == DataSource.meteo:
-        [suns, skys] = meteo.get_data_from_api_call(p.longitude, p.latitude, suns, skys)
+        suns = meteo.get_data_from_api_call(p.longitude, p.latitude, suns)
     elif p.data_source == DataSource.clm:
-        [suns, skys] = clm.import_weather_data_clm(suns, skys, p.weather_file)
+        suns = clm.import_weather_data_clm(suns, p.weather_file)
     elif p.data_source == DataSource.epw:
-        [suns, skys] = epw.import_weather_data_epw(suns, skys, p.weather_file)
-    return suns, skys
+        suns = epw.import_weather_data_epw(suns,p.weather_file)
+    return suns
 
 def get_sun_and_sky(p:Parameters, sunpath:Sunpath):
 
     # Get date and time discretisation for single sun or multiple sun analysis
     if p.mode == Mode.single_sun:
-        [suns, skys] = utils.create_sun_and_sky(p.one_date, p.one_date)                   
+        suns = utils.create_suns(p.one_date, p.one_date)                   
     elif p.mode == Mode.multiple_sun:
-        [suns, skys] = utils.create_sun_and_sky(p.start_date, p.end_date)    
+        suns = utils.create_suns(p.start_date, p.end_date)    
     
     clock1 = time.perf_counter()
-    [suns, skys] = get_weather_data(p, suns, skys)                               
+    suns = get_weather_data(p, suns)                               
     clock2 = time.perf_counter()
     print("Weather data collection time elapsed: " + str(round(clock2  - clock1,4)))
     suns = sunpath.get_suns_positions(suns)                                        
     clock3 = time.perf_counter()
     print("Sun position collection time elapsed: " + str(round(clock3  - clock2,4)))
     
-    return suns, skys
+    return suns
 
 
 
@@ -154,7 +154,7 @@ def run_script(command_line_args):
     skydome = SkyDome(city_model.dome_radius)
     multi_skydomes = MultiSkyDomes(skydome)
     
-    [suns, skys] = get_sun_and_sky(p, sunpath)    
+    suns = get_sun_and_sky(p, sunpath)    
 
     pp(suns)
 
@@ -165,11 +165,11 @@ def run_script(command_line_args):
     if  (p.a_type == AnalysisType.sun_raycasting):    
         run_iterative_sun(sun_analysis, suns)
     elif(p.a_type == AnalysisType.sky_raycasting):    
-        run_iterative_sky(sky_analysis, skys)
+        run_iterative_sky(sky_analysis, suns)
     elif(p.a_type == AnalysisType.com_raycasting):    
-        run_combined(sun_analysis, sky_analysis, suns, skys)
+        run_combined(sun_analysis, sky_analysis, suns)
     elif(p.a_type == AnalysisType.sky_raycasting_some):    
-        run_sky_domes(sky_analysis, suns, skys)
+        run_sky_domes(sky_analysis, suns)
         
     #Get geometry for the sunpath and current sun position
     if(p.prepare_display):

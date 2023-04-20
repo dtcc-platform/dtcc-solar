@@ -30,9 +30,9 @@ class TestClmData:
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
                        False, start_date, start_date, end_date, self.w_file_clm, 2)
         
-        [suns, skys] = get_sun_and_sky(p, sunpath)
-        [w_data_clm, dict_keys_clm] = clm_data.import_weather_data_clm(suns, skys, self.w_file_clm)
-        assert w_data_clm
+        suns = get_sun_and_sky(p, sunpath)
+        suns = clm_data.import_weather_data_clm(suns, self.w_file_clm)
+        assert suns
 
 
 if __name__ == "__main__":

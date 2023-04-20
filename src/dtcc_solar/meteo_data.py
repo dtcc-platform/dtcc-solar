@@ -10,9 +10,9 @@ from dtcc_solar import utils
 from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
 from typing import Dict, List
-from dtcc_solar.utils import Sun, Sky
+from dtcc_solar.utils import Sun
 
-def get_data_from_api_call(lon:float, lat:float, suns:List[Sun], skys:List[Sky]):
+def get_data_from_api_call(lon:float, lat:float, suns:List[Sun]):
 
     date_from_str = timestamp_str(suns[0].datetime_ts)
     date_to_str = timestamp_str(suns[-1].datetime_ts)
@@ -61,10 +61,10 @@ def get_data_from_api_call(lon:float, lat:float, suns:List[Sun], skys:List[Sky])
                 if date_match(api_dates[i], sun_date):
                     suns[sun_counter].irradiance_dn = normal_irradiance_hourly[i]
                     suns[sun_counter].irradiance_hi = direct_radiation_hourly[i]
-                    skys[sun_counter].irradiance_dh = diffuse_radiation_hourly[i]
+                    suns[sun_counter].irradiance_dh = diffuse_radiation_hourly[i]
                     sun_counter += 1
         
-        return suns, skys
+        return suns
         
     elif (status_ni == 400 or status_dr == 400):
         print("Open Meteo HTTP status code 400:")
@@ -96,7 +96,6 @@ def format_api_dates(dict_keys: List[str]):
     return dict_keys
 
 def format_date_range(dict_keys_subset: pd.DatetimeIndex):
-
     dict_keys_list = []
     for key in dict_keys_subset:
         dict_keys_list.append(key)
@@ -118,13 +117,11 @@ if __name__ == "__main__":
     time_from = pd.to_datetime(time_from_str)
     time_to = pd.to_datetime(time_to_str)
 
-    [suns, skys] = utils.create_sun_and_sky(time_from_str, time_to_str)
-
     lon = 16.158
     lat = 58.5812
-
-    [suns, skys] = get_data_from_api_call(lon, lat, suns, skys)
+    
+    suns = utils.create_suns(time_from_str, time_to_str)
+    suns = get_data_from_api_call(lon, lat, suns)
 
     pp(suns)
-    pp(skys)
 

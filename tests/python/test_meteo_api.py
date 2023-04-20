@@ -32,8 +32,8 @@ class TestOpenMeteoApi:
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
                        False, start_date, start_date, end_date, self.w_file_clm, 2)
         
-        [suns, skys] = get_sun_and_sky(p, sunpath)
-        [suns, skys] = meteo_data.get_data_from_api_call(self.lon, self.lat, suns, skys)
+        suns = get_sun_and_sky(p, sunpath)
+        suns = meteo_data.get_data_from_api_call(self.lon, self.lat, suns)
 
         assert suns
 
