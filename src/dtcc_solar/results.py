@@ -255,6 +255,7 @@ class Results:
         
         self.set_avrg_sky_irradiance(avrg_sky_irradiance)
 
+    # Calculate average result from a number of different dates i.e. different wheater data.
     def calc_results_from_sky_dict(self, suns: List[Sun]):
         face_count = self.f_count
         sky_irradiance = np.zeros(face_count)

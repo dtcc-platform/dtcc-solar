@@ -4,7 +4,6 @@ import copy
 
 from dtcc_solar import utils
 
-
 def compute_irradiance(face_in_sun, face_angles, f_count, flux):
     irradiance = np.zeros(f_count)
     for i in range(0,f_count):
@@ -14,9 +13,8 @@ def compute_irradiance(face_in_sun, face_angles, f_count, flux):
     
     return irradiance    
 
+# Face sun angle calculation
 def sun_face_angle(mesh, sunVec):
-    #Face sun angle calculation
-    #vertex_sun_angles = np.zeros(len(mesh.vertices))
     face_sun_angles = np.zeros(len(mesh.faces))
     mesh_faces = list(mesh.faces)
     mesh_face_normals = list(mesh.face_normals)
@@ -25,33 +23,33 @@ def sun_face_angle(mesh, sunVec):
         face_sun_angle = 0.0  
         face_sun_angle = utils.vector_angle(sunVec, face_normal)
         face_sun_angles[i] = face_sun_angle 
-        #for vi in mesh_faces[i]:
-        #    vertex_sun_angles[vi] += face_sun_angle / 3.0 
-    
+        
     return face_sun_angles
 
-
+# TO BE DELETED, moved to viewer
 def calc_face_with_shadows_colors_rayF(face_sun_angles, face_colors, face_in_sun):    
     min_face_angle = np.min(face_sun_angles[face_in_sun])
     max_face_angle = np.max(face_sun_angles[face_in_sun])
     for i in range(0, len(face_sun_angles)):
         if face_in_sun[i]:
-            f_color = utils.GetBlendedColor(min_face_angle, max_face_angle, face_sun_angles[i])
+            f_color = utils.get_blended_color(min_face_angle, max_face_angle, face_sun_angles[i])
         else:
             f_color = [0.2,0.2,0.2,1] 
         face_colors.append(f_color)
 
+# TO BE DELETED, moved to viewer
 def calc_face_colors_rayF(values, faceColors):    
     min_value = np.min(values)
     max_value = np.max(values)
     for i in range(0, len(values)):
-        fColor = utils.GetBlendedColor(min_value, max_value, values[i]) 
+        fColor = utils.get_blended_color(min_value, max_value, values[i]) 
         faceColors.append(fColor)
 
+# TO BE DELETED, moved to viewer
 def calc_face_colors_black_white_rayF(values, faceColors):    
     max_value = np.max(values)
     for i in range(0, len(values)):
-        fColor = utils.GetBlendedColorBlackAndWhite(max_value, values[i]) 
+        fColor = utils.get_blended_color_mono(max_value, values[i]) 
         faceColors.append(fColor)
 
 def calc_face_colors_dome_face_in_sky(values, faceColors):    
@@ -64,7 +62,7 @@ def calc_face_colors_dome_face_intensity(values, faceColors):
     max_value = np.max(values)
     min_value = np.min(values)
     for i in range(0, len(values)):
-        fColor = utils.GetBlendedColor(min_value, max_value, values[i])
+        fColor = utils.get_blended_color(min_value, max_value, values[i])
         faceColors.append(fColor)
 
 def find_shadow_border_faces_rayV(mesh, faceShading):
@@ -75,17 +73,6 @@ def find_shadow_border_faces_rayV(mesh, faceShading):
             borderFaceMask[i] = False
     
     return borderFaceMask      
-
-
-def find_shadow_borded_faces_rayF(mesh, faceShading):
-    borderFaceMask = np.ones(len(mesh.faces), dtype = bool)
-    faces = list(mesh.faces)
-    for i in range(len(faces)):
-        if faceShading[i] < 3 and faceShading[i] > 0 :
-            borderFaceMask[i] = False
-    
-    return borderFaceMask
-
 
 def split_mesh(mesh, borderFaceMask, faceShading, face_in_sun):
     #Reversed face mask booleans 

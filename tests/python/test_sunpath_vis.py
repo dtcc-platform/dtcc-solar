@@ -4,10 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import dtcc_solar.sun_utils as su
 
-from pvlib import solarposition
 from typing import Dict, List, Any
 from dtcc_solar.sunpath import Sunpath 
-
 
 class TestSunpathVisual:
 

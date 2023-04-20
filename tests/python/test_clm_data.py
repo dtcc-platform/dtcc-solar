@@ -4,9 +4,9 @@ from dtcc_solar import data_io
 from dtcc_solar import clm_data
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType
-from dtcc_solar.data_io import Parameters
-from dtcc_solar.scripts.main import get_sun_and_sky
+from dtcc_solar.utils import AnalysisType, Parameters
+from dtcc_solar import weather_data as wd
+from dtcc_solar import utils
 
 class TestClmData:
 
@@ -28,10 +28,10 @@ class TestClmData:
         a_type = AnalysisType.sun_raycasting
         
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
-                       False, start_date, start_date, end_date, self.w_file_clm, 2)
+                       False, start_date, end_date, self.w_file_clm, 2)
         
-        suns = get_sun_and_sky(p, sunpath)
-        suns = clm_data.import_weather_data_clm(suns, self.w_file_clm)
+        suns_date = utils.create_sun_dates(start_date, end_date)    
+        suns = clm_data.import_weather_data_clm(suns_date, self.w_file_clm)
         assert suns
 
 

@@ -23,8 +23,7 @@ class Sunpath():
         self.lon = lon
         self.radius = radius
         self.origin = np.array([0,0,0])
-        
-        
+          
     def get_analemmas(self, year:int, sample_rate:int):
         start_date = str(year) + '-01-01 12:00:00'
         end_date = str(year+1) + '-01-01 11:00:00'    

@@ -28,7 +28,8 @@ class TestSolar:
                             '--analysis', '1',
                             '--prep_disp', '0', 
                             '--display', '0',
-                            '--one_date', '2019-03-30 09:00:00',
+                            '--start_date', '2019-03-30 09:00:00',
+                            '--end_date', '2019-03-30 09:00:00',
                             '--data_source', '3',
                             '--w_file', self.weather_file_clm])
 
@@ -38,7 +39,8 @@ class TestSolar:
                             '--analysis', '2',
                             '--prep_disp', '0', 
                             '--display', '0',
-                            '--one_date', '2019-03-30 09:00:00',
+                            '--start_date', '2019-03-30 09:00:00',
+                            '--end_date', '2019-03-30 09:00:00',
                             '--data_source', '3',
                             '--w_file', self.weather_file_clm]) 
 
@@ -48,7 +50,8 @@ class TestSolar:
                             '--analysis', '3',
                             '--prep_disp', '0', 
                             '--display', '0',
-                            '--one_date', '2019-03-30 09:00:00',
+                            '--start_date', '2019-03-30 09:00:00',
+                            '--end_date', '2019-03-30 09:00:00',
                             '--data_source', '3',
                             '--w_file', self.weather_file_clm]) 
 

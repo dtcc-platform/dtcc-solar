@@ -7,11 +7,9 @@ from pandas import Timestamp
 from pprint import pp
 from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
-from dtcc_solar import data_io
 from dtcc_solar import utils
 from dtcc_solar.utils import Sun
 from typing import List, Dict
-import json
 
 def get_data_from_api_call(lon:float, lat:float, suns:List[Sun]):
 
@@ -46,7 +44,7 @@ def get_data_from_api_call(lon:float, lat:float, suns:List[Sun]):
             sun_date = suns[i].datetime_str
             if date_match(api_date, sun_date):
                 suns[i].irradiance_dn = ni_json[i]['value']
-                suns[i].irradiance_dh = hi_json[i]['value']
+                suns[i].irradiance_di = hi_json[i]['value']
         
 
         return suns
@@ -189,7 +187,7 @@ if __name__ == "__main__":
     time_from = pd.to_datetime(time_from_str)
     time_to = pd.to_datetime(time_to_str)
 
-    suns = utils.create_suns(time_from_str, time_to_str)
+    suns = utils.create_sun_dates(time_from_str, time_to_str)
 
     lon = 16.158
     lat = 58.5812

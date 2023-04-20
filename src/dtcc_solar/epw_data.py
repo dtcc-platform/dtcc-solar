@@ -56,7 +56,7 @@ def import_weather_data_epw(suns:List[Sun], weather_file:str):
             sun_date = suns[sun_index].datetime_str
             if date_match(epw_date, sun_date):
                 suns[sun_index].irradiance_dn = direct_normal_radiation[epw_index]
-                suns[sun_index].irradiance_dh = diffuse_horisontal_radiation[epw_index]
+                suns[sun_index].irradiance_di = diffuse_horisontal_radiation[epw_index]
                 sun_index += 1    
         epw_index += 1
 
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     # Run from the location of the file
     weather_file = "../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
     
-    suns = utils.create_suns(time_from_str, time_to_str)
+    suns = utils.create_sun_dates(time_from_str, time_to_str)
     suns = import_weather_data_epw(suns, weather_file)
 
     pp(suns)

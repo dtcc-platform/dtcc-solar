@@ -47,7 +47,7 @@ def import_weather_data_clm(suns:List[Sun], weather_file:str):
             sun_date = suns[sun_index].datetime_str
             if date_match(clm_date, sun_date):
                 suns[sun_index].irradiance_dn = year_normal_irradiance[clm_date]
-                suns[sun_index].irradiance_dh = year_diffuse_irradiance[clm_date]
+                suns[sun_index].irradiance_di = year_diffuse_irradiance[clm_date]
                 sun_index += 1         
 
     return suns
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     # Run from the location of the file
     weather_file = "../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
 
-    suns = utils.create_suns(time_from_str, time_to_str)
+    suns = utils.create_sun_dates(time_from_str, time_to_str)
     suns = import_weather_data_clm(suns, weather_file)
 
     pp(suns)

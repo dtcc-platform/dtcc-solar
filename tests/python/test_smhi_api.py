@@ -3,9 +3,8 @@ import pandas as pd
 from pprint import pp
 from dtcc_solar import smhi_data
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType
-from dtcc_solar.data_io import Parameters
-from dtcc_solar.scripts.main import get_sun_and_sky
+from dtcc_solar.utils import AnalysisType, Parameters 
+from dtcc_solar import utils
 
 class TestSmhiApi:
 
@@ -26,9 +25,9 @@ class TestSmhiApi:
         a_type = AnalysisType.sun_raycasting
         
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
-                       False, start_date, start_date, end_date, self.w_file_clm, 2)
+                       False, start_date, end_date, self.w_file_clm, 2)
         
-        suns = get_sun_and_sky(p, sunpath)
+        suns = utils.create_sun_dates(p.start_date, p.end_date)    
         suns = smhi_data.get_data_from_api_call(self.lon, self.lat, suns)
 
         assert suns
@@ -56,7 +55,7 @@ class TestSmhiApi:
         a_type = AnalysisType.sun_raycasting
         
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
-                       False, start_date, start_date, end_date, self.w_file_clm, 2)
+                       False, start_date, end_date, self.w_file_clm, 2)
 
         # Checking that 02:00:00 existing in the transion from winter to summer.
         dst_test_from = ["2018-03-25 00:00:00", "2018-10-28 00:00:00", 
@@ -75,7 +74,7 @@ class TestSmhiApi:
         for i in range(0, len(dst_test_from)):
             p.start_date = dst_test_from[i]
             p.end_date = dst_test_to[i]  
-            suns = get_sun_and_sky(p, sunpath)
+            suns = utils.create_sun_dates(p.start_date, p.end_date)    
             suns = smhi_data.get_data_from_api_call(self.lon, self.lat, suns)
             for sun in suns:
                 hour = sun.datetime_ts.hour

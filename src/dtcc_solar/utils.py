@@ -48,8 +48,7 @@ class Analyse(Enum):
 class Shading(Enum):
     Sun = 1
     Boarder = 2
-    Shade = 3
-    
+    Shade = 3  
 
 @dataclass
 class Vec3:
@@ -61,13 +60,63 @@ class Vec3:
 class Sun:
     datetime_str: str                   # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
     datetime_ts: pd.Timestamp           # TimeStamp object with the same date and time
+    index: int
     irradiance_dn: float = 0.0          # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth  
-    irradiance_hi: float = 0.0          # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    irradiance_dh: float = 0.0          # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
+    irradiance_dh: float = 0.0          # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
+    irradiance_di: float = 0.0          # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
     over_horizon: bool = False          # True if the possition of over the horizon, otherwise false.
     zenith: float = 0.0                 # Angle between earth surface normal and the reversed solar vector (both pointing away for the earth surface)
     position: Vec3 = Vec3(0,0,0)        # Position of the  sun in cartesian coordinates based on the size of the model
     sun_vec: Vec3 = Vec3(0,0,0)         # Normalised solar vector for calculations
+
+@dataclass
+class Res: 
+    datetime_str: str                   # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
+    datetime_ts: pd.Timestamp           # TimeStamp object with the same date and time
+    index: int
+    face_sun_angle: List[float]
+    face_in_sun: List[bool]
+    face_irradiance_dn: List[float]
+    face_irradiance_dh: List[float]
+    face_irradiance_di: List[float]
+    
+
+class Parameters:
+    def __init__(self, a_type:int, fileName:str, lat:float, lon:float, prep_disp:int, disp:int, 
+                 data_source:int, color_by:int, export:bool, s_date:str, e_date:str, w_file:str, mode:int):
+        self.a_type = AnalysisType(a_type)
+        self.file_name = fileName
+        self.latitude = lat
+        self.longitude = lon 
+        self.prepare_display = bool(prep_disp)
+        self.display = bool(disp)
+        self.data_source = DataSource(data_source) 
+        self.color_by = ColorBy(color_by)
+        self.export = export
+        self.start_date = s_date
+        self.end_date = e_date
+        self.weather_file = w_file
+        self.discretisation = '1H'
+        self.mode = Mode(mode) 
+
+@dataclass
+class Parameters_dc:    
+        file_name: str
+        weather_file: str
+        a_type: AnalysisType = AnalysisType.sky_raycasting
+        latitude: float = -0.12 
+        longitude: float = 51.5 
+        prepare_display: bool = False
+        display: bool = False
+        data_source: DataSource = DataSource.clm 
+        color_by: ColorBy = ColorBy.face_irradiance
+        export: bool = False
+        one_date: str = "2019-06-03 12:00:00"
+        start_date: str = "2019-06-03 07:00:00"
+        end_date: str = "2019-06-03 21:00:00"
+        discretisation: str = '1H'
+        mode: Mode = Mode.single_sun
+
 
     
 def convert_vec3_to_ndarray(vec: Vec3):
@@ -80,16 +129,42 @@ def create_list_of_vectors(x_list, y_list, z_list) -> List[Vec3]:
         vector_list.append(vec)
     return vector_list  
 
-def create_suns(start_date: str, end_date: str):
+def create_sun_dates(start_date: str, end_date: str):
     time_from = pd.to_datetime(start_date)
     time_to = pd.to_datetime(end_date)
     suns = []
+    index = 0
     times = pd.date_range(start = time_from, end = time_to, freq = 'H')
     for time in times:
-        sun = Sun(str(time), time)
+        sun = Sun(str(time), time, index)
+        index += 1
         suns.append(sun)
         
     return suns  
+
+def create_res_list(suns_dates:List[Sun], face_count:int):
+    results = []
+    empty_float_array = np.zeros(face_count, dtype= float)
+    empty_bool_array = np.zeros(face_count, dtype= bool)
+    counter = 0
+    for sun in suns_dates:
+        date_str = sun.datetime_str
+        date_ts = sun.datetime_ts
+
+        res = Res(datetime_str = date_str,
+                  datetime_ts = date_ts,
+                  index = counter, 
+                  face_sun_angle = empty_float_array.copy(),
+                  face_in_sun = empty_bool_array.copy(),
+                  face_irradiance_dh = empty_float_array.copy(),
+                  face_irradiance_dn = empty_float_array.copy(),
+                  face_irradiance_di = empty_float_array.copy())
+
+        counter += 1
+        results.append(res)
+        
+    return results  
+
 
 def colorFader(mix): #fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
     c1=np.array(mpl.colors.to_rgb('blue'))
@@ -222,7 +297,7 @@ def create_dict_keys(time_from: pd.Timestamp, time_to: pd.Timestamp) -> np.ndarr
 def Distance(v1, v2):
     return math.sqrt(math.pow((v1[0] - v2[0]),2) + math.pow((v1[1] - v2[1]),2) + + math.pow((v1[2] - v2[2]),2)) 
 
-def GetBlendedColor(percentage):
+def get_blended_color(percentage):
 
     if (percentage >= 0.0 and percentage <= 25.0):
         #Blue fading to Cyan [0,x,255], where x is increasing from 0 to 255
@@ -246,7 +321,7 @@ def GetBlendedColor(percentage):
 
     return [0.5, 0.5, 0.5, 1.0]
 
-def GetBlendedColor(min, max, value):
+def get_blended_color(min, max, value):
     diff = max - min
     newMax = diff
     newValue = value - min
@@ -284,7 +359,7 @@ def GetBlendedColorRedAndBlue(max, value):
         frac = value / max
     return [frac, 0.0, 1 - frac, 1.0]
 
-def GetBlendedColorBlackAndWhite(max, value):
+def get_blended_color_mono(max, value):
     frac = 0
     if(max > 0):
         frac = value / max
