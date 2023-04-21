@@ -11,8 +11,8 @@ def get_weather_data(p:Parameters, suns:List[Sun]):
     if p.data_source == DataSource.meteo:
         suns = meteo_data.get_data_from_api_call(p.longitude, p.latitude, suns)
     elif p.data_source == DataSource.clm:
-        suns = clm_data.import_weather_data_clm(suns, p.weather_file)
+        suns = clm_data.import_weather_data(suns, p.weather_file)
     elif p.data_source == DataSource.epw:
-        suns = epw_data.import_weather_data_epw(suns,p.weather_file)
+        suns = epw_data.import_weather_data(suns,p.weather_file)
     return suns
 

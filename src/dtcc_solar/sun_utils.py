@@ -2,18 +2,16 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-from pvlib import solarposition
 from dtcc_solar import utils
+from dtcc_solar.utils import Vec3
 from pprint import pp
-from dtcc_solar.data_io import Vec3
 import pytz
 from timezonefinder import TimezoneFinder
 import datetime
 
-from dtcc_solar.utils import Vec3
 from typing import Dict, List
 from pprint import pp
-from shapely import LinearRing, Point, get_z
+from shapely import LinearRing, Point
 from csv import reader
 from dtcc_solar import utils
 
@@ -213,8 +211,6 @@ def plot_weather_data(x_data, y_data):
     plt.plot(x_data, y_data)
     pass 
 
-
-
 def initialise_plot_2D(x_min, x_max, y_min, y_max, title):
     plt.rcParams['figure.figsize'] = (14,9)
     plt.title(label=title, fontsize=44, color="black")
@@ -237,7 +233,6 @@ def plot_imported_sunpath_diagarm(pts, radius, ax, cmap):
             z.append(pt.z)    
     
     ax.scatter3D(x, y, z, c=z, cmap = cmap, vmin = 0, vmax = radius)
-
 
 def plot_analemmas(all_sun_pos: Dict[int, List[Vec3]],radius, ax, plot_night, cmap, gmt_diff):
     
@@ -276,7 +271,6 @@ def plot_analemmas(all_sun_pos: Dict[int, List[Vec3]],radius, ax, plot_night, cm
         text_pos_max = np.array([x[z_max_indices[i]], y[z_max_indices[i]], z[z_max_indices[i]]])
         ax.text(text_pos_max[0], text_pos_max[1], text_pos_max[2], str(local_hour), fontsize=12)
 
-
 def plot_daypath(x_dict, y_dict, z_dict, radius, ax, plot_night):
 
     for key in x_dict:
@@ -306,7 +300,6 @@ def plot_day_loop_with_text(x, y, z, h, radius, ax, plot_night, cmap):
     min_z_index = min_z_indices[0][0]
     text_pos_min = np.array([x[min_z_index], y[min_z_index], z[min_z_index]])
     ax.text(text_pos_min[0], text_pos_min[1], text_pos_min[2], str(h), fontsize=12)
-
 
 def plot_single_sun(x, y, z, radius, ax):
     z_color = z

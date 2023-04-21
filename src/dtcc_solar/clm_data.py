@@ -9,7 +9,7 @@ from dtcc_solar.utils import Sun
 # This function reads a *.clm weather file, which contains recorde data for a full year which has been
 # compiled by combining data from different months for the years inbetween 2007 and 2021. The time span
 # defined in by arguments if then used to obain a sub set of the data for analysis. 
-def import_weather_data_clm(suns:List[Sun], weather_file:str):
+def import_weather_data(suns:List[Sun], weather_file:str):
 
     name_parts = weather_file.split('.')
     if (name_parts[-1] != 'clm'):
@@ -25,7 +25,6 @@ def import_weather_data_clm(suns:List[Sun], weather_file:str):
     #The data file contains weather data for an entire year
     year_dates = pd.date_range(start = full_year_start_date, end = full_year_end_date, freq = '1H')
     year_dict_keys = np.array([str(d) for d in year_dates])
-    year_dict_keys = utils.format_dict_keys(year_dict_keys)
     year_normal_irradiance = dict.fromkeys(year_dict_keys)
     year_diffuse_irradiance = dict.fromkeys(year_dict_keys)
 
@@ -52,7 +51,6 @@ def import_weather_data_clm(suns:List[Sun], weather_file:str):
 
     return suns
 
-# Compare the date stamp from the api data with the date stamp for the generated sun and sky data.
 def date_match(api_date, sun_date):
     api_day = api_date[0:10]
     sun_day = sun_date[0:10]
@@ -61,7 +59,6 @@ def date_match(api_date, sun_date):
     if api_day == sun_day and api_time == sun_time:
         return True
     return False
-
 
 def line2numbers(line):
     line = line.replace('\n', '')
@@ -87,7 +84,7 @@ if __name__ == "__main__":
     weather_file = "../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
 
     suns = utils.create_sun_dates(time_from_str, time_to_str)
-    suns = import_weather_data_clm(suns, weather_file)
+    suns = import_weather_data(suns, weather_file)
 
     pp(suns)
 

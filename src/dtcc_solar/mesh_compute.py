@@ -13,8 +13,7 @@ def compute_irradiance(face_in_sun, face_angles, f_count, flux):
     
     return irradiance    
 
-# Face sun angle calculation
-def sun_face_angle(mesh, sunVec):
+def face_sun_angle(mesh, sunVec):
     face_sun_angles = np.zeros(len(mesh.faces))
     mesh_faces = list(mesh.faces)
     mesh_face_normals = list(mesh.face_normals)
@@ -71,7 +70,7 @@ def calculate_average_edge_length(mesh):
     for edge in edges:
         vIndex1 = edge[0]
         vIndex2 = edge[1]
-        d = utils.Distance(vertices[vIndex1], vertices[vIndex2])
+        d = utils.distance(vertices[vIndex1], vertices[vIndex2])
         edgeL += d
 
     edgeL = edgeL / eCount

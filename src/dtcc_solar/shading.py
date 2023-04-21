@@ -52,7 +52,7 @@ class Shading:
         
         joined_mesh = trimesh.util.concatenate(self.mesh_collection)    
 
-        [all_face_sun_angles, vertex_angles] = mc.sun_face_angle(joined_mesh, sun_vec)
+        [all_face_sun_angles, vertex_angles] = mc.face_sun_angle(joined_mesh, sun_vec)
         all_face_irradiance = mc.compute_irradiance(all_face_in_sun, all_face_sun_angles, self.flux, len(joined_mesh.faces))
 
         self.face_in_sun = all_face_in_sun

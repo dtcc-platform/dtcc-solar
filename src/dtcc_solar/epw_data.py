@@ -12,7 +12,7 @@ from typing import List, Dict
 # This function reads a *.epw weather file, which contains recorde data for a full year which has been
 # compiled by combining data from different months for the years inbetween 2007 and 2021. The time span
 # defined in by arguments if then used to obain a sub set of the data for analysis.
-def import_weather_data_epw(suns:List[Sun], weather_file:str):
+def import_weather_data(suns:List[Sun], weather_file:str):
 
     name_parts = weather_file.split('.')
     if (name_parts[-1] != 'epw'):
@@ -34,7 +34,7 @@ def import_weather_data_epw(suns:List[Sun], weather_file:str):
                 month = make_double_digit_str(line_segs[1])
                 day = make_double_digit_str(line_segs[2])
                 hour = make_double_digit_str(line_segs[3])
-                date_key = year_str + '-' + month + '-' + day + 'T' + hour + ':00:00'
+                date_key = year_str + '-' + month + '-' + day + ' ' + hour + ':00:00'
                 year_dates.append(date_key)
                 direct_normal_radiation.append(float(line_segs[14]))  
                 diffuse_horisontal_radiation.append(float(line_segs[15]))
@@ -62,8 +62,6 @@ def import_weather_data_epw(suns:List[Sun], weather_file:str):
 
     return suns
 
-
-# Compare the date stamp from the api data with the date stamp for the generated sun and sky data.
 def date_match(api_date, sun_date):
     api_day = api_date[0:10]
     sun_day = sun_date[0:10]
@@ -76,18 +74,18 @@ def date_match(api_date, sun_date):
 
 # The data in epw files are structured such that time 00:00:00 for a tuesday is called 24:00:00 on the monday instead.
 # This function reorganises the data to follow the 00:00:00 standard instead.  
-def restructure_time(year_dict_keys):
-    new_years_dict_key = np.repeat("0000-00-00T00:00:00", len(year_dict_keys))
+def restructure_time(year_dates):
+    new_years_dict_key = np.repeat("0000-00-00 00:00:00", len(year_dates))
     counter = 0
-    for key in year_dict_keys:
+    for key in year_dates:
         hour = get_hour_from_dict_key(key)
         if(hour == 24):
             year = get_year_from_dict_key(key)
             month = get_month_from_dict_key(key)
             day = get_day_from_dict_key(key)
-            new_date = increment_date(year, month, day+1)
+            new_date = increment_date(year, month, day + 1)
             new_time = "00:00:00"
-            new_key = new_date + 'T' + new_time
+            new_key = new_date + ' ' + new_time
             new_years_dict_key[counter] = new_key
         else:
             new_years_dict_key[counter] = key
@@ -152,7 +150,7 @@ if __name__ == "__main__":
     weather_file = "../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
     
     suns = utils.create_sun_dates(time_from_str, time_to_str)
-    suns = import_weather_data_epw(suns, weather_file)
+    suns = import_weather_data(suns, weather_file)
 
     pp(suns)
 
