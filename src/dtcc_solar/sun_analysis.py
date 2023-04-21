@@ -12,12 +12,11 @@ class SunAnalysis:
     results : Results
     model : Model
 
-    def __init__(self, model, results):
+    def __init__(self, model):
         self.model = model
-        self.results = results 
         self.flux = 1 #Watts per m2
         
-    def execute_raycasting_iterative(self, suns: List[Sun], res_list:List[Res]):
+    def execute_raycasting_iterative(self, suns: List[Sun], results:Results):
         n = len(suns)
         print("Iterative analysis started for " + str(n) + " number of iterations")
         dict_keys = utils.get_dict_keys_from_suns_datetime(suns)
@@ -39,21 +38,11 @@ class SunAnalysis:
                 face_in_sun_dict[sun.datetime_str] = face_in_sun
                 face_sun_angles_dict[sun.datetime_str] = face_sun_angles
 
-                res_list[sun.index].face_in_sun = face_in_sun
-                res_list[sun.index].face_sun_angle = face_sun_angles
-                res_list[sun.index].face_irradiance_dn = irradianceF
+                print(face_sun_angles)
+
+                results.res_list[sun.index].face_in_sun = face_in_sun
+                results.res_list[sun.index].face_sun_angles = face_sun_angles
+                results.res_list[sun.index].face_irradiance_dn = irradianceF
                 
                 counter += 1
                 print("Iteration: " + str(counter) + " completed")
-
-        #Register results 
-        self.results.set_face_in_sun_dict(face_in_sun_dict)
-        self.results.set_face_sun_angles_dict(face_sun_angles_dict)
-        self.results.set_sun_irradiance_dict(irradiance_dict)
-
-        self.results.calc_average_results_from_sun_dict(dict_keys)
-
-        return res_list      
-    
-    def set_city_mesh_out(self):
-        self.results.set_city_mesh_out(self.model.city_mesh)

@@ -220,7 +220,7 @@ class SunpathMesh():
                 vs[i,:] = sunPos
                 vi[i] = i
                 index2 = i + 1
-                color = utils.GetBlendedSunColor(radius, z[h][i])
+                color = utils.get_blended_sun_color(radius, z[h][i])
                 colors.append(color)
                 line = trimesh.path.entities.Line([i, index2])
                 lines.append(line)

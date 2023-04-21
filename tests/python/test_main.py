@@ -24,7 +24,6 @@ class TestSolar:
 ########################### Testig of instant analysis ##############################
     def test_instant_solar_raycasting(self):
         assert run_script([ '--inputfile', self.inputfile_S, 
-                            '--mode', '1',
                             '--analysis', '1',
                             '--prep_disp', '0', 
                             '--display', '0',
@@ -35,7 +34,6 @@ class TestSolar:
 
     def test_instant_sky_raycasting(self):
         assert run_script([ '--inputfile', self.inputfile_S, 
-                            '--mode', '1',
                             '--analysis', '2',
                             '--prep_disp', '0', 
                             '--display', '0',
@@ -46,7 +44,6 @@ class TestSolar:
 
     def test_instant_com_raycasting(self):
         assert run_script([ '--inputfile', self.inputfile_S, 
-                            '--mode', '1',
                             '--analysis', '3',
                             '--prep_disp', '0', 
                             '--display', '0',
@@ -61,7 +58,6 @@ class TestSolar:
 ########################### Testing diffusion calculations ##############################
     def test_iterative_sun_raycasting(self):    
         assert run_script(['--inputfile', self.inputfile_S, 
-                            '--mode', '2',
                             '--analysis', '1',
                             '--prep_disp', '0', 
                             '--display', '0',
@@ -72,7 +68,6 @@ class TestSolar:
 
     def test_iterative_sky_raycasting(self):    
         assert run_script(['--inputfile', self.inputfile_S, 
-                            '--mode', '2',
                             '--analysis', '2',
                             '--prep_disp', '0', 
                             '--display', '0',
@@ -84,7 +79,6 @@ class TestSolar:
     #Iterative testing
     def test_iterative_com_raycasting(self):
         assert run_script([ '--inputfile', self.inputfile_S, 
-                            '--mode', '2',
                             '--analysis', '3',
                             '--prep_disp', '0', 
                             '--display', '0',

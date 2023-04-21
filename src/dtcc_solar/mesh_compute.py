@@ -26,44 +26,11 @@ def sun_face_angle(mesh, sunVec):
         
     return face_sun_angles
 
-# TO BE DELETED, moved to viewer
-def calc_face_with_shadows_colors_rayF(face_sun_angles, face_colors, face_in_sun):    
-    min_face_angle = np.min(face_sun_angles[face_in_sun])
-    max_face_angle = np.max(face_sun_angles[face_in_sun])
-    for i in range(0, len(face_sun_angles)):
-        if face_in_sun[i]:
-            f_color = utils.get_blended_color(min_face_angle, max_face_angle, face_sun_angles[i])
-        else:
-            f_color = [0.2,0.2,0.2,1] 
-        face_colors.append(f_color)
-
-# TO BE DELETED, moved to viewer
-def calc_face_colors_rayF(values, faceColors):    
-    min_value = np.min(values)
-    max_value = np.max(values)
-    for i in range(0, len(values)):
-        fColor = utils.get_blended_color(min_value, max_value, values[i]) 
-        faceColors.append(fColor)
-
-# TO BE DELETED, moved to viewer
-def calc_face_colors_black_white_rayF(values, faceColors):    
-    max_value = np.max(values)
-    for i in range(0, len(values)):
-        fColor = utils.get_blended_color_mono(max_value, values[i]) 
-        faceColors.append(fColor)
-
 def calc_face_colors_dome_face_in_sky(values, faceColors):    
     max_value = np.max(values)
     for i in range(0, len(values)):
         fColor = utils.GetBlendedColorRedAndBlue(max_value, values[i]) 
         faceColors.append(fColor)        
-
-def calc_face_colors_dome_face_intensity(values, faceColors):    
-    max_value = np.max(values)
-    min_value = np.min(values)
-    for i in range(0, len(values)):
-        fColor = utils.get_blended_color(min_value, max_value, values[i])
-        faceColors.append(fColor)
 
 def find_shadow_border_faces_rayV(mesh, faceShading):
     borderFaceMask = np.ones(len(mesh.faces), dtype = bool)
@@ -94,7 +61,6 @@ def subdivide_border(meshBorder, maxEdgeLength, maxIter):
     [vs, fs] = trimesh.remesh.subdivide_to_size(meshBorder.vertices, meshBorder.faces, max_edge = maxEdgeLength, max_iter = maxIter, return_index = False)
     meshBorderSD = trimesh.Trimesh(vs, fs)
     return meshBorderSD
-
 
 def calculate_average_edge_length(mesh):
     edges = mesh.edges_unique

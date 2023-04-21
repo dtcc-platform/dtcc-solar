@@ -1,286 +1,87 @@
 
 import numpy as np
 import dtcc_solar.mesh_compute as mc
-from dtcc_solar.utils import ColorBy, Sun
+from dtcc_solar.utils import ColorBy, Sun, Res, ResAcum
 from typing import List, Dict
 
 
 #This class contains all the results from analysis that will be accessed for visualisation
 class Results:
 
-    def __init__(self, city_model):
+    res_list:List[Res]
+    res_acum:ResAcum
+    res_avrg:ResAcum
+
+    def __init__(self, suns:List[Sun], face_count:int):
+        self.res_list = self.create_res_list(suns, face_count)
+        self.res_acum = self.create_acum_res(suns, face_count)
+        self.res_avrg = self.create_acum_res(suns, face_count)
+
+    def create_res_list(self, sun_dates:List[Sun], face_count:int):
+        results = []
+        empty_float_array = np.zeros(face_count, dtype= float)
+        empty_bool_array = np.zeros(face_count, dtype= bool)
+        counter = 0
+        for sun in sun_dates:
+            date_str = sun.datetime_str
+            date_ts = sun.datetime_ts
+
+            res = Res(datetime_str = date_str,
+                    datetime_ts = date_ts,
+                    index = counter, 
+                    face_sun_angles = empty_float_array.copy(),
+                    face_in_sun = empty_bool_array.copy(),
+                    face_in_sky = empty_bool_array.copy(),
+                    face_irradiance_dh = empty_float_array.copy(),
+                    face_irradiance_dn = empty_float_array.copy(),
+                    face_irradiance_di = empty_float_array.copy(),
+                    face_irradiance_tot = empty_float_array.copy())
+
+            counter += 1
+            results.append(res)
+            
+        return results  
+    
+    def create_acum_res(self, suns_dates:List[Sun], face_count:int):
         
-        self.f_count = city_model.f_count
-        self.v_count = city_model.v_count
+        start_date = suns_dates[0].datetime_ts
+        end_date = suns_dates[-1].datetime_ts
+        empty_float_array = np.zeros(face_count, dtype= float)
+        empty_bool_array = np.zeros(face_count, dtype= bool)
 
-        #Results associated with the city mesh
-        self.__city_mesh_out = 0
+        res_acum = ResAcum( start_datetime_str = str(start_date),
+                            start_datetime_ts = start_date, 
+                            end_datetime_str= str(end_date), 
+                            end_datetime_ts = end_date,
+                            face_sun_angles = empty_float_array.copy(),
+                            face_in_sun = empty_bool_array.copy(),
+                            face_in_sky = empty_bool_array.copy(),
+                            face_irradiance_dh = empty_float_array.copy(),
+                            face_irradiance_dn = empty_float_array.copy(),
+                            face_irradiance_di = empty_float_array.copy(),
+                            face_irradiance_tot = empty_float_array.copy())
 
-        #Sun values instant analysis
-        self.__face_in_sun = 0                  # Defined as: np.ones(f_count, dtype=bool)
-        self.__sun_irradiance = 0               # Defined as: np.zeros(f_count, dtype=float)    
-        self.__face_sun_angles = 0              # Defined as: np.zeros(f_count, dtype=float)    
+        return res_acum
 
-        #Sun values iterative analysis
-        self.__face_in_sun_dict = 0             # Defined as: Dict of bools. Key is "Year:month:day h:m:s" i.e "2015:06:30 01:30:00"
-        self.__sun_irradiance_dict = 0          # Defined as: Dict of float. Key is "Year:month:day h:m:s" i.e "2015:06:30 01:30:00"
-        self.__face_sun_angles_dict = 0         # Defined as: Dict of float. Key is "Year:month:day h:m:s" i.e "2015:06:30 01:30:00"
-        
-        #Sky values
-        self.__face_in_sky = 0                  # Defined as: np.ones(f_count, dtype=bool)
-        self.__sky_irradiance = 0               # Defined as: np.zeros(f_count, dtype=float)
-        self.__avrg_sky_irradiance = 0          # Defined as: np.zeros(f_count, dtype=float)
-        
-        #Sky values iterative analysis
-        self.__sky_irradiance_dict = 0
+    def calc_accumulate_results(self):
+        for res in self.res_list:
+            self.res_acum.face_sun_angles += res.face_sun_angles
+            self.res_acum.face_in_sun += res.face_in_sun
+            self.res_acum.face_irradiance_dh += res.face_irradiance_dh
+            self.res_acum.face_irradiance_dn += res.face_irradiance_dn
+            self.res_acum.face_irradiance_di += res.face_irradiance_di
+            self.res_acum.face_irradiance_tot += res.face_irradiance_dh + res.face_irradiance_dn + res.face_irradiance_di 
 
-        #Results associated with the dome mesh
-        self.__dome_mesh_out = 0
-        self.__dome_face_in_sky = 0
-        self.__dome_sky_irradiance = 0
+    def calc_average_results(self):
+        n = len(self.res_list)
+        for res in self.res_list:
+            self.res_avrg.face_sun_angles += res.face_sun_angles / n
+            self.res_avrg.face_irradiance_dh += (res.face_irradiance_dh / n)
+            self.res_avrg.face_irradiance_dn += (res.face_irradiance_dn / n)
+            self.res_avrg.face_irradiance_di += (res.face_irradiance_di / n)
         
     
     ###################### Getters an setters for city mesh results #######################
 
-    def set_city_mesh_out(self, value):
-        self.__city_mesh_out = value 
-
-    def get_city_mesh_out(self):
-        return self.__city_mesh_out    
-
-    #######################################################################################
-
-    def set_face_in_sun(self, value):
-        self.__face_in_sun = value
-
-    def get_face_in_sun(self):
-        return self.__face_in_sun
-    
-    def set_face_sun_angles(self, value):
-        self.__face_sun_angles = value
-
-    def get_face_sun_angles(self):
-        return self.__face_sun_angles
-    
-    def set_sun_irradiance(self, value):
-        self.__sun_irradiance = value
-
-    def get_sun_irradiance(self):
-        return self.__sun_irradiance    
-    
-    #######################################################################################                        
-
-    def set_face_sun_angles_dict(self, value):
-        self.__face_sun_angles_dict = value
-
-    def get_face_sun_angles_dict(self):
-        return self.__face_sun_angles_dict
-    
-    def set_sun_irradiance_dict(self, value):
-        self.__sun_irradiance_dict = value
-
-    def get_sun_irradiance_dict(self):
-        return self.__sun_irradiance_dict    
-    
-    def set_face_in_sun_dict(self, value):
-        self.__face_in_sun_dict = value 
-
-    def get_face_in_sun_dict(self):
-        return self.__face_in_sun_dict     
-
-    #######################################################################################
-
-    def set_face_in_sky(self, value):
-        self.__face_in_sky = value
-
-    def get_face_in_sky(self):
-        return self.__face_in_sky
-    
-    def set_sky_irradiance(self, value):
-        self.__sky_irradiance = value    
-
-    def get_sky_irradiance(self):
-        return self.__sky_irradiance
-
-    def set_avrg_sky_irradiance(self, value):
-        self.__avrg_sky_irradiance = value    
-
-    def get_avrg_sky_irradiance(self):
-        return self.__avrg_sky_irradiance    
-
-    def set_sky_irradiance_dict(self, value):
-        self.__sky_irradiance_dict = value    
-
-    def get_sky_irradiance_dict(self):
-        return self.__sky_irradiance_dict    
-
-    def set_color_on_city_mesh(self, face_colors):
-        self.__city_mesh_out.visual.face_colors = face_colors
-
-    #######################################################################################
-
-    ###################### Getters an setters for dome mesh results #######################
-
-    def set_dome_mesh_out(self, value):
-        self.__dome_mesh_out = value 
-
-    def get_dome_mesh_out(self):
-        return self.__dome_mesh_out        
-
-    def set_dome_face_in_sky(self, value):
-        self.__dome_face_in_sky = value
-
-    def get_dome_face_in_sky(self):
-        return self.__dome_face_in_sky    
-
-    def set_dome_sky_irradiance(self, value):
-        self.__dome_sky_irradiance = value
-
-    def get_dome_sky_irradiance(self):
-        return self.__dome_sky_irradiance     
-
-    def set_color_on_dome_mesh(self, face_colors):
-        self.__dome_mesh_out.visual.face_colors = face_colors
-
-    #######################################################################################
-
-    def color_city_mesh_from_sun(self, color_by):    
-        face_colors = []
-        #Colors for instant analysis
-        if color_by == ColorBy.face_sun_angle:
-            mc.calc_face_colors_rayF(self.get_face_sun_angles(), face_colors)
-        elif color_by == ColorBy.face_sun_angle_shadows:
-            mc.calc_face_with_shadows_colors_rayF(self.get_face_sun_angles(), face_colors, self.get_face_in_sun())
-        elif color_by == ColorBy.face_irradiance:
-            mc.calc_face_colors_rayF(self.get_sun_irradiance(), face_colors)
-        elif color_by == ColorBy.face_shadows:
-            mc.calc_face_colors_black_white_rayF(self.get_face_in_sun(), face_colors)
-        else:
-            print("The selected colorby option is not supported for this type of analysis")    
-        
-        self.set_color_on_city_mesh(face_colors)
-
-    def color_city_mesh_from_sky(self, color_by):    
-        face_colors = []
-        #Colors for instant analysis
-        if color_by == ColorBy.face_in_sky:
-            mc.calc_face_colors_rayF(self.get_face_in_sky, face_colors)
-        elif color_by == ColorBy.face_diffusion:
-            mc.calc_face_colors_rayF(self.get_sky_irradiance(), face_colors)
-        else:
-            print("The selected colorby option is not supported for this type of analysis")    
-        
-        print(len(face_colors))
-
-        self.set_color_on_city_mesh(face_colors)
-
-    def color_dome_mesh(self, color_by):
-        face_colors = []
-        if color_by == ColorBy.face_in_sky:
-            mc.calc_face_colors_dome_face_in_sky(self.get_dome_face_in_sky(), face_colors)
-        elif color_by == ColorBy.face_diffusion:
-            mc.calc_face_colors_dome_face_intensity(self.get_dome_sky_irradiance(), face_colors)    
-        else:
-            print("The selected colorby option is not supported for this type of analysis")    
-        
-
-        self.set_color_on_dome_mesh(face_colors)
-
-    def color_city_mesh_iterative(self, color_by):
-
-        face_colors = []
-        #Colors for iterative analysis    
-        if color_by == ColorBy.face_sun_angle:
-            mc.calc_face_colors_rayF(self.get_face_sun_angles(), face_colors)
-        elif color_by == ColorBy.face_sun_angle_shadows:
-            mc.calc_face_with_shadows_colors_rayF(self.get_face_sun_angles(), face_colors, self.get_face_in_sun())
-        elif color_by == ColorBy.face_irradiance:
-            mc.calc_face_colors_rayF(self.get_sun_irradiance(), face_colors)
-        elif color_by == ColorBy.face_shadows:
-            mc.calc_face_colors_black_white_rayF(self.get_face_in_sun(), face_colors)
-        else:
-            print("The selected colorby option is not supported for this type of analysis")    
-            
-        self.set_color_on_city_mesh(face_colors) 
-
-    def color_city_mesh_com_iterative(self, color_by):
-
-        face_colors = []
-        #Colors for iterative analysis    
-        if color_by == ColorBy.face_irradiance:
-            mc.calc_face_colors_rayF(self.get_sun_irradiance() + self.get_sky_irradiance(), face_colors)
-        else:
-            print("The selected colorby option is not supported for this type of analysis")    
-            
-        self.set_color_on_city_mesh(face_colors)     
-
-    def calc_average_results_from_sun_dict(self, dict_keys):
-        
-        face_count = self.f_count
-        avrg_sun_irradiance = np.zeros(face_count)
-        avrg_face_in_sun_num = np.zeros(face_count)
-        avrg_face_sun_angles = np.zeros(face_count)
-        avrg_face_in_sun_bool = np.zeros(face_count, dtype= bool)
-
-        n = len(dict_keys)
-
-        #Calcualte average values for each sun position
-        for key in dict_keys:
-            for face_index in range(0, face_count):
-                irr = self.__sun_irradiance_dict[key][face_index]
-                fis = self.__face_in_sun_dict[key][face_index]
-                fsa = self.__face_sun_angles_dict[key][face_index]
-                avrg_sun_irradiance[face_index] += (irr/n)
-                avrg_face_in_sun_num[face_index] += (int(fis)/n)
-                avrg_face_sun_angles[face_index] += (fsa/n)    
-
-        avrg_face_in_sun_bool = (avrg_face_in_sun_num > 0.5)
-
-        self.set_face_in_sun(avrg_face_in_sun_bool)
-        self.set_sun_irradiance(avrg_sun_irradiance)
-        self.set_face_sun_angles(avrg_face_sun_angles)
-
-
-    def calc_average_results_from_sky_dict(self, suns: List[Sun]):
-        face_count = self.f_count
-        avrg_sky_irradiance = np.zeros(face_count)
-        n = len(suns)
-
-        #Calcualte average values for each sun position
-        for sky in suns:
-            for face_index in range(0, face_count):
-                key = sky.datetime_str
-                sid = self.__sky_irradiance_dict[key][face_index]
-                avrg_sky_irradiance[face_index] += (sid/n)
-        
-        self.set_avrg_sky_irradiance(avrg_sky_irradiance)
-
-    # Calculate average result from a number of different dates i.e. different wheater data.
-    def calc_results_from_sky_dict(self, suns: List[Sun]):
-        face_count = self.f_count
-        sky_irradiance = np.zeros(face_count)
-        n = len(suns)
-
-        #Calcualte average values for each sun position
-        for sun in suns:
-            for face_index in range(0, face_count):
-                key = sun.datetime_str
-                sid = self.__sky_irradiance_dict[key][face_index]
-                sky_irradiance[face_index] += (sid/n)
-        
-        self.set_sky_irradiance(sky_irradiance)    
-        
-    # Integrate the diffuse irradiance over time for given dates in the skys list
-    def integrate_sky_dict(self, suns: List[Sun]):
-        face_count = self.f_count
-        sky_irradiance = np.zeros(face_count)
-
-        #Calcualte average values for each sun position
-        for sun in suns:
-            for face_index in range(0, face_count):
-                key = sun.datetime_str
-                sid = self.__sky_irradiance_dict[key][face_index]
-                sky_irradiance[face_index] += sid
-        
-        self.set_sky_irradiance(sky_irradiance)
+ 
 

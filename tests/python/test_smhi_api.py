@@ -25,7 +25,7 @@ class TestSmhiApi:
         a_type = AnalysisType.sun_raycasting
         
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
-                       False, start_date, end_date, self.w_file_clm, 2)
+                       False, start_date, end_date, self.w_file_clm)
         
         suns = utils.create_sun_dates(p.start_date, p.end_date)    
         suns = smhi_data.get_data_from_api_call(self.lon, self.lat, suns)
@@ -55,7 +55,7 @@ class TestSmhiApi:
         a_type = AnalysisType.sun_raycasting
         
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
-                       False, start_date, end_date, self.w_file_clm, 2)
+                       False, start_date, end_date, self.w_file_clm)
 
         # Checking that 02:00:00 existing in the transion from winter to summer.
         dst_test_from = ["2018-03-25 00:00:00", "2018-10-28 00:00:00", 

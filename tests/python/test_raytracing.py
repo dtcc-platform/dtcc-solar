@@ -26,7 +26,6 @@ class TestRaytracing:
     lat:float
     city_mesh:Any
     city_model:Model
-    city_results:Results
     sunpath:Sunpath
     skydome:SkyDome 
     multi_skydomes:MultiSkyDomes
@@ -38,19 +37,15 @@ class TestRaytracing:
     w_file:str 
 
     def setup_method(self):
-        self.lon = 51.2
-        self.lat = -0.12        
+        self.lon = -0.12
+        self.lat = 51.5        
         self.file_name = '../data/models/CitySurfaceS.stl'
         self.w_file = '../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm'
-        self.sun_vec = np.array([ 0.49955759,  0.72086837, -0.48040713])
         self.city_mesh = trimesh.load_mesh(self.file_name)
-        self.city_model = Model(self.city_mesh)
-        self.city_results = Results(self.city_model)
-        self.skydome = SkyDome(self.city_model.dome_radius)
+        self.city_model = Model(self.city_mesh)     
         self.sunpath = Sunpath(self.lat, self.lon, self.city_model.sunpath_radius)
-        self.multi_skydomes = MultiSkyDomes(self.skydome)
-        self.sun_analysis = SunAnalysis(self.city_model, self.city_results)
-        self.sky_analysis = SkyAnalysis(self.city_model, self.city_results, self.skydome, self.multi_skydomes)
+        self.sun_analysis = SunAnalysis(self.city_model)
+        self.sky_analysis = SkyAnalysis(self.city_model)
         
     def test_raytracing_sun_instant(self):
 
@@ -58,18 +53,17 @@ class TestRaytracing:
         end_date = "2019-06-01 12:00:00"
         a_type = AnalysisType.sun_raycasting
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
-                       False, start_date, end_date, self.w_file, 1)
+                       False, start_date, end_date, self.w_file)
 
-        suns_date = utils.create_sun_dates(start_date, end_date)    
-        
         suns = utils.create_sun_dates(p.start_date, p.end_date)    
         suns = wd.get_weather_data(p, suns)                               
-        suns = self.sunpath.get_suns_positions(suns)    
-        res_list = utils.create_res_list(suns, self.city_model.f_count)
-        res_list = self.sun_analysis.execute_raycasting_iterative(suns, res_list)
+        suns = self.sunpath.get_suns_positions(suns) 
+
+        self.results = Results(suns, self.city_model.f_count)   
+        self.sun_analysis.execute_raycasting_iterative(suns, self.results)
         
-        face_sun_angles = self.city_results.get_face_sun_angles()
-        face_in_sun = self.city_results.get_face_in_sun()
+        face_sun_angles = self.results.res_list[0].face_sun_angles
+        face_in_sun = self.results.res_list[0].face_in_sun
         is_error = False
 
         if np.sum(face_sun_angles) == 0.0 or np.sum(face_in_sun) == 0.0:
@@ -83,34 +77,35 @@ class TestRaytracing:
         end_date = "2019-06-01 15:00:00"
         a_type = AnalysisType.sun_raycasting
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
-                       False, start_date, end_date, self.w_file, 2)
+                       False, start_date, end_date, self.w_file)
 
-        suns = utils.create_sun_dates(p.start_date, p.end_date)    
+        suns = utils.create_sun_dates(p.start_date, p.end_date)
+        pp(suns)    
         suns = wd.get_weather_data(p, suns)                               
+        pp(suns)
         suns = self.sunpath.get_suns_positions(suns)
-        res_list = utils.create_res_list(suns, self.city_model.f_count)    
-        res_list = self.sun_analysis.execute_raycasting_iterative(suns, res_list)
+
+        print("Number of suns:" + str(len(suns))) 
+
+        pp(suns)   
+
+        self.results = Results(suns, self.city_model.f_count)   
+        self.sun_analysis.execute_raycasting_iterative(suns, self.results)
         
-        face_sun_angles_dict = self.city_results.get_face_sun_angles_dict()
-        face_in_sun_dict = self.city_results.get_face_in_sun_dict()
+        res_list = self.results.res_list
         is_error = False
 
-        for key in face_sun_angles_dict:
-            fsa = face_sun_angles_dict[key]
-            if np.sum(fsa) == 0.0:
+
+        for res in res_list:
+            fsa = res.face_sun_angles
+            fis = res.face_in_sun
+            print(np.sum(fsa))
+            if np.sum(fsa) == 0.0 or np.sum(fis) == 0.0:
                 print("Test failed!")
                 is_error = True
-                break        
-        
-        for key in face_in_sun_dict:
-            fis = face_in_sun_dict[key]
-            if np.sum(fis) == 0.0:
-                print("Test failed!")
-                is_error = True
-                break        
+                break
 
         assert not is_error
-
 
     def test_raytracing_sky_instant(self):
 
@@ -118,17 +113,17 @@ class TestRaytracing:
         end_date = "2019-06-01 12:00:00"
         a_type = AnalysisType.sky_raycasting
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
-                       False, start_date, end_date, self.w_file, 1)
+                       False, start_date, end_date, self.w_file)
 
         suns = utils.create_sun_dates(p.start_date, p.end_date)    
         suns = wd.get_weather_data(p, suns)                               
         suns = self.sunpath.get_suns_positions(suns)
-        res_list = utils.create_res_list(suns, self.city_model.f_count)
-        res_list = self.sky_analysis.execute_raycasting_iterative(suns, res_list)
         
-        face_in_sky = self.city_results.get_face_in_sky()
+        self.results = Results(suns, self.city_model.f_count)   
+        self.sky_analysis.execute_raycasting_iterative(suns, self.results)
+        
+        face_in_sky = self.results.res_acum.face_in_sky
         is_error = False
-
         if np.sum(face_in_sky) == 0.0:
             print("Test failed!")
             is_error = True        
@@ -141,23 +136,25 @@ class TestRaytracing:
         end_date = "2019-06-01 15:00:00"
         a_type = AnalysisType.sun_raycasting
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
-                       False, start_date, end_date, self.w_file, 2)
+                       False, start_date, end_date, self.w_file)
 
         suns = utils.create_sun_dates(p.start_date, p.end_date)    
         suns = wd.get_weather_data(p, suns)                               
         suns = self.sunpath.get_suns_positions(suns) 
-        res_list = utils.create_res_list(suns, self.city_model.f_count)
-        res_list = self.sky_analysis.execute_raycasting_iterative(suns, res_list)
         
-        sky_irradiance = self.city_results.get_sky_irradiance_dict()
+        self.results = Results(suns, self.city_model.f_count)   
+        self.sky_analysis.execute_raycasting_iterative(suns, self.results)
+        
+        res_list = self.results.res_list
+        sky_irradiance = self.results.res_acum.face_irradiance_di
         is_error = False
         
-        si_sum = 0
-        for key in sky_irradiance:
-            si = sky_irradiance[key]
-            si_sum += np.sum(si)
+        di_sum = 0
+        for res in res_list:
+            di = res.face_irradiance_di
+            di_sum += np.sum(di)
 
-        if si_sum == 0.0:
+        if di_sum == 0.0:
             print("Test failed. No sky irradiance recorded. Check dates and time!")
             is_error = True    
             
@@ -171,9 +168,9 @@ if __name__ == "__main__":
     test = TestRaytracing()
     test.setup_method()
     #test.test_raytracing_sun_instant()
-    test.test_raytracing_sun_iterative()
+    #test.test_raytracing_sun_iterative()
     #test.test_raytracing_sky_instant()
-    #test.test_raytracing_sky_iterative()
+    test.test_raytracing_sky_iterative()
 
 
 

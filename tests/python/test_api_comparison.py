@@ -28,10 +28,10 @@ class TestWeatherDataComparison:
         sunpath = Sunpath(self.lat, self.lon, 1.0)
         a_type = AnalysisType.sun_raycasting
         
-        p_smhi = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, False, start_date, end_date, self.w_file_clm, 2)
-        p_meteo = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 2, 1, False, start_date, end_date, self.w_file_clm, 2)
-        p_clm = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, False, start_date, end_date, self.w_file_clm, 2)
-        p_epw = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 4, 1, False, start_date, end_date, self.w_file_epw, 2)
+        p_smhi = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, False, start_date, end_date, self.w_file_clm)
+        p_meteo = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 2, 1, False, start_date, end_date, self.w_file_clm)
+        p_clm = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, False, start_date, end_date, self.w_file_clm)
+        p_epw = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 4, 1, False, start_date, end_date, self.w_file_epw)
 
         suns_date = utils.create_sun_dates(start_date, end_date)    
         
@@ -71,10 +71,10 @@ class TestWeatherDataComparison:
         sunpath = Sunpath(self.lat, self.lon, 1.0)
         a_type = AnalysisType.sun_raycasting
         
-        p_smhi = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, False, start_date, end_date, self.w_file_clm, 2)
-        p_meteo = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 2, 1, False, start_date, end_date, self.w_file_clm, 2)
-        p_clm = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, False, start_date, end_date, self.w_file_clm, 2)
-        p_epw = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 4, 1, False, start_date, end_date, self.w_file_epw, 2)
+        p_smhi = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, False, start_date, end_date, self.w_file_clm)
+        p_meteo = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 2, 1, False, start_date, end_date, self.w_file_clm)
+        p_clm = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, False, start_date, end_date, self.w_file_clm)
+        p_epw = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 4, 1, False, start_date, end_date, self.w_file_epw)
 
         suns_date = utils.create_sun_dates(start_date, end_date)    
         
@@ -150,10 +150,10 @@ class TestWeatherDataComparison:
         sunpath = Sunpath(self.lat, self.lon, 500.0)
         a_type = AnalysisType.sun_raycasting
         
-        p_smhi = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, False, start_date, end_date, self.w_file_clm, 2)
-        p_meteo = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 2, 1, False, start_date, end_date, self.w_file_clm, 2)
-        p_clm = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, False, start_date, end_date, self.w_file_clm, 2)
-        p_epw = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 4, 1, False, start_date, end_date, self.w_file_epw, 2)
+        p_smhi = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, False, start_date, end_date, self.w_file_clm)
+        p_meteo = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 2, 1, False, start_date, end_date, self.w_file_clm)
+        p_clm = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, False, start_date, end_date, self.w_file_clm)
+        p_epw = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 4, 1, False, start_date, end_date, self.w_file_epw)
 
         suns_date = utils.create_sun_dates(start_date, end_date)    
         

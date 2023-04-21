@@ -16,29 +16,22 @@ from dtcc_solar.utils import Sun, Res
 
 class SkyAnalysis: 
 
-    results : Results
     skydome : SkyDome
     model : Model
     multi_skydomes : MultiSkyDomes 
 
-    def __init__(self, model, results, skydome, multi_skydomes):
+    def __init__(self, model):
         self.model = model
-        self.results = results
-        self.skydome = skydome
-        self.multi_skydomes = multi_skydomes
-    
+        self.skydome = SkyDome(self.model.dome_radius)
+        self.multi_skydomes = MultiSkyDomes(self.skydome)
+
     def execute_raycasting_some(self, suns:List[Sun]):
         face_indices_grid = self.find_distributed_face_mid_points(10,12) #generate a grid of points for dome evaluation
         [all_seg_idxs, face_mid_pts] = raycasting.ray_trace_sky_some(self.model, self.skydome.get_ray_targets(), face_indices_grid)
         self.skydome.calc_quad_sun_angle(utils.convert_vec3_to_ndarray(suns[0].sun_vec))
         self.multi_skydomes.postprocess_raycasting(all_seg_idxs, len(face_indices_grid), face_mid_pts)
-        
-        #Register results
-        self.results.set_dome_face_in_sky(self.multi_skydomes.face_in_sky) 
-        self.results.set_dome_sky_irradiance(self.multi_skydomes.face_intensity) 
 
-
-    def execute_raycasting_iterative(self, suns:List[Sun], res_list:List[Res]):
+    def execute_raycasting_iterative(self, suns:List[Sun], results:Results):
         sky_portion = raycasting.ray_trace_sky(self.model, self.skydome.get_ray_targets(), 
                                                self.skydome.get_ray_areas())
         
@@ -47,6 +40,8 @@ class SkyAnalysis:
         for i in range(0, len(sky_portion)):
             if(sky_portion[i] > 0.5):
                 face_in_sky[i] = False
+
+        results.res_acum.face_in_sky = face_in_sky        
         
         # Results which depends on wheater data
         dict_keys = utils.get_dict_keys_from_suns_datetime(suns)
@@ -55,22 +50,8 @@ class SkyAnalysis:
             irradiance_diffuse =  sun.irradiance_di
             sky_portion_copy = copy.deepcopy(sky_portion)
             diffuse_irradiance = irradiance_diffuse * sky_portion_copy
-            res_list[sun.index].face_irradiance_di = diffuse_irradiance
+            results.res_list[sun.index].face_irradiance_di = diffuse_irradiance
             sky_irradiance_dict[sun.datetime_str] = diffuse_irradiance
-
-        #Register results
-        self.results.set_face_in_sky(face_in_sky)
-        self.results.set_sky_irradiance_dict(sky_irradiance_dict)
-        self.results.calc_results_from_sky_dict(suns)
-
-        return res_list
-
-
-    def set_city_mesh_out(self):
-        self.results.set_city_mesh_out(self.model.city_mesh)
-        
-    def set_dome_mesh_out(self):
-        self.results.set_dome_mesh_out(self.multi_skydomes.dome_meshes)
         
     def find_distributed_face_mid_points(self, nx, ny):
 
