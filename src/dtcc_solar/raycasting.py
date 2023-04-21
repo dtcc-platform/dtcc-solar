@@ -2,34 +2,25 @@
 import numpy as np
 import time
 from dtcc_solar import utils
+from dtcc_solar.model import Model
 
-
-def ray_trace_faces(meshes, sunVecRev):
+def raytrace_f(meshes, sunVecRev):
     
     volume = meshes.volume
     mesh_faces = meshes.city_mesh_faces
     mesh_points = meshes.city_mesh_points
     fCount = meshes.f_count
-    
-    time0 = time.perf_counter()    
-    [ptRayOrigin, ptRayTarget] = PreProcessF(mesh_faces, mesh_points, sunVecRev)
-    time1 = time.perf_counter()
-    #print("**** Mesh ray intersection preprocess time: "  + str(round(time1  - time0,4)))
-
+        
+    [ptRayOrigin, ptRayTarget] = pre_process_f(mesh_faces, mesh_points, sunVecRev)
     [seg_idxs, intersections, is_backface] = volume.intersections(ptRayOrigin, ptRayTarget,)
-    time2 = time.perf_counter()
-    #print("**** Mesh ray intersection time: "  + str(round(time2  - time1,4)))
-
-    face_in_sun = PostProcessF(seg_idxs, fCount)
-    time3 = time.perf_counter()
-    #print("**** Mesh ray intersection postprocess time: "  + str(round(time3  - time2,4)))
-
+    face_in_sun = post_process_f(seg_idxs, fCount)
+    
     #print("---- Face midpoint intersection results ----")
     print("Found nr of intersections: " + str(len(seg_idxs)))
 
     return face_in_sun
     
-def PreProcessF(mesh_faces, mesh_points, sun_vec_rev):
+def pre_process_f(mesh_faces, mesh_points, sun_vec_rev):
     
     ptRayOrigin = np.zeros([len(mesh_faces), 3])
     ptRayTarget = np.zeros([len(mesh_faces), 3])
@@ -49,7 +40,7 @@ def PreProcessF(mesh_faces, mesh_points, sun_vec_rev):
 
     return ptRayOrigin, ptRayTarget
     
-def PostProcessF(seg_idxs, f_count):
+def post_process_f(seg_idxs, f_count):
     #Rearrange intersection results
     face_in_sun = np.ones(f_count, dtype=bool)
     for ray_index in seg_idxs:
@@ -57,30 +48,24 @@ def PostProcessF(seg_idxs, f_count):
 
     return face_in_sun    
 
-def ray_trace_V(meshes, sun_vec_rev):
+
+def raytrace_v(meshes, sun_vec_rev):
     
     mesh_tri = meshes.city_mesh
     volume = meshes.volume
-
-    time0 = time.perf_counter()    
-    [pt_ray_origin, pt_ray_target] = PreProcessV(mesh_tri, sun_vec_rev)
-    time1 = time.perf_counter()
-    #print("**** Mesh ray intersection preprocess time: "  + str(round(time1  - time0, 4)))
-
+    
+    [pt_ray_origin, pt_ray_target] = pre_process_v(mesh_tri, sun_vec_rev)
+    
     [seg_idxs, intersections, is_backface] = volume.intersections(pt_ray_origin, pt_ray_target,)
-    time2 = time.perf_counter()
-    #print("**** Mesh ray intersection time: "  + str(round(time2  - time1, 4)))
-
-    [face_shading, vertex_in_sun, face_in_sun] = PostProcessV(mesh_tri, seg_idxs)
-    time3 = time.perf_counter()
-    #print("**** Mesh ray intersection postprocess time: "  + str(round(time3  - time2, 4)))
-
+    
+    [face_shading, vertex_in_sun, face_in_sun] = post_process_v(mesh_tri, seg_idxs)
+    
     #print("---- Vertex intersection results ----")
     print("Found nr of intersections: " + str(len(seg_idxs)))
 
     return face_shading, vertex_in_sun, face_in_sun
 
-def PreProcessV(mesh_tri, sun_vec_rev):
+def pre_process_v(mesh_tri, sun_vec_rev):
     mesh_points = mesh_tri.vertices    
     pt_ray_origin = np.zeros([len(mesh_points), 3])
     pt_ray_target = np.zeros([len(mesh_points), 3])
@@ -93,7 +78,7 @@ def PreProcessV(mesh_tri, sun_vec_rev):
     
     return pt_ray_origin, pt_ray_target       
 
-def PostProcessV(meshTri, seg_idxs):
+def post_process_v(meshTri, seg_idxs):
     vertex_in_sun = np.ones(len(meshTri.vertices), dtype = bool)
     for v_index_in_shade in seg_idxs:
         vertex_in_sun[v_index_in_shade] = False
@@ -116,23 +101,24 @@ def PostProcessV(meshTri, seg_idxs):
     return face_shading, vertex_in_sun, face_in_sun
 
 
-def sky_dome(meshes, ray_targets, index):
+def raytrace_skydome(model:Model, ray_targets, ray_areas):
 
-    volume = meshes.volume
-    mesh_faces = meshes.city_mesh_faces
-    mesh_points = meshes.city_mesh_points
-     
+    city_volume = model.volume
+    city_mesh_faces = model.city_mesh_faces
+    city_mesh_points = model.city_mesh_points
+
     tol = 0.01
-    ray_scale_factor = 1000    
+    ray_scale_factor = 1000             
+    f_count = len(city_mesh_faces)  
     ray_count = len(ray_targets)
 
-    faceVertexIndex1 = mesh_faces[index,0]
-    faceVertexIndex2 = mesh_faces[index,1]
-    faceVertexIndex3 = mesh_faces[index,2] 
+    faceVertexIndex1 = city_mesh_faces[:,0]
+    faceVertexIndex2 = city_mesh_faces[:,1]
+    faceVertexIndex3 = city_mesh_faces[:,2] 
     
-    vertex1 = mesh_points[faceVertexIndex1]
-    vertex2 = mesh_points[faceVertexIndex2]
-    vertex3 = mesh_points[faceVertexIndex3]
+    vertex1 = city_mesh_points[faceVertexIndex1]
+    vertex2 = city_mesh_points[faceVertexIndex2]
+    vertex3 = city_mesh_points[faceVertexIndex3]
 
     vector1 = vertex2 - vertex1
     vector2 = vertex3 - vertex1
@@ -144,20 +130,25 @@ def sky_dome(meshes, ray_targets, index):
     face_mid_pt = (vertex1 + vertex2 + vertex3)/3.0
     pt_ray_origin = face_mid_pt + (normal * tol)
     ray_targets = ray_scale_factor * ray_targets
+    sky_portion = np.zeros(f_count)
 
-    ray_o = np.array([pt_ray_origin]) 
-    ray_o_repeat = np.repeat(ray_o, ray_count, axis = 0)
-    ray_t = ray_o_repeat + ray_targets
+    for i in range(0, f_count):
+        ray_o = np.array([pt_ray_origin[i,:]]) 
+        ray_o_repeat = np.repeat(ray_o, ray_count, axis = 0)
+        ray_t = ray_o_repeat + ray_targets
+        [seg_idxs, intersections, is_backface] = city_volume.intersections(ray_o_repeat, ray_t)
+        shaded_portion = np.sum(ray_areas[seg_idxs])
+        sky_portion[i] = 1.0 - shaded_portion
+        if((i % 100) == 0):
+            print("Diffuse calculation for face:" + str(i) + " finished. Diffusion = " + str(sky_portion[i]))
 
-    [seg_idxs, intersections, is_backface] = volume.intersections(ray_o_repeat, ray_t)
+    return sky_portion
 
-    return seg_idxs, face_mid_pt
+def raytrace_skydome_debug(model:Model, ray_targets, face_indices):
 
-def ray_trace_sky_some(meshes, ray_targets, face_indices):
-
-    city_volume = meshes.volume
-    city_mesh_faces = meshes.city_mesh_faces
-    city_mesh_points = meshes.city_mesh_points
+    city_volume = model.volume
+    city_mesh_faces = model.city_mesh_faces
+    city_mesh_points = model.city_mesh_points
 
     tol = 0.01
     ray_scale_factor = 1000.0    
@@ -197,48 +188,3 @@ def ray_trace_sky_some(meshes, ray_targets, face_indices):
         all_face_mid_pts[i,:] = face_mid_pt
 
     return all_seg_idxs, all_face_mid_pts
-
-
-def ray_trace_sky(meshes, ray_targets, ray_areas):
-
-    city_volume = meshes.volume
-    city_mesh_faces = meshes.city_mesh_faces
-    city_mesh_points = meshes.city_mesh_points
-
-    tol = 0.01
-    ray_scale_factor = 1000             
-    f_count = len(city_mesh_faces)  
-    ray_count = len(ray_targets)
-
-    faceVertexIndex1 = city_mesh_faces[:,0]
-    faceVertexIndex2 = city_mesh_faces[:,1]
-    faceVertexIndex3 = city_mesh_faces[:,2] 
-    
-    vertex1 = city_mesh_points[faceVertexIndex1]
-    vertex2 = city_mesh_points[faceVertexIndex2]
-    vertex3 = city_mesh_points[faceVertexIndex3]
-
-    vector1 = vertex2 - vertex1
-    vector2 = vertex3 - vertex1
-
-    vector_cross = np.cross(vector1, vector2)
-    vector_length = np.sqrt((vector_cross ** 2).sum(-1))[..., np.newaxis]
-    normal = vector_cross / vector_length   
-
-    face_mid_pt = (vertex1 + vertex2 + vertex3)/3.0
-    pt_ray_origin = face_mid_pt + (normal * tol)
-    ray_targets = ray_scale_factor * ray_targets
-    sky_portion = np.zeros(f_count)
-
-    for i in range(0, f_count):
-        ray_o = np.array([pt_ray_origin[i,:]]) 
-        ray_o_repeat = np.repeat(ray_o, ray_count, axis = 0)
-        ray_t = ray_o_repeat + ray_targets
-        [seg_idxs, intersections, is_backface] = city_volume.intersections(ray_o_repeat, ray_t)
-        shaded_portion = np.sum(ray_areas[seg_idxs])
-        sky_portion[i] = 1.0 - shaded_portion
-        if((i % 100) == 0):
-            print("Diffuse calculation for face:" + str(i) + " finished. Diffusion = " + str(sky_portion[i]))
-
-    return sky_portion
-

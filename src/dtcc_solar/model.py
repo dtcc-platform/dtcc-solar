@@ -5,6 +5,22 @@ from ncollpyde import Volume
 
 class Model:
 
+    city_mesh:trimesh
+    origin:np.ndarray
+    f_count:int
+    v_count:int
+    horizon_z:float
+    sunpath_radius:float
+    sun_size:float
+    bb:np.ndarray
+    bbx:np.ndarray
+    bby:np.ndarray
+    bbz:np.ndarray
+    volume:Volume
+    city_mesh_faces:np.ndarray
+    city_mesh_points:np.ndarray
+    city_mesh_face_mid_points:np.ndarray
+
     def __init__(self, mesh) -> None:
         self.city_mesh = mesh
         self.origin = np.array([0, 0, 0])
@@ -25,21 +41,7 @@ class Model:
         self.volume = Volume(self.city_mesh.vertices, self.city_mesh.faces)
         self.city_mesh_faces = np.array(self.volume.faces)
         self.city_mesh_points = np.array(self.volume.points)
-        
-        #The output mesh might have changed with subdee etc
-        self.city_mesh_out = 0                                  
-        self.dome_mesh_out = 0
-
         self.city_mesh_face_mid_points = 0
-
-    def set_dome_mesh_out(self, dome_mesh):
-        self.dome_mesh_out = dome_mesh    
-
-    def set_city_mesh_out(self, city_mesh):
-        self.city_mesh_out = city_mesh 
-
-    def set_city_mesh_face_mid_points(self, pts):
-        self.city_mesh_face_mid_points = pts    
 
     def preprocess_mesh(self, center_mesh):
         bb = trimesh.bounds.corners(self.city_mesh.bounding_box.bounds)
@@ -69,7 +71,7 @@ class Model:
         self.sun_size = self.sunpath_radius / 90.0
         self.dome_radius = self.sunpath_radius / 40
 
-    def calc_city_mesh_face_mid_points(self):
+    def calc_face_mid_points(self):
 
         faceVertexIndex1 = self.city_mesh_faces[:,0]
         faceVertexIndex2 = self.city_mesh_faces[:,1]
@@ -81,6 +83,4 @@ class Model:
 
         self.city_mesh_face_mid_points = (vertex1 + vertex2 + vertex3)/3.0
         
-    def refine_city_mesh(self, sun_vec):
-        pass
 

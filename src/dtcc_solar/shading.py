@@ -35,7 +35,7 @@ class Shading:
 
         for i in range(0,iterCount):
             maxEdgeLength = (1 - i/iterCount) * (edgeLengthAverage - targetLength) + targetLength       
-            [faceShading, vertexInSun, face_in_sun]  = raycasting.ray_trace_V(evalMesh, self.meshes.volume, sun_vec_rev)
+            [faceShading, vertexInSun, face_in_sun]  = raycasting.raytrace_v(evalMesh, self.meshes.volume, sun_vec_rev)
             borderFaceMask = mc.find_shadow_border_faces_rayV(evalMesh, faceShading)
             [meshNormal, meshBorder, face_shading_normal, face_in_sun_normal] = mc.split_mesh(evalMesh, borderFaceMask, faceShading, face_in_sun)   
             all_face_in_sun  = np.append(all_face_in_sun, face_in_sun_normal)
@@ -45,7 +45,7 @@ class Shading:
             all_face_shading = np.append(all_face_shading, face_shading_normal.tolist())
             
         #Calcuate the face shading for the finest Subdee level of the triangles 
-        [faceShadingSD, vertexInSun, face_in_sun]  = raycasting.ray_trace_V(mesh_border_SD, self.meshes.volume, sun_vec_rev)
+        [faceShadingSD, vertexInSun, face_in_sun]  = raycasting.raytrace_v(mesh_border_SD, self.meshes.volume, sun_vec_rev)
         all_face_in_sun  = np.append(all_face_in_sun, face_in_sun)
         self.mesh_collection.append(mesh_border_SD)     #Add the subDee mesh as the last step!    
         all_face_shading = np.append(all_face_shading, faceShadingSD.tolist())

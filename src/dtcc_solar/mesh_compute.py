@@ -23,13 +23,7 @@ def face_sun_angle(mesh, sunVec):
         face_sun_angle = utils.vector_angle(sunVec, face_normal)
         face_sun_angles[i] = face_sun_angle 
         
-    return face_sun_angles
-
-def calc_face_colors_dome_face_in_sky(values, faceColors):    
-    max_value = np.max(values)
-    for i in range(0, len(values)):
-        fColor = utils.GetBlendedColorRedAndBlue(max_value, values[i]) 
-        faceColors.append(fColor)        
+    return face_sun_angles      
 
 def find_shadow_border_faces_rayV(mesh, faceShading):
     borderFaceMask = np.ones(len(mesh.faces), dtype = bool)

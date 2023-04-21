@@ -54,6 +54,8 @@ def get_timezone_from_long_lat(lat, long):
 
     return h_offset
 
+
+# Function for importing and comparing analemmas
 def read_analemmas_from_csv_file(filename:str):
 
     pts = []
@@ -83,7 +85,6 @@ def read_analemmas_from_csv_file(filename:str):
 def shift_sun_pos_dict_for_timezone(all_sun_pos:Dict[int, List[Vec3]], gmt_diff: float):
  
     pass
-
 
 def match_scale_of_imported_sunpath_diagram(loop_pts:Dict[int, List[Vec3]], radius: float) -> Dict[int, List[Vec3]]:
     # Calculate the correct scale factor for the imported sunpath diagram
@@ -195,6 +196,8 @@ def reformat_coordinates(vec_list: List[Vec3]) -> np.ndarray:
 
     return coords
 
+
+# Plotting functions
 def initialise_plot(r, title):
     plt.rcParams['figure.figsize'] = (16,11)
     plt.title(label=title, fontsize=44, color="black")

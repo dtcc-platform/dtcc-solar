@@ -90,15 +90,6 @@ def make_double_digit_str(s:str):
         s = '0' + s
     return s 
 
-def format_dict_key(dict_key:str):
-    
-    new_dict_key = dict_key[0:19]
-    is_format_ok = utils.is_dict_key_format_correct(new_dict_key)
-    if(is_format_ok):
-        return new_dict_key
-        
-    return None    
-
 
 def check_geo_data(lon, lat):
 

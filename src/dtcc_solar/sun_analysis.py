@@ -9,7 +9,6 @@ from dtcc_solar.utils import Sun, Res
 
 class SunAnalysis:
 
-    results : Results
     model : Model
 
     def __init__(self, model):
@@ -26,7 +25,7 @@ class SunAnalysis:
                 sun_vec = utils.convert_vec3_to_ndarray(sun.sun_vec)
                 sun_vec_rev = utils.reverse_vector(sun_vec)
                 
-                face_in_sun = raycasting.ray_trace_faces(self.model, sun_vec_rev)
+                face_in_sun = raycasting.raytrace_f(self.model, sun_vec_rev)
                 face_sun_angles = mc.face_sun_angle(self.model.city_mesh, sun_vec)
                 irradianceF = mc.compute_irradiance(face_in_sun, face_sun_angles, self.model.f_count, sun.irradiance_dn)
                  
