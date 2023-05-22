@@ -8,6 +8,7 @@ from typing import List, Dict
 class Viewer:
 
     def __init__(self):
+        
         self.scene = trimesh.Scene()
         self.scene.camera._fov = [35,35]     #Field of view [x, y]
         self.scene.camera.z_far = 10000      #Distance to the far clipping plane        
@@ -121,18 +122,17 @@ class Colors:
             frac = value / max
         return [frac, frac, frac, 1.0]
 
-    def GetBlendedColorRedAndBlue(self, max, value):
+    def get_blended_color_red_blue(self, max, value):
         frac = 0
         if(max > 0):
             frac = value / max
         return [frac, 0.0, 1 - frac, 1.0]
 
-    def get_blended_sun_color(self, max, value):
+    def get_blended_color_yellow_red(self, max, value):
         percentage = 100.0 * (value / max)
         if (value < 0):
-            #Blue fading to Cyan [0,x,255], where x is increasing from 0 to 255
             return [1.0, 1.0, 1.0, 1.0]
         else:
-            #Cyan fading to Green [0,255,x], where x is decreasing from 255 to 0
+            # Yellow [255, 255, 0] fading to red [255, 0, 0] 
             frac = 1 - percentage/100
             return [1.0, (frac * 1.0), 0.0, 1.0]

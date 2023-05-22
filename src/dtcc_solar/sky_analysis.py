@@ -31,7 +31,7 @@ class SkyAnalysis:
         self.skydome.calc_quad_sun_angle(utils.convert_vec3_to_ndarray(suns[0].sun_vec))
         self.multi_skydomes.postprocess_raycasting(all_seg_idxs, len(face_indices_grid), face_mid_pts)
 
-    def execute_raycasting_iterative(self, suns:List[Sun], results:Results):
+    def execute_raycasting(self, suns:List[Sun], results:Results):
         sky_portion = raycasting.raytrace_skydome(self.model, self.skydome.get_ray_targets(), self.skydome.get_ray_areas())
         
         # Results independent of weather data

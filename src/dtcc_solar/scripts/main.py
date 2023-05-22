@@ -4,6 +4,7 @@ import time
 import os
 import trimesh
 import argparse
+import sys
 
 from dtcc_solar import utils
 from dtcc_solar import data_io 
@@ -91,6 +92,8 @@ def run_script(command_line_args):
     city_model = Model(city_mesh)
     sunpath = Sunpath(p.latitude, p.longitude, city_model.sunpath_radius)
 
+    print(city_mesh)
+
     sun_dates = utils.create_sun_dates(p.start_date, p.end_date)    
     suns = wd.get_weather_data(p, sun_dates)                               
     suns = sunpath.get_suns_positions(suns)
@@ -102,12 +105,12 @@ def run_script(command_line_args):
     
     #Execute analysis        
     if  (p.a_type == AnalysisType.sun_raycasting):    
-        sun_analysis.execute_raycasting_iterative(suns, results)
+        sun_analysis.execute_raycasting(suns, results)
     elif(p.a_type == AnalysisType.sky_raycasting):    
-        sky_analysis.execute_raycasting_iterative(suns, results)
+        sky_analysis.execute_raycasting(suns, results)
     elif(p.a_type == AnalysisType.com_raycasting):    
-        sun_analysis.execute_raycasting_iterative(suns, results)    
-        sky_analysis.execute_raycasting_iterative(suns, results)
+        sun_analysis.execute_raycasting(suns, results)    
+        sky_analysis.execute_raycasting(suns, results)
     #elif(p.a_type == AnalysisType.sky_raycasting_some):
     #    sky_analysis.execute_raycasting_some(suns)   
 
@@ -119,11 +122,12 @@ def run_script(command_line_args):
     #Get geometry for the sunpath and current sun position
     if(p.prepare_display):
 
-        sunpath_mesh = SunpathMesh(city_model.sunpath_radius)
-        sunpath_mesh.create_sunpath_diagram(suns, sunpath, city_model)
         viewer = Viewer()
         colors = Colors()
 
+        sunpath_mesh = SunpathMesh(city_model.sunpath_radius)
+        sunpath_mesh.create_sunpath_diagram(suns, sunpath, city_model, colors)
+        
         # Color city mesh and add to viewer
         colors.color_city_mesh(city_model.city_mesh, results.res_acum, p.color_by)
         viewer.add_meshes(city_model.city_mesh)
@@ -146,6 +150,8 @@ if __name__ == "__main__":
     inputfile_S = '../../../data/models/CitySurfaceS.stl'
     inputfile_M = '../../../data/models/CitySurfaceM.stl'
     inputfile_L = '../../../data/models/CitySurfaceL.stl'
+
+    other_file_to_run = '../../../data/models/new_file.stl'
 
     weather_file_clm = '../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm'
 
@@ -212,6 +218,8 @@ if __name__ == "__main__":
     #          '--w_file', weather_file_clm,
     #          '--colorby', '6']                
 
-    run_script(args_4)
+    run_script(args_1)
+
+
 
 

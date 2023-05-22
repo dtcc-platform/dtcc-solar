@@ -34,7 +34,7 @@ class TestSunpath:
             "Rio"        :{ "name": "Rio de Janeiro", "lat": -22.90, "lon": -43.17,  "tz": 'America/Sao_Paulo',"GMT_diff": -3, "cmap": 'autumn_r', "file": 'data/sunpaths/rio_de_janeiro.csv'   } 
         }
 
-        self.plot = False
+        self.plot = True
 
 ########################### Testig of instant analysis ##############################
 

@@ -368,8 +368,8 @@ if __name__ == "__main__":
     test = TestWeatherDataComparison()
     test.setup_method()
     #test.test_compare_dict_keys()
-    #test.test_calculate_monthly_average_data()
-    test.test_compare_weather_data()
+    test.test_calculate_monthly_average_data()
+    #test.test_compare_weather_data()
     
     pass
 

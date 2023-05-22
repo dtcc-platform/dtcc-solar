@@ -60,7 +60,7 @@ class TestRaytracing:
         suns = self.sunpath.get_suns_positions(suns) 
 
         self.results = Results(suns, self.city_model.f_count)   
-        self.sun_analysis.execute_raycasting_iterative(suns, self.results)
+        self.sun_analysis.execute_raycasting(suns, self.results)
         
         face_sun_angles = self.results.res_list[0].face_sun_angles
         face_in_sun = self.results.res_list[0].face_in_sun
@@ -90,7 +90,7 @@ class TestRaytracing:
         pp(suns)   
 
         self.results = Results(suns, self.city_model.f_count)   
-        self.sun_analysis.execute_raycasting_iterative(suns, self.results)
+        self.sun_analysis.execute_raycasting(suns, self.results)
         
         res_list = self.results.res_list
         is_error = False
@@ -120,7 +120,7 @@ class TestRaytracing:
         suns = self.sunpath.get_suns_positions(suns)
         
         self.results = Results(suns, self.city_model.f_count)   
-        self.sky_analysis.execute_raycasting_iterative(suns, self.results)
+        self.sky_analysis.execute_raycasting(suns, self.results)
         
         face_in_sky = self.results.res_acum.face_in_sky
         is_error = False
@@ -143,7 +143,7 @@ class TestRaytracing:
         suns = self.sunpath.get_suns_positions(suns) 
         
         self.results = Results(suns, self.city_model.f_count)   
-        self.sky_analysis.execute_raycasting_iterative(suns, self.results)
+        self.sky_analysis.execute_raycasting(suns, self.results)
         
         res_list = self.results.res_list
         sky_irradiance = self.results.res_acum.face_irradiance_di

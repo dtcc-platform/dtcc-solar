@@ -7,6 +7,7 @@ import trimesh
 from dtcc_solar.model import Model
 from dtcc_solar import utils
 from dtcc_solar.utils import Vec3, Sun
+from dtcc_solar.viewer import Colors
 from typing import List, Dict, Any
 
 from pprint import pp
@@ -180,14 +181,14 @@ class SunpathMesh():
     def get_sun_meshes(self):
         return self.sun_meshes
 
-    def create_sunpath_diagram(self, suns:List[Sun], sunpath:Sunpath, city_model: Model):
+    def create_sunpath_diagram(self, suns:List[Sun], sunpath:Sunpath, city_model: Model, colors:Colors):
         # Create analemmas mesh
         [sunX, sunY, sunZ, analemmas_dict] = sunpath.get_analemmas(2019, 5)
-        self.analemmas_meshes = self.create_sunpath_loops(sunX, sunY, sunZ, city_model.sunpath_radius)
+        self.analemmas_meshes = self.create_sunpath_loops(sunX, sunY, sunZ, city_model.sunpath_radius, colors)
         
         # Create mesh for day path
         [sunX, sunY, sunZ] = sunpath.get_daypaths(pd.to_datetime(['2019-06-21', '2019-03-21', '2019-12-21']), 10)
-        self.daypath_meshes = self.create_sunpath_loops(sunX, sunY, sunZ, city_model.sunpath_radius)
+        self.daypath_meshes = self.create_sunpath_loops(sunX, sunY, sunZ, city_model.sunpath_radius, colors)
         
         self.sun_meshes = self.create_solar_spheres(suns, city_model.sun_size)
         
@@ -207,27 +208,27 @@ class SunpathMesh():
                 sunMeshes.append(sunMesh)
         return sunMeshes
 
-    def create_sunpath_loops(self, x, y, z, radius):
+    def create_sunpath_loops(self, x, y, z, radius, colors:Colors):
         path_meshes = []
         for h in x:
             vs = np.zeros((len(x[h])+1, 3))
             vi = np.zeros((len(x[h])),dtype=int)
             lines = []
-            colors = []
+            path_colors = []
             
             for i in range(0, len(x[h])):
                 sunPos = [x[h][i], y[h][i], z[h][i]]
                 vs[i,:] = sunPos
                 vi[i] = i
                 index2 = i + 1
-                color = utils.get_blended_sun_color(radius, z[h][i])
-                colors.append(color)
+                color = colors.get_blended_color_yellow_red(radius, z[h][i])
+                path_colors.append(color)
                 line = trimesh.path.entities.Line([i, index2])
                 lines.append(line)
 
             vs[len(x[h]),:] = vs[0,:]     
 
-            path = trimesh.path.Path3D(entities=lines, vertices=vs, colors= colors)
+            path = trimesh.path.Path3D(entities=lines, vertices=vs, colors= path_colors)
             path_meshes.append(path)
 
         return path_meshes        

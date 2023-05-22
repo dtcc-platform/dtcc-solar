@@ -344,8 +344,17 @@ except:
 date = pd.to_datetime("2020-1-1")
 print(date)
 
+a = np.array([[1,2,3],[4,2,1],[2,3,1]])
+b = np.array([6,8,3])
+
+dist = np.sqrt(np.sum((a-b)**2,axis=1))  
 
 
+print(dist)
 
 
+a = np.arange(0,12)
+print(a)
+
+print(a[3:6])
 

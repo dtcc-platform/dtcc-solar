@@ -13,9 +13,9 @@ class SunAnalysis:
 
     def __init__(self, model):
         self.model = model
-        self.flux = 1 #Watts per m2
+        self.flux = 1 #Watts per m2 
         
-    def execute_raycasting_iterative(self, suns: List[Sun], results:Results):
+    def execute_raycasting(self, suns: List[Sun], results:Results):
         n = len(suns)
         print("Iterative analysis started for " + str(n) + " number of iterations")   
         counter = 0
