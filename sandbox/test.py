@@ -345,16 +345,50 @@ date = pd.to_datetime("2020-1-1")
 print(date)
 
 a = np.array([[1,2,3],[4,2,1],[2,3,1]])
-b = np.array([6,8,3])
+b = np.array([6,8,3], dtype=float)
 
 dist = np.sqrt(np.sum((a-b)**2,axis=1))  
 
+avrg = np.average(a)
 
-print(dist)
+
+a = np.array([1,2,3,4,5,6,1,2,3,4,5,6,1,2,3,4,5,6])
+
+x = a[0::6]
+y = a[1::6]
+z = a[2::6]
+
+xyz = a[0:3:6]
+
+print(x)
+print(y)
+print(z)
+
+print(xyz)
 
 
-a = np.arange(0,12)
-print(a)
 
-print(a[3:6])
+def _calc_n_sides(n_points:int):
 
+    low_count = 1000000
+    upper_count = 15000000
+
+    low_sides = 5
+    upper_sides = 12
+
+    count_diff = upper_count - low_count
+    sides_diff = upper_sides - low_sides
+
+    if n_points < low_count:
+        n_sides = upper_sides
+    elif n_points > upper_count:
+        n_sides = low_sides
+    else:
+        n_sides = low_sides + sides_diff * (1 - ((n_points - low_count) / count_diff))
+        n_sides = round(n_sides, 0)
+
+    return n_sides
+
+n_sides = _calc_n_sides(16000000)
+
+print(n_sides)

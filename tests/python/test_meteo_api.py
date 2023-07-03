@@ -31,8 +31,7 @@ class TestOpenMeteoApi:
                        False, start_date, end_date, self.w_file_clm)
         
 
-        suns_date = utils.create_sun_dates(start_date, end_date)    
-        suns = meteo_data.get_data_from_api_call(self.lon, self.lat, suns_date)
+        suns = sunpath.create_suns(p)
 
         assert suns
 

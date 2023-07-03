@@ -2,14 +2,13 @@
 import numpy as np
 import time
 from dtcc_solar import utils
-from dtcc_solar.model import Model
+from ncollpyde import Volume
 
-def raytrace_f(meshes, sunVecRev):
+def raytrace_f(volume:Volume, sunVecRev):
     
-    volume = meshes.volume
-    mesh_faces = meshes.city_mesh_faces
-    mesh_points = meshes.city_mesh_points
-    fCount = meshes.f_count
+    mesh_faces = volume.faces
+    mesh_points = volume.points
+    fCount = len(mesh_faces)
         
     [ptRayOrigin, ptRayTarget] = pre_process_f(mesh_faces, mesh_points, sunVecRev)
     [seg_idxs, intersections, is_backface] = volume.intersections(ptRayOrigin, ptRayTarget,)
@@ -101,11 +100,10 @@ def post_process_v(meshTri, seg_idxs):
     return face_shading, vertex_in_sun, face_in_sun
 
 
-def raytrace_skydome(model:Model, ray_targets, ray_areas):
+def raytrace_skydome(volume:Volume, ray_targets, ray_areas):
 
-    city_volume = model.volume
-    city_mesh_faces = model.city_mesh_faces
-    city_mesh_points = model.city_mesh_points
+    city_mesh_faces = volume.faces
+    city_mesh_points = volume.points
 
     tol = 0.01
     ray_scale_factor = 1000             
@@ -136,7 +134,7 @@ def raytrace_skydome(model:Model, ray_targets, ray_areas):
         ray_o = np.array([pt_ray_origin[i,:]]) 
         ray_o_repeat = np.repeat(ray_o, ray_count, axis = 0)
         ray_t = ray_o_repeat + ray_targets
-        [seg_idxs, intersections, is_backface] = city_volume.intersections(ray_o_repeat, ray_t)
+        [seg_idxs, intersections, is_backface] = volume.intersections(ray_o_repeat, ray_t)
         shaded_portion = np.sum(ray_areas[seg_idxs])
         sky_portion[i] = 1.0 - shaded_portion
         if((i % 100) == 0):
@@ -144,11 +142,10 @@ def raytrace_skydome(model:Model, ray_targets, ray_areas):
 
     return sky_portion
 
-def raytrace_skydome_debug(model:Model, ray_targets, face_indices):
+def raytrace_skydome_debug(volume:Volume, ray_targets, face_indices):
 
-    city_volume = model.volume
-    city_mesh_faces = model.city_mesh_faces
-    city_mesh_points = model.city_mesh_points
+    city_mesh_faces = volume.faces
+    city_mesh_points = volume.points
 
     tol = 0.01
     ray_scale_factor = 1000.0    
@@ -182,7 +179,7 @@ def raytrace_skydome_debug(model:Model, ray_targets, face_indices):
         ray_o_repeat = np.repeat(ray_o, ray_count, axis = 0)
         ray_t = ray_o_repeat + ray_targets_scaled
 
-        [seg_idxs, intersections, is_backface] = city_volume.intersections(ray_o_repeat, ray_t)
+        [seg_idxs, intersections, is_backface] = volume.intersections(ray_o_repeat, ray_t)
 
         all_seg_idxs[i] = seg_idxs
         all_face_mid_pts[i,:] = face_mid_pt

@@ -8,11 +8,9 @@ from dtcc_solar import utils
 from dtcc_solar import data_io 
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import AnalysisType, Parameters
-from dtcc_solar.model import Model
+from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
-from dtcc_solar.sun_analysis import SunAnalysis
-from dtcc_solar.sky_analysis import SkyAnalysis
 from dtcc_solar.multi_skydomes import MultiSkyDomes
 import dtcc_solar.meteo_data as meteo
 from dtcc_solar import weather_data as wd
@@ -25,12 +23,10 @@ class TestRaytracing:
     lon:float
     lat:float
     city_mesh:Any
-    city_model:Model
+    solar_engine:SolarEngine
     sunpath:Sunpath
     skydome:SkyDome 
     multi_skydomes:MultiSkyDomes
-    sun_analysis: SunAnalysis
-    sky_analysis: SkyAnalysis
     sunpath: Sunpath
     suns: List[Any]
     file_name:str
@@ -42,10 +38,8 @@ class TestRaytracing:
         self.file_name = '../data/models/CitySurfaceS.stl'
         self.w_file = '../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm'
         self.city_mesh = trimesh.load_mesh(self.file_name)
-        self.city_model = Model(self.city_mesh)     
-        self.sunpath = Sunpath(self.lat, self.lon, self.city_model.sunpath_radius)
-        self.sun_analysis = SunAnalysis(self.city_model)
-        self.sky_analysis = SkyAnalysis(self.city_model)
+        self.solar_engine = SolarEngine(self.city_mesh)     
+        self.sunpath = Sunpath(self.lat, self.lon, self.solar_engine.sunpath_radius)
         
     def test_raytracing_sun_instant(self):
 
@@ -54,13 +48,11 @@ class TestRaytracing:
         a_type = AnalysisType.sun_raycasting
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
                        False, start_date, end_date, self.w_file)
+        
+        self.suns = self.sunpath.create_suns(p)
 
-        suns = utils.create_sun_dates(p.start_date, p.end_date)    
-        suns = wd.get_weather_data(p, suns)                               
-        suns = self.sunpath.get_suns_positions(suns) 
-
-        self.results = Results(suns, self.city_model.f_count)   
-        self.sun_analysis.execute_raycasting(suns, self.results)
+        self.results = Results(self.suns, self.solar_engine.f_count)   
+        self.solar_engine.sun_raycasting(self.suns, self.results)
         
         face_sun_angles = self.results.res_list[0].face_sun_angles
         face_in_sun = self.results.res_list[0].face_in_sun
@@ -79,22 +71,12 @@ class TestRaytracing:
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
                        False, start_date, end_date, self.w_file)
 
-        suns = utils.create_sun_dates(p.start_date, p.end_date)
-        pp(suns)    
-        suns = wd.get_weather_data(p, suns)                               
-        pp(suns)
-        suns = self.sunpath.get_suns_positions(suns)
-
-        print("Number of suns:" + str(len(suns))) 
-
-        pp(suns)   
-
-        self.results = Results(suns, self.city_model.f_count)   
-        self.sun_analysis.execute_raycasting(suns, self.results)
+        self.suns = self.sunpath.create_suns(p)
+        self.results = Results(self.suns, self.solar_engine.f_count)   
+        self.solar_engine.sun_raycasting(self.suns, self.results)
         
         res_list = self.results.res_list
         is_error = False
-
 
         for res in res_list:
             fsa = res.face_sun_angles
@@ -115,12 +97,9 @@ class TestRaytracing:
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
                        False, start_date, end_date, self.w_file)
 
-        suns = utils.create_sun_dates(p.start_date, p.end_date)    
-        suns = wd.get_weather_data(p, suns)                               
-        suns = self.sunpath.get_suns_positions(suns)
-        
-        self.results = Results(suns, self.city_model.f_count)   
-        self.sky_analysis.execute_raycasting(suns, self.results)
+        self.suns = self.sunpath.create_suns(p)
+        self.results = Results(self.suns, self.solar_engine.f_count)   
+        self.solar_engine.sky_raycasting(self.suns, self.results)
         
         face_in_sky = self.results.res_acum.face_in_sky
         is_error = False
@@ -138,12 +117,10 @@ class TestRaytracing:
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 3, 1, 
                        False, start_date, end_date, self.w_file)
 
-        suns = utils.create_sun_dates(p.start_date, p.end_date)    
-        suns = wd.get_weather_data(p, suns)                               
-        suns = self.sunpath.get_suns_positions(suns) 
+        self.suns = self.sunpath.create_suns(p)
         
-        self.results = Results(suns, self.city_model.f_count)   
-        self.sky_analysis.execute_raycasting(suns, self.results)
+        self.results = Results(self.suns, self.solar_engine.f_count)   
+        self.solar_engine.sky_raycasting(self.suns, self.results)
         
         res_list = self.results.res_list
         sky_irradiance = self.results.res_acum.face_irradiance_di

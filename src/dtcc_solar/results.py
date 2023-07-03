@@ -1,16 +1,16 @@
 
 import numpy as np
 import dtcc_solar.mesh_compute as mc
-from dtcc_solar.utils import ColorBy, Sun, Res, ResAcum
+from dtcc_solar.utils import ColorBy, Sun, Output, OutputAcum
 from typing import List, Dict
 
 
 #This class contains all the results from analysis that will be accessed for visualisation
 class Results:
 
-    res_list:List[Res]
-    res_acum:ResAcum
-    res_avrg:ResAcum
+    res_list:List[Output]
+    res_acum:OutputAcum
+    res_avrg:OutputAcum
 
     def __init__(self, suns:List[Sun], face_count:int):
         self.res_list = self.create_res_list(suns, face_count)
@@ -26,7 +26,7 @@ class Results:
             date_str = sun.datetime_str
             date_ts = sun.datetime_ts
 
-            res = Res(datetime_str = date_str,
+            res = Output(datetime_str = date_str,
                     datetime_ts = date_ts,
                     index = counter, 
                     face_sun_angles = empty_float_array.copy(),
@@ -49,7 +49,7 @@ class Results:
         empty_float_array = np.zeros(face_count, dtype= float)
         empty_bool_array = np.zeros(face_count, dtype= bool)
 
-        res_acum = ResAcum( start_datetime_str = str(start_date),
+        res_acum = OutputAcum( start_datetime_str = str(start_date),
                             start_datetime_ts = start_date, 
                             end_datetime_str= str(end_date), 
                             end_datetime_ts = end_date,
@@ -63,7 +63,7 @@ class Results:
 
         return res_acum
 
-    def calc_accumulate_results(self):
+    def calc_accumulated_results(self):
         for res in self.res_list:
             self.res_acum.face_sun_angles += res.face_sun_angles
             self.res_acum.face_in_sun += res.face_in_sun

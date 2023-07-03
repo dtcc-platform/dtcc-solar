@@ -4,11 +4,13 @@ import numpy as np
 import os
 import math
 import trimesh
-from dtcc_solar.model import Model
+from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar import utils
 from dtcc_solar.utils import Vec3, Sun
 from dtcc_solar.viewer import Colors
 from typing import List, Dict, Any
+from dtcc_solar.utils import Parameters
+from dtcc_solar import weather_data
 
 from pprint import pp
 
@@ -159,6 +161,25 @@ class Sunpath():
         dict_keys = dict_keys[z_mask]   
         return sun_positions, dict_keys
 
+    def create_sun_timestamps(self, start_date: str, end_date: str):
+        time_from = pd.to_datetime(start_date)
+        time_to = pd.to_datetime(end_date)
+        suns = []
+        index = 0
+        times = pd.date_range(start = time_from, end = time_to, freq = 'H')
+        for time in times:
+            sun = Sun(str(time), time, index)
+            suns.append(sun)
+            index += 1
+            
+        return suns  
+
+    def create_suns(self, p:Parameters):
+        suns = self.create_sun_timestamps(p.start_date, p.end_date)    
+        suns = weather_data.get_data(p, suns)                               
+        suns = self.get_suns_positions(suns)
+        return suns
+
 
 class SunpathMesh():
 
@@ -181,7 +202,7 @@ class SunpathMesh():
     def get_sun_meshes(self):
         return self.sun_meshes
 
-    def create_sunpath_diagram(self, suns:List[Sun], sunpath:Sunpath, city_model: Model, colors:Colors):
+    def create_sunpath_diagram(self, suns:List[Sun], sunpath:Sunpath, city_model: SolarEngine, colors:Colors):
         # Create analemmas mesh
         [sunX, sunY, sunZ, analemmas_dict] = sunpath.get_analemmas(2019, 5)
         self.analemmas_meshes = self.create_sunpath_loops(sunX, sunY, sunZ, city_model.sunpath_radius, colors)
@@ -192,7 +213,6 @@ class SunpathMesh():
         
         self.sun_meshes = self.create_solar_spheres(suns, city_model.sun_size)
         
-
     def create_solar_sphere(self, sunPos, sunSize):
         sunMesh = trimesh.primitives.Sphere(radius = sunSize,  center = sunPos, subdivisions = 4)
         sunMesh.visual.face_colors = [1.0, 0.5, 0, 1.0]

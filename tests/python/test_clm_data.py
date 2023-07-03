@@ -33,8 +33,8 @@ class TestClmData:
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
                        False, start_date, end_date, self.w_file_clm)
         
-        suns_date = utils.create_sun_dates(start_date, end_date)    
-        suns = clm_data.import_weather_data(suns_date, self.w_file_clm)
+        suns = sunpath.create_suns(p)
+
         assert suns
 
 

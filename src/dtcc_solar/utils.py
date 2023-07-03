@@ -72,7 +72,7 @@ class Sun:
     sun_vec: Vec3 = Vec3(0,0,0)         # Normalised solar vector for calculations
 
 @dataclass
-class Res: 
+class Output: 
     datetime_str: str                   # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
     datetime_ts: pd.Timestamp           # TimeStamp object with the same date and time
     index: int
@@ -85,7 +85,7 @@ class Res:
     face_irradiance_tot: List[float]
     
 @dataclass
-class ResAcum: 
+class OutputAcum: 
     start_datetime_str: str                   # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
     start_datetime_ts: pd.Timestamp           
     end_datetime_str: str                   # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
@@ -131,6 +131,7 @@ class Parameters_dc:
         start_date: str = "2019-06-03 07:00:00"
         end_date: str = "2019-06-03 21:00:00"
 
+
     
 def convert_vec3_to_ndarray(vec: Vec3):
     return np.array([vec.x, vec.y, vec.z])
@@ -142,19 +143,50 @@ def create_list_of_vectors(x_list, y_list, z_list) -> List[Vec3]:
         vector_list.append(vec)
     return vector_list  
 
-def create_sun_dates(start_date: str, end_date: str):
-    time_from = pd.to_datetime(start_date)
-    time_to = pd.to_datetime(end_date)
-    suns = []
-    index = 0
-    times = pd.date_range(start = time_from, end = time_to, freq = 'H')
-    for time in times:
-        sun = Sun(str(time), time, index)
-        suns.append(sun)
-        index += 1
-        
-    return suns  
+'''
+def find_distributed_face_mid_points(nx, ny, mesh:trimesh):
 
+    bb = trimesh.bounds.corners(mesh.bounding_box.bounds)
+    bbx = np.array([np.min(bb[:,0]), np.max(bb[:,0])])
+    bby = np.array([np.min(bb[:,1]), np.max(bb[:,1])])
+    bbz = np.array([np.min(bb[:,2]), np.max(bb[:,2])])
+
+    dx = (bbx[1] - bbx[0])/(nx-1)
+    dy = (bby[1] - bby[0])/(ny-1)
+
+    x = bbx[0]
+    y = bby[0]
+    z = np.average([bbz])
+
+    face_mid_points = calc_face_mid_points(mesh)
+    face_mid_points[:,2] = z 
+    face_indices = []
+
+    for i in range(0,nx):
+        y = bby[0]
+        for j in range(0,ny):
+            point = np.array([x,y,z])
+            index = get_index_of_closest_point(point, face_mid_points)
+            face_indices.append(index)
+            y += dy
+        x += dx
+
+    return face_indices        
+
+def calc_face_mid_points(mesh:trimesh):
+
+    faceVertexIndex1 = mesh.faces[:,0]
+    faceVertexIndex2 = mesh.faces[:,1]
+    faceVertexIndex3 = mesh.faces[:,2] 
+
+    vertex1 = mesh.vertices[faceVertexIndex1]
+    vertex2 = mesh.vertices[faceVertexIndex2]
+    vertex3 = mesh.vertices[faceVertexIndex3]
+
+    face_mid_points = (vertex1 + vertex2 + vertex3)/3.0
+
+    return face_mid_points
+'''
 def get_sun_vecs_from_sun_pos(sunPosList, origin):
     sunVecs = []
     for i in range(0, len(sunPosList)):
@@ -234,4 +266,5 @@ def get_index_of_closest_point(point, array_of_points):
             index = i
 
     return index        
+
 

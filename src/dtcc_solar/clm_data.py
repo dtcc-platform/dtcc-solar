@@ -83,7 +83,7 @@ if __name__ == "__main__":
     # Run from the location of the file
     weather_file = "../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
 
-    suns = utils.create_sun_dates(time_from_str, time_to_str)
+    suns = utils.create_sun_timestamps(time_from_str, time_to_str)
     suns = import_weather_data(suns, weather_file)
 
     pp(suns)

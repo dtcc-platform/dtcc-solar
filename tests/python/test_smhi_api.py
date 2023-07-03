@@ -4,7 +4,6 @@ from pprint import pp
 from dtcc_solar import smhi_data
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import AnalysisType, Parameters 
-from dtcc_solar import utils
 
 class TestSmhiApi:
 
@@ -27,8 +26,7 @@ class TestSmhiApi:
         p = Parameters(a_type, self.file_name, self.lat, self.lon, 0, 0, 1, 1, 
                        False, start_date, end_date, self.w_file_clm)
         
-        suns = utils.create_sun_dates(p.start_date, p.end_date)    
-        suns = smhi_data.get_data_from_api_call(self.lon, self.lat, suns)
+        suns = sunpath.create_suns(p)
 
         assert suns
 
@@ -74,8 +72,7 @@ class TestSmhiApi:
         for i in range(0, len(dst_test_from)):
             p.start_date = dst_test_from[i]
             p.end_date = dst_test_to[i]  
-            suns = utils.create_sun_dates(p.start_date, p.end_date)    
-            suns = smhi_data.get_data_from_api_call(self.lon, self.lat, suns)
+            suns = sunpath.create_suns(p)
             for sun in suns:
                 hour = sun.datetime_ts.hour
                 if(hour == 2):

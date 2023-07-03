@@ -178,7 +178,7 @@ if __name__ == "__main__":
     time_from = pd.to_datetime(time_from_str)
     time_to = pd.to_datetime(time_to_str)
 
-    suns = utils.create_sun_dates(time_from_str, time_to_str)
+    suns = utils.create_sun_timestamps(time_from_str, time_to_str)
 
     lon = 16.158
     lat = 58.5812

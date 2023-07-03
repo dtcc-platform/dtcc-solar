@@ -2,7 +2,7 @@ import numpy as np
 import trimesh
 import dtcc_solar.mesh_compute as mc
 from dtcc_solar import utils
-from dtcc_solar.utils import ColorBy, AnalysisType, Res
+from dtcc_solar.utils import ColorBy, AnalysisType, Output
 from typing import List, Dict
 
 class Viewer:
@@ -25,7 +25,7 @@ class Colors:
     def __init__(self):
         pass
 
-    def color_city_mesh(self, mesh, res:Res, color_by:ColorBy):
+    def color_city_mesh(self, mesh, res:Output, color_by:ColorBy):
         if  (color_by == ColorBy.face_sun_angle):
             colors = self.calc_colors(res.face_sun_angles)
         elif(color_by == ColorBy.face_sun_angle_shadows):

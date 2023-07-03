@@ -12,13 +12,10 @@ from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.sunpath import SunpathMesh
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.utils import ColorBy, AnalysisType, Parameters, DataSource
-from dtcc_solar.model import Model
+from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
-from dtcc_solar.sun_analysis import SunAnalysis
-from dtcc_solar.sky_analysis import SkyAnalysis
-from dtcc_solar.multi_skydomes import MultiSkyDomes
-from dtcc_solar.utils import Sun, Res
+from dtcc_solar.utils import Sun, Output
 from dtcc_solar import weather_data as wd
 from dtcc_solar.viewer import Colors
 
@@ -67,7 +64,6 @@ def export(p:Parameters, city_results:Results, exportpath:str):
     elif p.color_by == ColorBy.face_shadows: 
         data_io.print_list(city_results.get_face_in_sun(), exportpath)    
 
- 
 
 
 ###############################################################################################################################
@@ -89,35 +85,22 @@ def run_script(command_line_args):
     print_args(args)
 
     city_mesh = trimesh.load_mesh(p.file_name)
-    city_model = Model(city_mesh)
-    sunpath = Sunpath(p.latitude, p.longitude, city_model.sunpath_radius)
+    solar_engine = SolarEngine(city_mesh)
+    sunpath = Sunpath(p.latitude, p.longitude, solar_engine.sunpath_radius)
+    suns = sunpath.create_suns(p)
+    results = Results(suns, solar_engine.f_count) 
 
-    print(city_mesh)
-
-    sun_dates = utils.create_sun_dates(p.start_date, p.end_date)    
-    suns = wd.get_weather_data(p, sun_dates)                               
-    suns = sunpath.get_suns_positions(suns)
-
-    results = Results(suns, city_model.f_count)     
-    
-    sun_analysis = SunAnalysis(city_model)
-    sky_analysis = SkyAnalysis(city_model)
-    
     #Execute analysis        
     if  (p.a_type == AnalysisType.sun_raycasting):    
-        sun_analysis.execute_raycasting(suns, results)
+        solar_engine.sun_raycasting(suns, results)
     elif(p.a_type == AnalysisType.sky_raycasting):    
-        sky_analysis.execute_raycasting(suns, results)
+        solar_engine.sky_raycasting(suns, results)
     elif(p.a_type == AnalysisType.com_raycasting):    
-        sun_analysis.execute_raycasting(suns, results)    
-        sky_analysis.execute_raycasting(suns, results)
-    #elif(p.a_type == AnalysisType.sky_raycasting_some):
-    #    sky_analysis.execute_raycasting_some(suns)   
+        solar_engine.sun_raycasting(suns, results)    
+        solar_engine.sky_raycasting(suns, results) 
 
-    results.calc_accumulate_results()
+    results.calc_accumulated_results()
     results.calc_average_results()
-
-    pp(suns)
 
     #Get geometry for the sunpath and current sun position
     if(p.prepare_display):
@@ -125,12 +108,12 @@ def run_script(command_line_args):
         viewer = Viewer()
         colors = Colors()
 
-        sunpath_mesh = SunpathMesh(city_model.sunpath_radius)
-        sunpath_mesh.create_sunpath_diagram(suns, sunpath, city_model, colors)
+        sunpath_mesh = SunpathMesh(solar_engine.sunpath_radius)
+        sunpath_mesh.create_sunpath_diagram(suns, sunpath, solar_engine, colors)
         
         # Color city mesh and add to viewer
-        colors.color_city_mesh(city_model.city_mesh, results.res_acum, p.color_by)
-        viewer.add_meshes(city_model.city_mesh)
+        colors.color_city_mesh(solar_engine.mesh, results.res_acum, p.color_by)
+        viewer.add_meshes(solar_engine.mesh)
 
         # Add sunpath meshes to viewer
         viewer.add_meshes(sunpath_mesh.get_analemmas_meshes())
@@ -209,16 +192,7 @@ if __name__ == "__main__":
               '--w_file', weather_file_clm,
               '--colorby', '7']   
 
-    # Sky analysis with dome visualisation for debugging
-    #args_7 = ['--inputfile', inputfile_S, 
-    #          '--analysis', '4',
-    #          '--start_date', '2015-03-30 12:00:00',
-    #          '--end_date', '2015-03-30 12:00:00',
-    #          '--data_source', '3',
-    #          '--w_file', weather_file_clm,
-    #          '--colorby', '6']                
-
-    run_script(args_1)
+    run_script(args_6)
 
 
 

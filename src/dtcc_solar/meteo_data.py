@@ -117,7 +117,7 @@ if __name__ == "__main__":
     lon = 16.158
     lat = 58.5812
 
-    suns = utils.create_sun_dates(time_from_str, time_to_str)
+    suns = utils.create_sun_timestamps(time_from_str, time_to_str)
     suns = get_data_from_api_call(lon, lat, suns)
 
     pp(suns)
