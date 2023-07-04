@@ -11,7 +11,6 @@ from dtcc_solar.utils import AnalysisType, Parameters
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
-from dtcc_solar.multi_skydomes import MultiSkyDomes
 import dtcc_solar.meteo_data as meteo
 from dtcc_solar import weather_data as wd
 
@@ -25,8 +24,7 @@ class TestRaytracing:
     city_mesh:Any
     solar_engine:SolarEngine
     sunpath:Sunpath
-    skydome:SkyDome 
-    multi_skydomes:MultiSkyDomes
+    skydome:SkyDome
     sunpath: Sunpath
     suns: List[Any]
     file_name:str

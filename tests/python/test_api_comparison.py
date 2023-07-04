@@ -126,7 +126,6 @@ class TestWeatherDataComparison:
 
         plt.show()
 
-
     def test_compare_weather_data(self):
         
         start_date = "2019-01-01 00:00:00"
@@ -254,7 +253,6 @@ class TestWeatherDataComparison:
         plt.show()
         pass
 
-
 def get_monthly_average_data(data_dict):
     
     avrg_data = np.zeros((12,24))
@@ -267,7 +265,6 @@ def get_monthly_average_data(data_dict):
             avrg_data[month-1, j] += data_dict[key_list[i]][j] / days_per_month[month-1]    
     
     return avrg_data
-
 
 def get_month_from_dict_key(dict_key):
     month = int(dict_key[5:7])
