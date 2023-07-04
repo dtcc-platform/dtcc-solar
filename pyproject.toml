@@ -2,7 +2,10 @@
 name = "dtcc-solar"
 version = "0.1.0"
 description = "Solar analysis for the DTCC project"
-authors = ["Jens Olsson <jens.olsson@chalmersindustriteknik.se>"]
+authors = [ "Jens Olsson <jens.olsson@chalmersindustriteknik.se>",  
+            "Dag Wästberg <dwastberg@gmail.com>",
+            "Vasilis Naserentin <vasilis.naserentin@chalmers.se>",
+            "Anders Logg <logg@chalmers.se>"]
 readme = "README.md"
 
 packages = [{include = "dtcc_solar", from = "src"}]
