@@ -267,4 +267,3 @@ def get_index_of_closest_point(point, array_of_points):
 
     return index        
 
-

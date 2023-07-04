@@ -4,7 +4,7 @@ import os
 
 os.system('clear')
 
-path = "data/"
+path = "data/models/"
 fileNames = ['City.stl', 'City66k.stl', 'CitySurface.vtu', 'CitySurface626k.stl', 'City136kSoft.stl', 'CitySurface_S.stl', 'CitySurface_XS.stl', 'CitySurface69k.stl']
 fileName = path + fileNames[7]
 mesh = trimesh.load_mesh(fileName)

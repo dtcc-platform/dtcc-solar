@@ -192,7 +192,7 @@ if __name__ == "__main__":
               '--w_file', weather_file_clm,
               '--colorby', '7']   
 
-    run_script(args_6)
+    run_script(args_1)
 
 
 

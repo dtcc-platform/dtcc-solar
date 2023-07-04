@@ -1,30 +1,43 @@
-[tool.poetry]
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+dependencies = [
+  "trimesh >= 3.18.0",
+  "ncollpyde >= 0.19.0",
+  "numpy >= 1.24.1",
+  "pandas >= 1.5.2",
+  "argparse >= 1.4.0",
+  "pvlib >= 0.9.4",
+  "pyglet >= 1.5.27",
+  "pytest >= 7.2.0",
+  "shapely >= 2.0.1",
+  "timezonefinder >= 6.1.10",
+  "requests >= 2.28.2",
+  "matplotlib >= 3.6.2",
+]
+
 name = "dtcc-solar"
 version = "0.1.0"
-description = "Solar analysis for the DTCC project"
-authors = [ "Jens Olsson <jens.olsson@chalmersindustriteknik.se>",  
-            "Dag Wästberg <dwastberg@gmail.com>",
-            "Vasilis Naserentin <vasilis.naserentin@chalmers.se>",
-            "Anders Logg <logg@chalmers.se>"]
+description = "DTCC SOLAR"
 readme = "README.md"
+authors = [
+  { name = "Jens Olsson", email = "jens.olsson@chalmersindustriteknik.se" },  
+  { name = "Dag Wästberg", email = "dwastberg@gmail.com" },
+  { name = "Vasilis Naserentin", email = "vasilis.naserentin@chalmers.se" },
+  { name = "Anders Logg", email = "logg@chalmers.se" },
+]
+requires-python = ">=3.8"
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+]
 
-packages = [{include = "dtcc_solar", from = "src"}]
+[project.optional-dependencies]
+test = ["pytest"]
 
-[tool.poetry.dependencies]
-python = "^3.8"
-trimesh = "^3.18.0"
-ncollpyde = "^0.19.0"
-numpy = "^1.24.1"
-pandas = "^1.5.2"
-argparse = "^1.4.0"
-pvlib = "^0.9.4"
-pyglet = "^1.5.27"
-pytest = "^7.2.0"
-shapely = "^2.0.1"
-timezonefinder = "^6.1.10"
-requests = "^2.28.2"
-matplotlib = "^3.6.2"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.cibuildwheel]
+test-command = "pytest {project}/tests"
+build-verbosity = 1

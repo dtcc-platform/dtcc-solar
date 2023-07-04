@@ -16,7 +16,7 @@ from dtcc_solar import weather_data
 
 from pvlib import solarposition
 from typing import List, Dict, Any
-from timezonefinder import TimezoneFinder
+#from timezonefinder import TimezoneFinder
 
 
 from pprint import pp
@@ -385,7 +385,7 @@ class SunpathUtils():
 
     @staticmethod
     def get_timezone_from_long_lat(lat, long):
-        tf = TimezoneFinder() 
+        tf = 0 #= TimezoneFinder() 
         timezone_str = tf.timezone_at(lng=long, lat=lat)
         print(timezone_str)
 

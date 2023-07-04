@@ -99,7 +99,6 @@ def post_process_v(meshTri, seg_idxs):
 
     return face_shading, vertex_in_sun, face_in_sun
 
-
 def raytrace_skydome(volume:Volume, ray_targets, ray_areas):
 
     city_mesh_faces = volume.faces
@@ -142,46 +141,3 @@ def raytrace_skydome(volume:Volume, ray_targets, ray_areas):
 
     return sky_portion
 
-def raytrace_skydome_debug(volume:Volume, ray_targets, face_indices):
-
-    city_mesh_faces = volume.faces
-    city_mesh_points = volume.points
-
-    tol = 0.01
-    ray_scale_factor = 1000.0    
-    ray_count = len(ray_targets)
-    all_seg_idxs = dict.fromkeys([i for i in range(0,len(face_indices))])
-    all_face_mid_pts = np.zeros((len(face_indices),3))
-    ray_targets_scaled = ray_scale_factor * ray_targets
-
-    for i in range(0, len(face_indices)):
-        index = face_indices[i]
-
-        faceVertexIndex1 = city_mesh_faces[index,0]
-        faceVertexIndex2 = city_mesh_faces[index,1]
-        faceVertexIndex3 = city_mesh_faces[index,2] 
-    
-        vertex1 = city_mesh_points[faceVertexIndex1]
-        vertex2 = city_mesh_points[faceVertexIndex2]
-        vertex3 = city_mesh_points[faceVertexIndex3]
-
-        vector1 = vertex2 - vertex1
-        vector2 = vertex3 - vertex1
-
-        vector_cross = np.cross(vector1, vector2)
-        vector_length = np.sqrt((vector_cross ** 2).sum(-1))[..., np.newaxis]
-        normal = vector_cross / vector_length   
-
-        face_mid_pt = (vertex1 + vertex2 + vertex3)/3.0
-        pt_ray_origin = face_mid_pt + (normal * tol)
-
-        ray_o = np.array([pt_ray_origin]) 
-        ray_o_repeat = np.repeat(ray_o, ray_count, axis = 0)
-        ray_t = ray_o_repeat + ray_targets_scaled
-
-        [seg_idxs, intersections, is_backface] = volume.intersections(ray_o_repeat, ray_t)
-
-        all_seg_idxs[i] = seg_idxs
-        all_face_mid_pts[i,:] = face_mid_pt
-
-    return all_seg_idxs, all_face_mid_pts

@@ -19,7 +19,6 @@ class TestOpenMeteoApi:
         self.w_file_epw = "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
         self.file_name = '../data/models/CitySurfaceS.stl'
 
-
     def test_weather_data(self):
 
         start_date = "2019-01-01 00:00:00"
