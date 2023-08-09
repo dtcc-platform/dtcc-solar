@@ -88,7 +88,7 @@ def run_script(command_line_args):
     solar_engine = SolarEngine(city_mesh)
     sunpath = Sunpath(p.latitude, p.longitude, solar_engine.sunpath_radius)
     suns = sunpath.create_suns(p)
-    results = Results(suns, solar_engine.f_count) 
+    results = Results(suns, len(city_mesh.faces)) 
 
     #Execute analysis        
     if  (p.a_type == AnalysisType.sun_raycasting):    
@@ -108,6 +108,7 @@ def run_script(command_line_args):
         viewer = Viewer()
         colors = Colors()
 
+        # Create sunpath so that the solar postion are given a context in the 3D visualisation
         sunpath_mesh = SunpathMesh(solar_engine.sunpath_radius)
         sunpath_mesh.create_sunpath_diagram(suns, sunpath, solar_engine, colors)
         

@@ -4,11 +4,11 @@ import dtcc_solar.mesh_compute as mc
 from dtcc_solar import utils
 from dtcc_solar.utils import ColorBy, AnalysisType, Output
 from typing import List, Dict
+from pyglet.window import mouse
 
 class Viewer:
 
     def __init__(self):
-        
         self.scene = trimesh.Scene()
         self.scene.camera._fov = [35,35]     #Field of view [x, y]
         self.scene.camera.z_far = 10000      #Distance to the far clipping plane        
@@ -17,7 +17,7 @@ class Viewer:
         self.scene.add_geometry(meshes)       
 
     def show(self):
-        self.scene.show()               
+        self.scene.show()
 
 
 class Colors:
@@ -74,14 +74,6 @@ class Colors:
         for i in range(0, len(values)):
             fColor = self.get_blended_color_mono(max_value, values[i]) 
             colors.append(fColor)
-
-    # Color mesh for domes that can be used for debugging
-    def color_dome(self, values, faceColors):    
-        max_value = np.max(values)
-        min_value = np.min(values)
-        for i in range(0, len(values)):
-            fColor = self.get_blended_color(min_value, max_value, values[i])
-            faceColors.append(fColor)
 
     def get_blended_color(self, min, max, value):
         diff = max - min
