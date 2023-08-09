@@ -9,7 +9,7 @@ import sys
 from dtcc_solar import utils
 from dtcc_solar import data_io 
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.sunpath import SunpathMesh
+from dtcc_solar.sunpath_vis import SunpathMesh
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.utils import ColorBy, AnalysisType, Parameters, DataSource
 from dtcc_solar.solar_engine import SolarEngine

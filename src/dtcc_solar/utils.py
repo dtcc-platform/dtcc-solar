@@ -1,6 +1,5 @@
 import numpy as np
 import math
-from pvlib import solarposition
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
