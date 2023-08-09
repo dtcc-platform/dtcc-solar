@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+
+'''
+
+import trimesh
 import glooey
 import pyglet
 
@@ -21,6 +25,14 @@ class WesnothButton(glooey.Button):
     class Down(glooey.Image):
         custom_image = pyglet.resource.image('down.png')
 
+
+default_path = '/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceL.stl'
+mesh = trimesh.load_mesh(default_path)
+
+scene = trimesh.Scene()
+scene.camera.z_far = 10000
+scene.add_geometry(mesh)       
+scene.show()
 
 window = pyglet.window.Window(1600, 1000)
 gui = glooey.Gui(window)
@@ -69,3 +81,4 @@ gui.add(grid)
 
 
 pyglet.app.run()
+'''

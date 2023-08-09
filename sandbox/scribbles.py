@@ -74,8 +74,6 @@ x = arr1D[0:len(arr1D):3]
 print(x)
 
 
-
-
 a = np.zeros(12, dtype=bool)
 
 print(a)

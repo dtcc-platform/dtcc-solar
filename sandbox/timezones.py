@@ -15,7 +15,7 @@ from tzwhere import tzwhere
 from timezonefinder import TimezoneFinder
 import datetime
 import shapely
-from dtcc_solar import sun_utils
+from dtcc_solar.sunpath import SunpathUtils
 
 
 def initialise_plot(r):
@@ -131,9 +131,9 @@ def get_sunpath_hour_loops(year, sample_rate , plot_results, plot_night, radius,
         y[h] = radius * np.cos(mat_elev_hour[h, :]) * np.sin(-mat_azim_hour[h, :])
         z[h] = radius * np.sin(mat_elev_hour[h, :])
         print("Hour: " + str(h))
-        local_h = sun_utils.convert_utc_to_local_time(h, location['GMT_diff'])
+        local_h = SunpathUtils.convert_utc_to_local_time(h, location['GMT_diff'])
         print("Local Hour: " + str(local_h))
-        utc_h = sun_utils.convert_local_time_to_utc(local_h, location['GMT_diff'])
+        utc_h = SunpathUtils.convert_local_time_to_utc(local_h, location['GMT_diff'])
         print("UTC Hour: " + str(utc_h))
         sun_pos[h] = utils.create_list_of_vectors(x[h], y[h], z[h])
         
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         "Istanbul"   :{ "lat": 41.01, "lon": 28.97,   "tz": 'Asia/Istanbul',    "GMT_diff":  3, "cmap": 'autumn_r' }           
     }
 
-    sun_utils.get_timezone_from_long_lat(location["NYC"]["lat"], location["NYC"]["lon"])
+    SunpathUtils.get_timezone_from_long_lat(location["NYC"]["lat"], location["NYC"]["lon"])
 
     radius = 1.0
     horizon_z = 0.0
