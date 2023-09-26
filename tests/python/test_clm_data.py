@@ -5,7 +5,7 @@ from dtcc_solar import clm_data
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import AnalysisType, Parameters
-from dtcc_solar import weather_data as wd
+from dtcc_solar import weather_data as weather
 from dtcc_solar import utils
 
 

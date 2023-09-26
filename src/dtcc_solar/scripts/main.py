@@ -7,19 +7,22 @@ import argparse
 import sys
 
 from dtcc_solar import data_io
-from dtcc_solar.sunpath import Sunpath
+from dtcc_solar.sunpath import Sunpath, Sun
 from dtcc_solar.sunpath_vis import SunpathMesh
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.utils import ColorBy, AnalysisType, Parameters, DataSource
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.results import Results
-from dtcc_solar import weather_data as wd
+from dtcc_solar import weather_data as weather
 from dtcc_solar.viewer import Colors
 
 import dtcc_solar.smhi_data as smhi
 import dtcc_solar.meteo_data as meteo
 import dtcc_solar.epw_data as epw
 import dtcc_solar.clm_data as clm
+
+
+from pprint import pp
 
 
 def register_args(args):
@@ -159,9 +162,9 @@ def run_script(command_line_args):
     print("-------- Solar Analysis Started -------")
 
     args = register_args(command_line_args)
-    print(command_line_args)
 
     # Convert command line input to enums and data formated for the analysis
+
     p = Parameters(
         args.analysis,
         args.inputfile,
@@ -183,6 +186,7 @@ def run_script(command_line_args):
     solar_engine = SolarEngine(city_mesh)
     sunpath = Sunpath(p.latitude, p.longitude, solar_engine.sunpath_radius)
     suns = sunpath.create_suns(p)
+    suns = weather.append_weather_data(p, suns)
     results = Results(suns, len(city_mesh.faces))
 
     # Execute analysis
@@ -343,4 +347,4 @@ if __name__ == "__main__":
         "7",
     ]
 
-    run_script(args_1)
+    run_script(args_6)

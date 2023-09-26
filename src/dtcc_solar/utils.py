@@ -153,10 +153,11 @@ class Parameters_dc:
     prepare_display: bool = False
     display: bool = False
     data_source: DataSource = DataSource.clm
-    color_by: ColorBy = ColorBy.face_irradiance_dn
+    color_by: ColorBy = ColorBy.face_sun_angle_shadows
     export: bool = False
     start_date: str = "2019-06-03 07:00:00"
     end_date: str = "2019-06-03 21:00:00"
+    discretisation: str = "1H"
 
 
 def convert_vec3_to_ndarray(vec: Vec3):

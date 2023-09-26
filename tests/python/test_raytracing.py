@@ -12,7 +12,7 @@ from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
 import dtcc_solar.meteo_data as meteo
-from dtcc_solar import weather_data as wd
+from dtcc_solar import weather_data as weather
 
 from typing import List, Any
 from pprint import pp
@@ -160,6 +160,7 @@ class TestRaytracing:
         )
 
         self.suns = self.sunpath.create_suns(p)
+        self.suns = weather.append_weather_data(p, self.suns)
 
         self.results = Results(self.suns, self.solar_engine.f_count)
         self.solar_engine.sky_raycasting(self.suns, self.results)

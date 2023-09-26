@@ -3,16 +3,14 @@ import pandas as pd
 import numpy as np
 from pandas import Timestamp
 from pprint import pp
-from dtcc_solar import data_io
 from dtcc_solar import utils
 from dtcc_solar.utils import Sun
-from typing import List, Dict
 
 
 # This function reads a *.epw weather file, which contains recorde data for a full year which has been
 # compiled by combining data from different months for the years inbetween 2007 and 2021. The time span
 # defined in by arguments if then used to obain a sub set of the data for analysis.
-def import_weather_data(suns: List[Sun], weather_file: str):
+def import_weather_data(suns: list[Sun], weather_file: str):
     name_parts = weather_file.split(".")
     if name_parts[-1] != "epw":
         print(
@@ -66,7 +64,7 @@ def import_weather_data(suns: List[Sun], weather_file: str):
     return suns
 
 
-def date_match(api_date, sun_date):
+def date_match(api_date: str, sun_date: str):
     api_day = api_date[0:10]
     sun_day = sun_date[0:10]
     api_time = api_date[11:19]
@@ -78,7 +76,7 @@ def date_match(api_date, sun_date):
 
 # The data in epw files are structured such that time 00:00:00 for a tuesday is called 24:00:00 on the monday instead.
 # This function reorganises the data to follow the 00:00:00 standard instead.
-def restructure_time(year_dates):
+def restructure_time(year_dates: str):
     new_years_dict_key = np.repeat("0000-00-00 00:00:00", len(year_dates))
     counter = 0
     for key in year_dates:
@@ -98,7 +96,7 @@ def restructure_time(year_dates):
     return new_years_dict_key
 
 
-def increment_date(year, month, day):
+def increment_date(year: int, month: int, day: int):
     # Last day of the year.
     if month == 12 and day == 31:
         t = pd.to_datetime(str(year) + "-" + "01" + "-" + "01")
@@ -144,23 +142,3 @@ def make_double_digit_str(s: str):
     if len(s) == 1:
         s = "0" + s
     return s
-
-
-if __name__ == "__main__":
-    os.system("clear")
-    print(
-        "--------------------- Running main function for EPW data import -----------------------"
-    )
-
-    time_from_str = "2019-03-01 12:00:00"
-    time_to_str = "2019-03-03 14:00:00"
-    time_from = pd.to_datetime(time_from_str)
-    time_to = pd.to_datetime(time_to_str)
-
-    # Run from the location of the file
-    weather_file = "../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
-
-    suns = utils.create_sun_timestamps(time_from_str, time_to_str)
-    suns = import_weather_data(suns, weather_file)
-
-    pp(suns)

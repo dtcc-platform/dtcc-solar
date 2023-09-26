@@ -1,16 +1,12 @@
 import requests
-import os
-import time
 import pandas as pd
 import numpy as np
 from pandas import Timestamp
 from pprint import pp
-from dtcc_solar import utils
-from typing import Dict, List
 from dtcc_solar.utils import Sun
 
 
-def get_data_from_api_call(lon: float, lat: float, suns: List[Sun]):
+def get_data_from_api_call(lon: float, lat: float, suns: list[Sun]):
     date_from_str = timestamp_str(suns[0].datetime_ts)
     date_to_str = timestamp_str(suns[-1].datetime_ts)
 
@@ -94,7 +90,7 @@ def date_match(api_date, sun_date):
 # The dict key format is (without blank spaces):
 # Year - Month - Day T hour : minute : second
 # Example 2018-03-23T12:00:00
-def format_api_dates(dict_keys: List[str]):
+def format_api_dates(dict_keys: list[str]):
     for i in range(len(dict_keys)):
         dict_keys[i] += ":00"
     return dict_keys
@@ -111,23 +107,3 @@ def timestamp_str(ts: Timestamp):
     date_time_str = str(ts).split(" ")
     date_str = date_time_str[0]
     return date_str
-
-
-if __name__ == "__main__":
-    os.system("clear")
-    print(
-        "------------------ Running main function for Open Meteo data import -------------------"
-    )
-
-    time_from_str = "2020-03-22 10:00:00"
-    time_to_str = "2020-03-23 12:00:00"
-    time_from = pd.to_datetime(time_from_str)
-    time_to = pd.to_datetime(time_to_str)
-
-    lon = 16.158
-    lat = 58.5812
-
-    suns = utils.create_sun_timestamps(time_from_str, time_to_str)
-    suns = get_data_from_api_call(lon, lat, suns)
-
-    pp(suns)

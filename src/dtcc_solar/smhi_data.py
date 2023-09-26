@@ -9,10 +9,9 @@ from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
 from dtcc_solar import utils
 from dtcc_solar.utils import Sun
-from typing import List, Dict
 
 
-def get_data_from_api_call(lon: float, lat: float, suns: List[Sun]):
+def get_data_from_api_call(lon: float, lat: float, suns: list[Sun]):
     [lon, lat] = check_geo_data(lon, lat)
     strong_data_path = "https://opendata-download-metanalys.smhi.se/api/category/strang1g/version/1/geotype/point/"
     point_data_path_ni = (
@@ -185,23 +184,3 @@ def get_shmi_stations_from_api():
         )
 
     return None
-
-
-if __name__ == "__main__":
-    os.system("clear")
-    print(
-        "------------------ Running main function for SMHI API data import -------------------"
-    )
-
-    time_from_str = "2020-03-22"
-    time_to_str = "2020-04-01"
-    time_from = pd.to_datetime(time_from_str)
-    time_to = pd.to_datetime(time_to_str)
-
-    suns = utils.create_sun_timestamps(time_from_str, time_to_str)
-
-    lon = 16.158
-    lat = 58.5812
-    suns = get_data_from_api_call(lon, lat, suns)
-
-    pp(suns)

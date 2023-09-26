@@ -6,7 +6,7 @@ from pprint import pp
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import AnalysisType, Parameters, Sun
 from typing import List, Dict, Any
-from dtcc_solar import weather_data as wd
+from dtcc_solar import weather_data as weather
 
 
 class TestWeatherDataComparison:
@@ -88,9 +88,13 @@ class TestWeatherDataComparison:
         )
 
         suns_smhi = sunpath.create_suns(p_smhi)
+        suns_smhi = weather.append_weather_data(p_smhi, suns_smhi)
         suns_meteo = sunpath.create_suns(p_meteo)
+        suns_meteo = weather.append_weather_data(p_meteo, suns_meteo)
         suns_clm = sunpath.create_suns(p_clm)
+        suns_clm = weather.append_weather_data(p_clm, suns_clm)
         suns_epw = sunpath.create_suns(p_epw)
+        suns_epw = weather.append_weather_data(p_epw, suns_epw)
 
         if (
             len(suns_smhi) != len(suns_meteo)
@@ -176,9 +180,13 @@ class TestWeatherDataComparison:
         )
 
         suns_smhi = sunpath.create_suns(p_smhi)
+        suns_smhi = weather.append_weather_data(p_smhi, suns_smhi)
         suns_meteo = sunpath.create_suns(p_meteo)
+        suns_meteo = weather.append_weather_data(p_meteo, suns_meteo)
         suns_clm = sunpath.create_suns(p_clm)
+        suns_clm = weather.append_weather_data(p_clm, suns_clm)
         suns_epw = sunpath.create_suns(p_epw)
+        suns_epw = weather.append_weather_data(p_epw, suns_epw)
 
         [w_data_normal_smhi, w_data_horizontal_smhi] = format_data_per_day_suns(
             suns_smhi
@@ -319,9 +327,13 @@ class TestWeatherDataComparison:
         )
 
         suns_smhi = sunpath.create_suns(p_smhi)
+        suns_smhi = weather.append_weather_data(p_smhi, suns_smhi)
         suns_meteo = sunpath.create_suns(p_meteo)
+        suns_meteo = weather.append_weather_data(p_meteo, suns_meteo)
         suns_clm = sunpath.create_suns(p_clm)
+        suns_clm = weather.append_weather_data(p_clm, suns_clm)
         suns_epw = sunpath.create_suns(p_epw)
+        suns_epw = weather.append_weather_data(p_epw, suns_epw)
 
         [w_data_normal_smhi, w_data_horizontal_smhi] = format_data_per_day_suns(
             suns_smhi

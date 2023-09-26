@@ -4,18 +4,13 @@ import pytz
 import datetime
 import numpy as np
 import pandas as pd
-
 from dtcc_solar import utils
 from dtcc_solar.utils import Vec3, Sun
 from dtcc_solar.utils import Parameters
-from dtcc_solar import weather_data
-
 from pvlib import solarposition
 from typing import List, Dict, Any
 
 # from timezonefinder import TimezoneFinder
-
-
 from pprint import pp
 
 
@@ -202,7 +197,6 @@ class Sunpath:
 
     def create_suns(self, p: Parameters):
         suns = self.create_sun_timestamps(p.start_date, p.end_date)
-        suns = weather_data.get_data(p, suns)
         suns = self.get_suns_positions(suns)
         return suns
 
