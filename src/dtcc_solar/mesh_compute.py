@@ -4,14 +4,18 @@ import copy
 
 from dtcc_solar import utils
 
+
 def compute_irradiance(face_in_sun, face_angles, f_count, flux):
     irradiance = np.zeros(f_count)
-    for i in range(0,f_count):
-        angle_fraction = face_angles[i] / np.pi         #1 if the angle is pi, which is = 180 degrees. 
+    for i in range(0, f_count):
+        angle_fraction = (
+            face_angles[i] / np.pi
+        )  # 1 if the angle is pi, which is = 180 degrees.
         face_in_sun_int = float(face_in_sun[i])
         irradiance[i] = flux * face_in_sun_int * angle_fraction
-    
-    return irradiance    
+
+    return irradiance
+
 
 def face_sun_angle(mesh, sunVec):
     face_sun_angles = np.zeros(len(mesh.faces))
@@ -19,25 +23,27 @@ def face_sun_angle(mesh, sunVec):
     mesh_face_normals = list(mesh.face_normals)
     for i in range(0, len(mesh_faces)):
         face_normal = mesh_face_normals[i]
-        face_sun_angle = 0.0  
+        face_sun_angle = 0.0
         face_sun_angle = utils.vector_angle(sunVec, face_normal)
-        face_sun_angles[i] = face_sun_angle 
-        
-    return face_sun_angles      
+        face_sun_angles[i] = face_sun_angle
+
+    return face_sun_angles
+
 
 def find_shadow_border_faces_rayV(mesh, faceShading):
-    borderFaceMask = np.ones(len(mesh.faces), dtype = bool)
+    borderFaceMask = np.ones(len(mesh.faces), dtype=bool)
     faces = list(mesh.faces)
     for i in range(len(faces)):
-        if faceShading[i] < 3 and faceShading[i] > 0 :
+        if faceShading[i] < 3 and faceShading[i] > 0:
             borderFaceMask[i] = False
-    
-    return borderFaceMask      
+
+    return borderFaceMask
+
 
 def split_mesh(mesh, borderFaceMask, faceShading, face_in_sun):
-    #Reversed face mask booleans 
+    # Reversed face mask booleans
     borderFaceMask_not = [not elem for elem in borderFaceMask]
-    
+
     meshNormal = copy.deepcopy(mesh)
     meshNormal.update_faces(borderFaceMask)
     meshNormal.remove_unreferenced_vertices()
@@ -49,11 +55,19 @@ def split_mesh(mesh, borderFaceMask, faceShading, face_in_sun):
     meshborder.update_faces(borderFaceMask_not)
     meshborder.remove_unreferenced_vertices()
     return [meshNormal, meshborder, face_shading_normal, face_in_sun_normal]
-    
+
+
 def subdivide_border(meshBorder, maxEdgeLength, maxIter):
-    [vs, fs] = trimesh.remesh.subdivide_to_size(meshBorder.vertices, meshBorder.faces, max_edge = maxEdgeLength, max_iter = maxIter, return_index = False)
+    [vs, fs] = trimesh.remesh.subdivide_to_size(
+        meshBorder.vertices,
+        meshBorder.faces,
+        max_edge=maxEdgeLength,
+        max_iter=maxIter,
+        return_index=False,
+    )
     meshBorderSD = trimesh.Trimesh(vs, fs)
     return meshBorderSD
+
 
 def calculate_average_edge_length(mesh):
     edges = mesh.edges_unique

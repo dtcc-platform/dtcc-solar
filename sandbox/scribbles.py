@@ -390,3 +390,45 @@ def _calc_n_sides(n_points:int):
 n_sides = _calc_n_sides(16000000)
 
 print(n_sides)
+
+c = np.array([[0,0,0]])
+
+a = np.array([[1,2,3], [3,2,1]])
+b = np.array([[6,5,4], [4,5,6]])
+
+c = np.concatenate((c,a),axis = 0)
+c = np.concatenate((c,b),axis = 0)
+
+print(c)
+
+c = np.delete(c, obj=0, axis = 0)
+
+print(c)
+
+print("testing")
+
+a = np.array([1,2,3,4,3,3,2,3,4,5,3,43,54,3,3,4])
+
+a = np.array([[1,2,3],[4,3,3],[2,3,4],[5,3,43],[54,3,3]])
+
+pp(a)
+
+print(a[:,0])
+
+b = np.where(a[:,0] > 2)
+
+print(b)
+
+print(a[b])
+
+
+a = 150000
+b = 300000
+
+c = range(a,b,12)
+
+
+
+print(c)
+
+

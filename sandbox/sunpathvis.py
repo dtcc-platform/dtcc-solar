@@ -18,12 +18,12 @@ from typing import Dict, List
 from shapely import LinearRing, Point
 from csv import reader
 
-class TestSunpath:
+class SunpathVisualTest:
 
     locations: Dict
     plot: bool
 
-    def setup_method(self):
+    def setup(self):
         
         # Locations with predefined sunpath diagrams that have been generated using ladybug and the same settings as specified below.
         self.locations = {
@@ -41,7 +41,7 @@ class TestSunpath:
 
         self.plot = True
 
-    def test_sunpaths(self):
+    def sunpaths_testing(self):
         self.calc_sunpath_deviation(self.locations["London"], self.plot)
         self.calc_sunpath_deviation(self.locations["Gothenburg"], self.plot)
         self.calc_sunpath_deviation(self.locations["Stockholm"], self.plot)
@@ -253,9 +253,9 @@ if __name__ == "__main__":
 
     print("--------------------- Sunpath test started -----------------------")
 
-    test = TestSunpath()
-    test.setup_method()
-    test.test_sunpaths()
+    test = SunpathVisualTest()
+    test.setup()
+    test.sunpaths_testing()
 
 
 
