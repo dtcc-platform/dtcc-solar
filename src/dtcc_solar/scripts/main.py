@@ -38,7 +38,7 @@ def register_args(args):
         "--analysis",
         type=int,
         metavar="",
-        default=1,
+        default=AnalysisType.sun_raycasting,
         help=" sun_raycasting = 1, sky_raycasting = 2, com_raycasting = 3, dome_raycasting = 4",
     )
     parser.add_argument(
@@ -102,7 +102,7 @@ def register_args(args):
         "--data_source",
         type=int,
         metavar="",
-        default=3,
+        default=DataSource.clm,
         help="Enum for data source. 1 = SMHI, 2 = Open Meteo, 3 = Clm file, 4 = Epw file",
     )
     parser.add_argument(
@@ -110,7 +110,7 @@ def register_args(args):
         "--colorby",
         type=int,
         metavar="",
-        default=2,
+        default=ColorBy.face_sun_angle_shadows,
         help="Colo_by: face_sun_angle =1, face_sun_angle_shadows = 2, shadows = 3 , irradiance_direct_normal = 4, irradiance_direct_horizontal = 5, irradiance_diffuse = 6, irradiance_all = 6",
     )
     parser.add_argument(
@@ -166,8 +166,9 @@ def run_script(command_line_args):
     # Convert command line input to enums and data formated for the analysis
 
     p = Parameters(
-        args.analysis,
         args.inputfile,
+        args.w_file,
+        args.analysis,
         args.latitude,
         args.longitude,
         args.prep_disp,
@@ -177,7 +178,6 @@ def run_script(command_line_args):
         args.export,
         args.start_date,
         args.end_date,
-        args.w_file,
     )
 
     print_args(args)

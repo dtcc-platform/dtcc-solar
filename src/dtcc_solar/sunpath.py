@@ -120,6 +120,7 @@ class Sunpath:
 
         return x, y, z
 
+    """
     def get_single_sun(self, date: pd.DatetimeIndex):
         sun_pos = np.zeros(3)
         sun_pos_day = solarposition.get_solarposition(date, self.lat, self.lon)
@@ -144,6 +145,7 @@ class Sunpath:
         sun_positions = np.c_[x, y, z]
 
         return sun_positions
+    """
 
     def get_suns_positions(self, suns: List[Sun]):
         date_from_str = suns[0].datetime_str

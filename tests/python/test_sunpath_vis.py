@@ -41,15 +41,18 @@ class TestSunpathVisual:
         plt.show()
         pass
 
+    """
     def test_single_sun_pos(self):
         time = pd.to_datetime(["2019-05-30 12:20:00"])
         ax = self.sunvis.initialise_plot(self.radius, "Single sun")
-        sun_pos = self.sunpath.get_single_sun(time)
+        self.sunpath.create_suns(p)
+        sun_pos = self.sunpath.get_suns_positions()
         self.sunvis.plot_single_sun(
             sun_pos[0][0], sun_pos[0][1], sun_pos[0][2], self.radius, ax
         )
         plt.show()
         pass
+
 
     def test_multiple_sun_pos(self):
         dates = pd.to_datetime(
@@ -60,6 +63,7 @@ class TestSunpathVisual:
         self.sunvis.plot_multiple_suns(sun_positions, self.radius, ax, True)
         plt.show()
         pass
+    """
 
 
 if __name__ == "__main__":

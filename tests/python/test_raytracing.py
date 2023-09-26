@@ -7,7 +7,7 @@ import math
 from dtcc_solar import utils
 from dtcc_solar import data_io
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, Parameters
+from dtcc_solar.utils import AnalysisType, Parameters, DataSource
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
@@ -44,8 +44,9 @@ class TestRaytracing:
         end_date = "2019-06-01 12:00:00"
         a_type = AnalysisType.sun_raycasting
         p = Parameters(
-            a_type,
             self.file_name,
+            self.w_file,
+            a_type,
             self.lat,
             self.lon,
             0,
@@ -55,7 +56,6 @@ class TestRaytracing:
             False,
             start_date,
             end_date,
-            self.w_file,
         )
 
         self.suns = self.sunpath.create_suns(p)
@@ -77,8 +77,9 @@ class TestRaytracing:
         end_date = "2019-06-01 15:00:00"
         a_type = AnalysisType.sun_raycasting
         p = Parameters(
-            a_type,
             self.file_name,
+            self.w_file,
+            a_type,
             self.lat,
             self.lon,
             0,
@@ -88,7 +89,6 @@ class TestRaytracing:
             False,
             start_date,
             end_date,
-            self.w_file,
         )
 
         self.suns = self.sunpath.create_suns(p)
@@ -114,8 +114,9 @@ class TestRaytracing:
         end_date = "2019-06-01 12:00:00"
         a_type = AnalysisType.sky_raycasting
         p = Parameters(
-            a_type,
             self.file_name,
+            self.w_file,
+            a_type,
             self.lat,
             self.lon,
             0,
@@ -125,7 +126,6 @@ class TestRaytracing:
             False,
             start_date,
             end_date,
-            self.w_file,
         )
 
         self.suns = self.sunpath.create_suns(p)
@@ -145,18 +145,18 @@ class TestRaytracing:
         end_date = "2019-06-01 15:00:00"
         a_type = AnalysisType.sun_raycasting
         p = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            3,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file,
+            file_name=self.file_name,
+            weather_file=self.w_file,
+            a_type=a_type,
+            latitude=self.lat,
+            longitude=self.lon,
+            prepare_display=False,
+            display=False,
+            data_source=DataSource.clm,
+            color_by=1,
+            export=False,
+            start_date=start_date,
+            end_date=end_date,
         )
 
         self.suns = self.sunpath.create_suns(p)

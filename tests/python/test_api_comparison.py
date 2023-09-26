@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, Parameters, Sun
+from dtcc_solar.utils import AnalysisType, Parameters, Sun, DataSource
 from typing import List, Dict, Any
 from dtcc_solar import weather_data as weather
 
@@ -24,77 +24,89 @@ class TestWeatherDataComparison:
         )
         self.file_name = "../data/models/CitySurfaceS.stl"
 
+        start_date = "2019-01-01 00:00:00"
+        end_date = "2019-12-31 00:00:00"
+        self.sunpath = Sunpath(self.lat, self.lon, 1.0)
+        a_type = AnalysisType.sun_raycasting
+
+        self.p_smhi = Parameters(
+            file_name=self.file_name,
+            weather_file=self.w_file_clm,
+            a_type=a_type,
+            latitude=self.lat,
+            longitude=self.lon,
+            prepare_display=False,
+            display=False,
+            data_source=DataSource.smhi,
+            color_by=1,
+            export=False,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        self.p_meteo = Parameters(
+            file_name=self.file_name,
+            weather_file=self.w_file_clm,
+            a_type=a_type,
+            latitude=self.lat,
+            longitude=self.lon,
+            prepare_display=False,
+            display=False,
+            data_source=DataSource.meteo,
+            color_by=1,
+            export=False,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        self.p_clm = Parameters(
+            file_name=self.file_name,
+            weather_file=self.w_file_clm,
+            a_type=a_type,
+            latitude=self.lat,
+            longitude=self.lon,
+            prepare_display=False,
+            display=False,
+            data_source=DataSource.clm,
+            color_by=1,
+            export=False,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        self.p_epw = Parameters(
+            file_name=self.file_name,
+            weather_file=self.w_file_epw,
+            a_type=a_type,
+            latitude=self.lat,
+            longitude=self.lon,
+            prepare_display=False,
+            display=False,
+            data_source=DataSource.epw,
+            color_by=1,
+            export=False,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
     def test_compare_dict_keys(self):
         start_date = "2019-01-01 00:00:00"
         end_date = "2019-12-05 00:00:00"
-        sunpath = Sunpath(self.lat, self.lon, 1.0)
-        a_type = AnalysisType.sun_raycasting
 
-        p_smhi = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            1,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_clm,
-        )
-        p_meteo = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            2,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_clm,
-        )
-        p_clm = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            3,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_clm,
-        )
-        p_epw = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            4,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_epw,
-        )
+        self.p_smhi.start_date = start_date
+        self.p_smhi.end_date = end_date
+        self.p_meteo.start_date = start_date
+        self.p_meteo.end_date = end_date
+        self.p_clm.start_date = start_date
+        self.p_clm.end_date = end_date
+        self.p_epw.start_date = start_date
+        self.p_epw.end_date = end_date
 
-        suns_smhi = sunpath.create_suns(p_smhi)
-        suns_smhi = weather.append_weather_data(p_smhi, suns_smhi)
-        suns_meteo = sunpath.create_suns(p_meteo)
-        suns_meteo = weather.append_weather_data(p_meteo, suns_meteo)
-        suns_clm = sunpath.create_suns(p_clm)
-        suns_clm = weather.append_weather_data(p_clm, suns_clm)
-        suns_epw = sunpath.create_suns(p_epw)
-        suns_epw = weather.append_weather_data(p_epw, suns_epw)
+        suns_smhi = self.sunpath.create_suns(self.p_smhi)
+        suns_smhi = weather.append_weather_data(self.p_smhi, suns_smhi)
+        suns_meteo = self.sunpath.create_suns(self.p_meteo)
+        suns_meteo = weather.append_weather_data(self.p_meteo, suns_meteo)
+        suns_clm = self.sunpath.create_suns(self.p_clm)
+        suns_clm = weather.append_weather_data(self.p_clm, suns_clm)
+        suns_epw = self.sunpath.create_suns(self.p_epw)
+        suns_epw = weather.append_weather_data(self.p_epw, suns_epw)
 
         if (
             len(suns_smhi) != len(suns_meteo)
@@ -119,74 +131,24 @@ class TestWeatherDataComparison:
     def test_calculate_monthly_average_data(self):
         start_date = "2019-01-01 00:00:00"
         end_date = "2019-12-31 00:00:00"
-        sunpath = Sunpath(self.lat, self.lon, 1.0)
-        a_type = AnalysisType.sun_raycasting
 
-        p_smhi = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            1,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_clm,
-        )
-        p_meteo = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            2,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_clm,
-        )
-        p_clm = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            3,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_clm,
-        )
-        p_epw = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            4,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_epw,
-        )
+        self.p_smhi.start_date = start_date
+        self.p_smhi.end_date = end_date
+        self.p_meteo.start_date = start_date
+        self.p_meteo.end_date = end_date
+        self.p_clm.start_date = start_date
+        self.p_clm.end_date = end_date
+        self.p_epw.start_date = start_date
+        self.p_epw.end_date = end_date
 
-        suns_smhi = sunpath.create_suns(p_smhi)
-        suns_smhi = weather.append_weather_data(p_smhi, suns_smhi)
-        suns_meteo = sunpath.create_suns(p_meteo)
-        suns_meteo = weather.append_weather_data(p_meteo, suns_meteo)
-        suns_clm = sunpath.create_suns(p_clm)
-        suns_clm = weather.append_weather_data(p_clm, suns_clm)
-        suns_epw = sunpath.create_suns(p_epw)
-        suns_epw = weather.append_weather_data(p_epw, suns_epw)
+        suns_smhi = self.sunpath.create_suns(self.p_smhi)
+        suns_smhi = weather.append_weather_data(self.p_smhi, suns_smhi)
+        suns_meteo = self.sunpath.create_suns(self.p_meteo)
+        suns_meteo = weather.append_weather_data(self.p_meteo, suns_meteo)
+        suns_clm = self.sunpath.create_suns(self.p_clm)
+        suns_clm = weather.append_weather_data(self.p_clm, suns_clm)
+        suns_epw = self.sunpath.create_suns(self.p_epw)
+        suns_epw = weather.append_weather_data(self.p_epw, suns_epw)
 
         [w_data_normal_smhi, w_data_horizontal_smhi] = format_data_per_day_suns(
             suns_smhi
@@ -266,74 +228,24 @@ class TestWeatherDataComparison:
     def test_compare_weather_data(self):
         start_date = "2019-01-01 00:00:00"
         end_date = "2019-12-31 00:00:00"
-        sunpath = Sunpath(self.lat, self.lon, 500.0)
-        a_type = AnalysisType.sun_raycasting
 
-        p_smhi = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            1,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_clm,
-        )
-        p_meteo = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            2,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_clm,
-        )
-        p_clm = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            3,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_clm,
-        )
-        p_epw = Parameters(
-            a_type,
-            self.file_name,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            4,
-            1,
-            False,
-            start_date,
-            end_date,
-            self.w_file_epw,
-        )
+        self.p_smhi.start_date = start_date
+        self.p_smhi.end_date = end_date
+        self.p_meteo.start_date = start_date
+        self.p_meteo.end_date = end_date
+        self.p_clm.start_date = start_date
+        self.p_clm.end_date = end_date
+        self.p_epw.start_date = start_date
+        self.p_epw.end_date = end_date
 
-        suns_smhi = sunpath.create_suns(p_smhi)
-        suns_smhi = weather.append_weather_data(p_smhi, suns_smhi)
-        suns_meteo = sunpath.create_suns(p_meteo)
-        suns_meteo = weather.append_weather_data(p_meteo, suns_meteo)
-        suns_clm = sunpath.create_suns(p_clm)
-        suns_clm = weather.append_weather_data(p_clm, suns_clm)
-        suns_epw = sunpath.create_suns(p_epw)
-        suns_epw = weather.append_weather_data(p_epw, suns_epw)
+        suns_smhi = self.sunpath.create_suns(self.p_smhi)
+        suns_smhi = weather.append_weather_data(self.p_smhi, suns_smhi)
+        suns_meteo = self.sunpath.create_suns(self.p_meteo)
+        suns_meteo = weather.append_weather_data(self.p_meteo, suns_meteo)
+        suns_clm = self.sunpath.create_suns(self.p_clm)
+        suns_clm = weather.append_weather_data(self.p_clm, suns_clm)
+        suns_epw = self.sunpath.create_suns(self.p_epw)
+        suns_epw = weather.append_weather_data(self.p_epw, suns_epw)
 
         [w_data_normal_smhi, w_data_horizontal_smhi] = format_data_per_day_suns(
             suns_smhi

@@ -30,8 +30,9 @@ class TestOpenMeteoApi:
         a_type = AnalysisType.sun_raycasting
 
         p = Parameters(
-            a_type,
             self.file_name,
+            self.w_file_clm,
+            a_type,
             self.lat,
             self.lon,
             0,
@@ -41,7 +42,6 @@ class TestOpenMeteoApi:
             False,
             start_date,
             end_date,
-            self.w_file_clm,
         )
 
         suns = sunpath.create_suns(p)

@@ -31,8 +31,9 @@ class TestEpwData:
         a_type = AnalysisType.sun_raycasting
 
         p = Parameters(
-            a_type,
             self.file_name,
+            self.w_file_epw,
+            a_type,
             self.lat,
             self.lon,
             0,
@@ -42,7 +43,6 @@ class TestEpwData:
             False,
             start_date,
             end_date,
-            self.w_file_epw,
         )
 
         suns = sunpath.create_suns(p)

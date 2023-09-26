@@ -3,19 +3,19 @@ import math
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from enum import Enum
+from enum import Enum, IntEnum
 from dataclasses import dataclass
 from typing import List, Dict
 
 
-class DataSource(Enum):
+class DataSource(IntEnum):
     smhi = 1
     meteo = 2
     clm = 3
     epw = 4
 
 
-class ColorBy(Enum):
+class ColorBy(IntEnum):
     face_sun_angle = 1
     face_sun_angle_shadows = 2
     face_shadows = 3
@@ -25,19 +25,19 @@ class ColorBy(Enum):
     face_irradiance_tot = 7
 
 
-class Mode(Enum):
+class Mode(IntEnum):
     single_sun = 1
     multiple_sun = 2
 
 
-class AnalysisType(Enum):
+class AnalysisType(IntEnum):
     sun_raycasting = 1
     sky_raycasting = 2
     com_raycasting = 3
     sky_raycasting_some = 4  # Only for debugging.
 
 
-class AnalysisTypeDev(Enum):
+class AnalysisTypeDev(IntEnum):
     vertex_raycasting = 1
     subdee_shading = 2
     diffuse_dome = 3
@@ -112,11 +112,13 @@ class OutputAcum:
     face_irradiance_tot: List[float]
 
 
+"""
 class Parameters:
     def __init__(
         self,
+        file_name: str,
+        w_file: str,
         a_type: int,
-        fileName: str,
         lat: float,
         lon: float,
         prep_disp: int,
@@ -126,10 +128,10 @@ class Parameters:
         export: bool,
         s_date: str,
         e_date: str,
-        w_file: str,
     ):
+        self.file_name = file_name
+        self.weather_file = w_file
         self.a_type = AnalysisType(a_type)
-        self.file_name = fileName
         self.latitude = lat
         self.longitude = lon
         self.prepare_display = bool(prep_disp)
@@ -139,12 +141,11 @@ class Parameters:
         self.export = export
         self.start_date = s_date
         self.end_date = e_date
-        self.weather_file = w_file
-        self.discretisation = "1H"
+"""
 
 
 @dataclass
-class Parameters_dc:
+class Parameters:
     file_name: str
     weather_file: str
     a_type: AnalysisType = AnalysisType.sky_raycasting
@@ -157,7 +158,6 @@ class Parameters_dc:
     export: bool = False
     start_date: str = "2019-06-03 07:00:00"
     end_date: str = "2019-06-03 21:00:00"
-    discretisation: str = "1H"
 
 
 def convert_vec3_to_ndarray(vec: Vec3):

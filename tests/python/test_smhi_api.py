@@ -28,8 +28,9 @@ class TestSmhiApi:
         a_type = AnalysisType.sun_raycasting
 
         p = Parameters(
-            a_type,
             self.file_name,
+            self.w_file_clm,
+            a_type,
             self.lat,
             self.lon,
             0,
@@ -39,7 +40,6 @@ class TestSmhiApi:
             False,
             start_date,
             end_date,
-            self.w_file_clm,
         )
 
         suns = sunpath.create_suns(p)
@@ -68,8 +68,9 @@ class TestSmhiApi:
         a_type = AnalysisType.sun_raycasting
 
         p = Parameters(
-            a_type,
             self.file_name,
+            self.w_file_clm,
+            a_type,
             self.lat,
             self.lon,
             0,
@@ -79,7 +80,6 @@ class TestSmhiApi:
             False,
             start_date,
             end_date,
-            self.w_file_clm,
         )
 
         # Checking that 02:00:00 existing in the transion from winter to summer.
