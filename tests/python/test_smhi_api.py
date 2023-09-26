@@ -3,7 +3,7 @@ import pandas as pd
 from pprint import pp
 from dtcc_solar import smhi_data
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, Parameters
+from dtcc_solar.utils import AnalysisType, Parameters, DataSource, ColorBy
 
 
 class TestSmhiApi:
@@ -28,18 +28,18 @@ class TestSmhiApi:
         a_type = AnalysisType.sun_raycasting
 
         p = Parameters(
-            self.file_name,
-            self.w_file_clm,
-            a_type,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            1,
-            1,
-            False,
-            start_date,
-            end_date,
+            file_name=self.file_name,
+            weather_file=self.w_file_clm,
+            a_type=AnalysisType.sun_raycasting,
+            latitude=self.lat,
+            longitude=self.lon,
+            prepare_display=False,
+            display=False,
+            data_source=DataSource.smhi,
+            color_by=ColorBy.face_sun_angle,
+            export=False,
+            start_date=start_date,
+            end_date=end_date,
         )
 
         suns = sunpath.create_suns(p)
@@ -68,18 +68,15 @@ class TestSmhiApi:
         a_type = AnalysisType.sun_raycasting
 
         p = Parameters(
-            self.file_name,
-            self.w_file_clm,
-            a_type,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            1,
-            1,
-            False,
-            start_date,
-            end_date,
+            file_name=self.file_name,
+            weather_file=self.w_file_clm,
+            a_type=AnalysisType.sun_raycasting,
+            latitude=self.lat,
+            longitude=self.lon,
+            data_source=DataSource.smhi,
+            color_by=ColorBy.face_sun_angle,
+            start_date=start_date,
+            end_date=end_date,
         )
 
         # Checking that 02:00:00 existing in the transion from winter to summer.

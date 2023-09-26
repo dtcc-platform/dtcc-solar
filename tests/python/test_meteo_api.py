@@ -4,7 +4,7 @@ from dtcc_solar import smhi_data
 from dtcc_solar import meteo_data
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, Parameters
+from dtcc_solar.utils import AnalysisType, Parameters, DataSource, ColorBy
 import dtcc_solar.utils as utils
 
 
@@ -30,18 +30,15 @@ class TestOpenMeteoApi:
         a_type = AnalysisType.sun_raycasting
 
         p = Parameters(
-            self.file_name,
-            self.w_file_clm,
-            a_type,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            1,
-            1,
-            False,
-            start_date,
-            end_date,
+            file_name=self.file_name,
+            weather_file=self.w_file_clm,
+            a_type=AnalysisType.sun_raycasting,
+            latitude=self.lat,
+            longitude=self.lon,
+            data_source=DataSource.smhi,
+            color_by=ColorBy.face_sun_angle,
+            start_date=start_date,
+            end_date=end_date,
         )
 
         suns = sunpath.create_suns(p)

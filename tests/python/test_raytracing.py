@@ -39,26 +39,19 @@ class TestRaytracing:
         self.solar_engine = SolarEngine(self.city_mesh)
         self.sunpath = Sunpath(self.lat, self.lon, self.solar_engine.sunpath_radius)
 
-    def test_raytracing_sun_instant(self):
-        start_date = "2019-06-01 12:00:00"
-        end_date = "2019-06-01 12:00:00"
-        a_type = AnalysisType.sun_raycasting
-        p = Parameters(
-            self.file_name,
-            self.w_file,
-            a_type,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            3,
-            1,
-            False,
-            start_date,
-            end_date,
+        self.p = Parameters(
+            file_name=self.file_name,
+            weather_file=self.w_file,
+            latitude=self.lat,
+            longitude=self.lon,
         )
 
-        self.suns = self.sunpath.create_suns(p)
+    def test_raytracing_sun_instant(self):
+        self.p.a_type = AnalysisType.sun_raycasting
+        self.p.start_date = "2019-06-01 12:00:00"
+        self.p.end_date = "2019-06-01 12:00:00"
+
+        self.suns = self.sunpath.create_suns(self.p)
 
         self.results = Results(self.suns, self.solar_engine.f_count)
         self.solar_engine.sun_raycasting(self.suns, self.results)
@@ -73,25 +66,11 @@ class TestRaytracing:
         assert not is_error
 
     def test_raytracing_sun_iterative(self):
-        start_date = "2019-06-01 11:00:00"
-        end_date = "2019-06-01 15:00:00"
-        a_type = AnalysisType.sun_raycasting
-        p = Parameters(
-            self.file_name,
-            self.w_file,
-            a_type,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            3,
-            1,
-            False,
-            start_date,
-            end_date,
-        )
+        self.p.a_type = AnalysisType.sun_raycasting
+        self.p.start_date = "2019-06-01 11:00:00"
+        self.p.end_date = "2019-06-01 15:00:00"
 
-        self.suns = self.sunpath.create_suns(p)
+        self.suns = self.sunpath.create_suns(self.p)
         self.results = Results(self.suns, self.solar_engine.f_count)
         self.solar_engine.sun_raycasting(self.suns, self.results)
 
@@ -110,25 +89,13 @@ class TestRaytracing:
         assert not is_error
 
     def test_raytracing_sky_instant(self):
-        start_date = "2019-06-01 12:00:00"
-        end_date = "2019-06-01 12:00:00"
-        a_type = AnalysisType.sky_raycasting
-        p = Parameters(
-            self.file_name,
-            self.w_file,
-            a_type,
-            self.lat,
-            self.lon,
-            0,
-            0,
-            3,
-            1,
-            False,
-            start_date,
-            end_date,
-        )
+        self.p.a_type = AnalysisType.sky_raycasting
+        self.p.start_date = "2019-06-01 12:00:00"
+        self.p.end_date = "2019-06-01 12:00:00"
 
-        self.suns = self.sunpath.create_suns(p)
+        self.suns = self.sunpath.create_suns(self.p)
+        self.suns = weather.append_weather_data(self.p, self.suns)
+
         self.results = Results(self.suns, self.solar_engine.f_count)
         self.solar_engine.sky_raycasting(self.suns, self.results)
 
@@ -141,32 +108,17 @@ class TestRaytracing:
         assert not is_error
 
     def test_raytracing_sky_iterative(self):
-        start_date = "2019-06-01 11:00:00"
-        end_date = "2019-06-01 15:00:00"
-        a_type = AnalysisType.sun_raycasting
-        p = Parameters(
-            file_name=self.file_name,
-            weather_file=self.w_file,
-            a_type=a_type,
-            latitude=self.lat,
-            longitude=self.lon,
-            prepare_display=False,
-            display=False,
-            data_source=DataSource.clm,
-            color_by=1,
-            export=False,
-            start_date=start_date,
-            end_date=end_date,
-        )
+        self.p.a_type = AnalysisType.sun_raycasting
+        self.p.start_date = "2019-06-01 11:00:00"
+        self.p.end_date = "2019-06-01 15:00:00"
 
-        self.suns = self.sunpath.create_suns(p)
-        self.suns = weather.append_weather_data(p, self.suns)
+        self.suns = self.sunpath.create_suns(self.p)
+        self.suns = weather.append_weather_data(self.p, self.suns)
 
         self.results = Results(self.suns, self.solar_engine.f_count)
         self.solar_engine.sky_raycasting(self.suns, self.results)
 
         res_list = self.results.res_list
-        sky_irradiance = self.results.res_acum.face_irradiance_di
         is_error = False
 
         di_sum = 0

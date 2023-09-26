@@ -4,9 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, Parameters, Sun, DataSource
+from dtcc_solar.utils import AnalysisType, Parameters, Sun, DataSource, ColorBy
 from typing import List, Dict, Any
 from dtcc_solar import weather_data as weather
+import copy
 
 
 class TestWeatherDataComparison:
@@ -35,56 +36,21 @@ class TestWeatherDataComparison:
             a_type=a_type,
             latitude=self.lat,
             longitude=self.lon,
-            prepare_display=False,
-            display=False,
             data_source=DataSource.smhi,
-            color_by=1,
-            export=False,
+            color_by=ColorBy.face_sun_angle,
             start_date=start_date,
             end_date=end_date,
         )
-        self.p_meteo = Parameters(
-            file_name=self.file_name,
-            weather_file=self.w_file_clm,
-            a_type=a_type,
-            latitude=self.lat,
-            longitude=self.lon,
-            prepare_display=False,
-            display=False,
-            data_source=DataSource.meteo,
-            color_by=1,
-            export=False,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        self.p_clm = Parameters(
-            file_name=self.file_name,
-            weather_file=self.w_file_clm,
-            a_type=a_type,
-            latitude=self.lat,
-            longitude=self.lon,
-            prepare_display=False,
-            display=False,
-            data_source=DataSource.clm,
-            color_by=1,
-            export=False,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        self.p_epw = Parameters(
-            file_name=self.file_name,
-            weather_file=self.w_file_epw,
-            a_type=a_type,
-            latitude=self.lat,
-            longitude=self.lon,
-            prepare_display=False,
-            display=False,
-            data_source=DataSource.epw,
-            color_by=1,
-            export=False,
-            start_date=start_date,
-            end_date=end_date,
-        )
+
+        self.p_meteo = copy.deepcopy(self.p_smhi)
+        self.p_meteo.data_source = DataSource.meteo
+
+        self.p_clm = copy.deepcopy(self.p_smhi)
+        self.p_clm.data_source = DataSource.clm
+
+        self.p_epw = copy.deepcopy(self.p_smhi)
+        self.p_epw.weather_file = self.w_file_epw
+        self.p_epw.data_source = DataSource.epw
 
     def test_compare_dict_keys(self):
         start_date = "2019-01-01 00:00:00"

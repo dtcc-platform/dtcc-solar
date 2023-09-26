@@ -146,8 +146,8 @@ class Parameters:
 
 @dataclass
 class Parameters:
-    file_name: str
-    weather_file: str
+    file_name: str = "Undefined model input file"
+    weather_file: str = "Undefined weather data file"
     a_type: AnalysisType = AnalysisType.sky_raycasting
     latitude: float = -0.12
     longitude: float = 51.5
