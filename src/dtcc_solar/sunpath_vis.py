@@ -20,7 +20,7 @@ from typing import Dict, Any
 class SunpathMesh:
     radius: float
     origin: np.ndarray
-    sun_meshes: list[Any]
+    sun_pc: list[Any]
     analemmas_meshes: list[Any]
     daypath_meshes: list[Any]
     pc: PointCloud
@@ -38,33 +38,17 @@ class SunpathMesh:
     def get_daypath_meshes(self):
         return self.daypath_meshes
 
-    def get_sun_meshes(self):
-        return self.sun_meshes
-
-    def create_sunpath_diagram(
-        self, suns: list[Sun], sunpath: Sunpath, city_model: SolarEngine
-    ):
-        r = city_model.sunpath_radius
-
-        # Create analemmas mesh
-        [sunX, sunY, sunZ, analemmas_dict] = sunpath.get_analemmas(2019, 5)
-        self.analemmas_meshes = self.create_sunpath_loops(sunX, sunY, sunZ, r)
-
-        # Create mesh for day path
-        [sunX, sunY, sunZ] = sunpath.get_daypaths(
-            pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"]), 10
-        )
-        self.daypath_meshes = self.create_sunpath_loops(sunX, sunY, sunZ, r)
-        self.sun_meshes = self.create_solar_spheres(suns, city_model.sun_size)
+    def get_sun_pc(self):
+        return self.sun_pc
 
     def create_sunpath_diagram_gl(
         self, suns: list[Sun], sunpath: Sunpath, solar_engine: SolarEngine
     ):
         r = solar_engine.sunpath_radius
-
+        w = solar_engine.path_width
         [sunX, sunY, sunZ, analemmas_dict] = sunpath.get_analemmas(2019, 2)
 
-        self.analemmas_meshes = self.create_sunpath_loops_mesh(sunX, sunY, sunZ, r, 3.0)
+        self.analemmas_meshes = self.create_sunpath_loops_mesh(sunX, sunY, sunZ, r, w)
 
         self.pc = self.create_sunpath_pc(sunX, sunY, sunZ, r)
 
@@ -72,52 +56,20 @@ class SunpathMesh:
             pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"]), 2
         )
 
-        self.daypath_meshes = self.create_sunpath_loops_mesh(sunX, sunY, sunZ, r, 3.0)
+        self.daypath_meshes = self.create_sunpath_loops_mesh(sunX, sunY, sunZ, r, w)
 
-    def create_solar_sphere(self, sunPos, sunSize):
-        sunMesh = trimesh.primitives.Sphere(
-            radius=sunSize, center=sunPos, subdivisions=4
-        )
-        sunMesh.visual.face_colors = [1.0, 0.5, 0, 1.0]
-        return sunMesh
+        self.sun_pc = self.create_sun_spheres(suns)
 
-    def create_solar_spheres(self, suns: list[Sun], sunSize):
-        sunMeshes = []
+    def create_sun_spheres(self, suns: list[Sun]):
+        points = []
         for i in range(0, len(suns)):
             if suns[i].over_horizon:
-                sun_pos = utils.convert_vec3_to_ndarray(suns[i].position)
-                sunMesh = trimesh.primitives.Sphere(
-                    radius=sunSize, center=sun_pos, subdivisions=1
-                )
-                sunMesh.visual.face_colors = [1.0, 0.5, 0, 1.0]
-                sunMeshes.append(sunMesh)
-        return sunMeshes
+                points.append(utils.vec_2_ndarray(suns[i].position))
 
-    def create_sunpath_loops(self, x, y, z, radius):
-        path_meshes = []
-        for h in x:
-            vs = np.zeros((len(x[h]) + 1, 3))
-            vi = np.zeros((len(x[h])), dtype=int)
-            lines = []
-            path_colors = []
-
-            for i in range(0, len(x[h])):
-                sunPos = [x[h][i], y[h][i], z[h][i]]
-                vs[i, :] = sunPos
-                vi[i] = i
-                index2 = i + 1
-                color = get_blended_color_yellow_red(radius, z[h][i])
-                path_colors.append(color)
-                line = trimesh.path.entities.Line([i, index2])
-                lines.append(line)
-
-            vs[len(x[h]), :] = vs[0, :]
-
-            path = trimesh.path.Path3D(entities=lines, vertices=vs, colors=path_colors)
-
-            path_meshes.append(path)
-
-        return path_meshes
+        points = np.array(points)
+        print(points)
+        pc = PointCloud(points=points)
+        return pc
 
     def create_sunpath_loops_mesh(self, x, y, z, radius: float, width: float):
         meshes = []
@@ -181,7 +133,6 @@ class SunpathMesh:
                 points.append(sun_pos_1)
 
         points = np.array(points)
-        print(points)
         pc = PointCloud(points=points)
         return pc
 

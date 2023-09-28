@@ -25,6 +25,7 @@ class SolarEngine:
     horizon_z: float
     sunpath_radius: float
     sun_size: float
+    path_width: float
     bb: Bounds
     bbx: np.ndarray
     bby: np.ndarray
@@ -46,6 +47,7 @@ class SolarEngine:
         self.sunpath_radius = 0
         self.sun_size = 0
         self.dome_radius = 0
+        self.path_width = 0
         self.preprocess_mesh(True)
 
         # Create volume object for ray caster with NcollPyDe
@@ -84,6 +86,7 @@ class SolarEngine:
         # Hard coded size proportions
         self.sun_size = self.sunpath_radius / 90.0
         self.dome_radius = self.sunpath_radius / 40
+        self.path_width = self.sunpath_radius / 200
 
     def _calc_bounds(self):
         self.xmin = self.dmesh.vertices[:, 0].min()
@@ -106,7 +109,7 @@ class SolarEngine:
 
         for sun in suns:
             if sun.over_horizon:
-                sun_vec = utils.convert_vec3_to_ndarray(sun.sun_vec)
+                sun_vec = utils.vec_2_ndarray(sun.sun_vec)
                 sun_vec_rev = utils.reverse_vector(sun_vec)
 
                 face_in_sun = ray.raytrace(self.volume, sun_vec_rev)

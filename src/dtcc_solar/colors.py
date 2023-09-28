@@ -7,8 +7,12 @@ def color_city_mesh(res: Output, color_by: ColorBy):
         colors = calc_colors(res.face_sun_angles)
     elif color_by == ColorBy.face_sun_angle_shadows:
         colors = calc_colors_with_mask(res.face_sun_angles, res.face_in_sun)
+    elif color_by == ColorBy.face_shadows:
+        colors = calc_colors(res.face_in_sun)
     elif color_by == ColorBy.face_irradiance_dn:
         colors = calc_colors(res.face_irradiance_dn)
+    elif color_by == ColorBy.face_irradiance_dh:
+        colors = calc_colors(res.face_irradiance_dh)
     elif color_by == ColorBy.face_irradiance_di:
         colors = calc_colors(res.face_irradiance_di)
     elif color_by == ColorBy.face_irradiance_tot:
@@ -25,6 +29,7 @@ def color_analemmas():
 
 def calc_colors(values):
     colors = []
+    values = np.array(values, dtype=float)
     min_value = np.min(values)
     max_value = np.max(values)
     for i in range(0, len(values)):

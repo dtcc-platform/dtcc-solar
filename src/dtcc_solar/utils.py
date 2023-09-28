@@ -130,7 +130,7 @@ class Parameters:
     end_date: str = "2019-06-03 21:00:00"
 
 
-def convert_vec3_to_ndarray(vec: Vec3):
+def vec_2_ndarray(vec: Vec3):
     return np.array([vec.x, vec.y, vec.z])
 
 

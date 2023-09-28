@@ -115,7 +115,7 @@ def register_args(args):
         type=int,
         metavar="",
         default=ColorBy.face_sun_angle_shadows,
-        help="Colo_by: face_sun_angle =1, face_sun_angle_shadows = 2, shadows = 3 , irradiance_direct_normal = 4, irradiance_direct_horizontal = 5, irradiance_diffuse = 6, irradiance_all = 6",
+        help="Colo_by: face_sun_angle =1, face_sun_angle_shadows = 2, shadows = 3 , irradiance_direct_normal = 4, irradiance_direct_horizontal = 5, irradiance_diffuse = 6, irradiance_all = 7",
     )
     parser.add_argument(
         "-e", "--export", type=bool, metavar="", default=True, help="Export data"
@@ -220,7 +220,8 @@ def run_script(command_line_args):
         # Get analemmas, day paths, and pc for sun positions
         analemmas = sunpath_mesh.get_analemmas_meshes()
         day_paths = sunpath_mesh.get_daypath_meshes()
-        pc = sunpath_mesh.get_analemmas_pc()
+        all_pc = sunpath_mesh.get_analemmas_pc()
+        sun_pc = sunpath_mesh.get_sun_pc()
 
         analemmas = concatenate_meshes(analemmas)
         day_paths = concatenate_meshes(day_paths)
@@ -228,7 +229,8 @@ def run_script(command_line_args):
         viewer_gl.add_mesh("Dtcc mesh", solar_engine.dmesh, colors=colors)
         viewer_gl.add_mesh("Analemmas", analemmas)
         viewer_gl.add_mesh("Day paths", day_paths)
-        viewer_gl.add_pc("Sun positions", pc)
+        viewer_gl.add_pc("All suns", all_pc)
+        viewer_gl.add_pc("Active suns", sun_pc)
 
         if p.display:
             viewer_gl.show()
@@ -343,7 +345,7 @@ if __name__ == "__main__":
     # Iterative combined analysis
     args_6 = [
         "--inputfile",
-        inputfile_S,
+        inputfile_L,
         "--analysis",
         "3",
         "--start_date",
