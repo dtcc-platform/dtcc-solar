@@ -9,12 +9,13 @@ import sys
 from dtcc_solar import data_io
 from dtcc_solar.sunpath import Sunpath, Sun
 from dtcc_solar.sunpath_vis import SunpathMesh
-from dtcc_solar.viewer import Viewer
-from dtcc_solar.utils import ColorBy, AnalysisType, Parameters, DataSource
+from dtcc_solar.viewer import Viewer, ViewerGL
+from dtcc_solar.utils import ColorBy, AnalysisType, Parameters, DataSource, ViewerType
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.results import Results
 from dtcc_solar import weather_data as weather
 from dtcc_solar.viewer import Colors
+from dtcc_solar.utils import concatenate_meshes
 
 import dtcc_solar.smhi_data as smhi
 import dtcc_solar.meteo_data as meteo
@@ -201,26 +202,56 @@ def run_script(command_line_args):
     results.calc_accumulated_results()
     results.calc_average_results()
 
+    viewer_typ = ViewerType.opengl
+
     # Get geometry for the sunpath and current sun position
-    if p.prepare_display:
-        viewer = Viewer()
-        colors = Colors()
+    if viewer_typ == ViewerType.pyglet:
+        if p.prepare_display:
+            viewer = Viewer()
+            colors = Colors()
 
-        # Create sunpath so that the solar postion are given a context in the 3D visualisation
-        sunpath_mesh = SunpathMesh(solar_engine.sunpath_radius)
-        sunpath_mesh.create_sunpath_diagram(suns, sunpath, solar_engine, colors)
+            # Create sunpath so that the solar postion are given a context in the 3D visualisation
+            sunpath_mesh = SunpathMesh(solar_engine.sunpath_radius)
+            sunpath_mesh.create_sunpath_diagram(suns, sunpath, solar_engine, colors)
 
-        # Color city mesh and add to viewer
-        colors.color_city_mesh(solar_engine.mesh, results.res_acum, p.color_by)
-        viewer.add_meshes(solar_engine.mesh)
+            # Color city mesh and add to viewer
+            colors.color_city_mesh(solar_engine.mesh, results.res_acum, p.color_by)
+            viewer.add_meshes(solar_engine.mesh)
 
-        # Add sunpath meshes to viewer
-        viewer.add_meshes(sunpath_mesh.get_analemmas_meshes())
-        viewer.add_meshes(sunpath_mesh.get_daypath_meshes())
-        viewer.add_meshes(sunpath_mesh.get_sun_meshes())
+            # Add sunpath meshes to viewer
+            viewer.add_meshes(sunpath_mesh.get_analemmas_meshes())
+            viewer.add_meshes(sunpath_mesh.get_daypath_meshes())
+            viewer.add_meshes(sunpath_mesh.get_sun_meshes())
 
-        if p.display:
-            viewer.show()
+            if p.display:
+                viewer.show()
+    else:
+        if p.prepare_display:
+            viewer_gl = ViewerGL()
+            colors = Colors()
+
+            # Create sunpath so that the solar postion are given a context in the 3D visualisation
+            sunpath_mesh = SunpathMesh(solar_engine.sunpath_radius)
+            sunpath_mesh.create_sunpath_diagram_gl(suns, sunpath, solar_engine, colors)
+
+            # Color city mesh and add to viewer
+            colors.color_city_mesh(solar_engine.mesh, results.res_acum, p.color_by)
+
+            # Get analemmas, day paths, and pc for sun positions
+            analemmas = sunpath_mesh.get_analemmas_meshes()
+            day_paths = sunpath_mesh.get_daypath_meshes()
+            pc = sunpath_mesh.get_analemmas_pc()
+
+            analemmas = concatenate_meshes(analemmas)
+            day_paths = concatenate_meshes(day_paths)
+
+            viewer_gl.add_mesh_convert("City mesh", solar_engine.mesh)
+            viewer_gl.add_mesh("Analemmas", analemmas)
+            viewer_gl.add_mesh("Day paths", day_paths)
+            viewer_gl.add_pc("Sun positions", pc)
+
+            if p.display:
+                viewer_gl.show()
 
     clock2 = time.perf_counter()
     print("Total computation time elapsed: " + str(round(clock2 - clock1, 4)))
@@ -347,4 +378,4 @@ if __name__ == "__main__":
         "7",
     ]
 
-    run_script(args_6)
+    run_script(args_1)

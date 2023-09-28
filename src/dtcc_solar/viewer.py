@@ -5,6 +5,8 @@ from dtcc_solar import utils
 from dtcc_solar.utils import ColorBy, AnalysisType, Output
 from typing import List, Dict
 from pyglet.window import mouse
+from dtcc_viewer import Scene, Window
+from dtcc_model import Mesh
 
 
 class Viewer:
@@ -18,6 +20,25 @@ class Viewer:
 
     def show(self):
         self.scene.show()
+
+
+class ViewerGL:
+    def __init__(self):
+        self.window = Window(1200, 800)
+        self.scene = Scene()
+
+    def add_mesh_convert(self, name: str, mesh):
+        mesh_dtcc = Mesh(vertices=mesh.vertices, faces=mesh.faces)
+        self.scene.add_mesh(name, mesh_dtcc)
+
+    def add_mesh(self, name: str, mesh: Mesh):
+        self.scene.add_mesh(name, mesh)
+
+    def add_pc(self, name: str, pc):
+        self.scene.add_pointcloud(name, pc)
+
+    def show(self):
+        self.window.render(self.scene)
 
 
 class Colors:

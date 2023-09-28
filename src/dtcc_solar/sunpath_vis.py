@@ -10,7 +10,9 @@ from dtcc_solar.viewer import Colors
 from dtcc_solar.sunpath import SunpathUtils
 from dtcc_solar.sunpath import Sunpath
 
-from typing import List, Dict, Any
+from dtcc_model import Mesh, PointCloud
+
+from typing import Dict, Any
 
 # from timezonefinder import TimezoneFinder
 
@@ -18,9 +20,10 @@ from typing import List, Dict, Any
 class SunpathMesh:
     radius: float
     origin: np.ndarray
-    sun_meshes: List[Any]
-    analemmas_meshes: List[Any]
-    daypath_meshes: List[Any]
+    sun_meshes: list[Any]
+    analemmas_meshes: list[Any]
+    daypath_meshes: list[Any]
+    pc: PointCloud
 
     def __init__(self, radius: float):
         self.radius = radius
@@ -29,6 +32,9 @@ class SunpathMesh:
     def get_analemmas_meshes(self):
         return self.analemmas_meshes
 
+    def get_analemmas_pc(self):
+        return self.pc
+
     def get_daypath_meshes(self):
         return self.daypath_meshes
 
@@ -36,7 +42,7 @@ class SunpathMesh:
         return self.sun_meshes
 
     def create_sunpath_diagram(
-        self, suns: List[Sun], sunpath: Sunpath, city_model: SolarEngine, colors: Colors
+        self, suns: list[Sun], sunpath: Sunpath, city_model: SolarEngine, colors: Colors
     ):
         # Create analemmas mesh
         [sunX, sunY, sunZ, analemmas_dict] = sunpath.get_analemmas(2019, 5)
@@ -54,6 +60,31 @@ class SunpathMesh:
 
         self.sun_meshes = self.create_solar_spheres(suns, city_model.sun_size)
 
+    def create_sunpath_diagram_gl(
+        self,
+        suns: list[Sun],
+        sunpath: Sunpath,
+        solar_engine: SolarEngine,
+        colors: Colors,
+    ):
+        r = solar_engine.sunpath_radius
+
+        [sunX, sunY, sunZ, analemmas_dict] = sunpath.get_analemmas(2019, 2)
+
+        self.analemmas_meshes = self.create_sunpath_loops_mesh(
+            sunX, sunY, sunZ, r, 3.0, colors
+        )
+
+        self.pc = self.create_sunpath_pc(sunX, sunY, sunZ, r, colors)
+
+        [sunX, sunY, sunZ] = sunpath.get_daypaths(
+            pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"]), 2
+        )
+
+        self.daypath_meshes = self.create_sunpath_loops_mesh(
+            sunX, sunY, sunZ, r, 3.0, colors
+        )
+
     def create_solar_sphere(self, sunPos, sunSize):
         sunMesh = trimesh.primitives.Sphere(
             radius=sunSize, center=sunPos, subdivisions=4
@@ -61,7 +92,7 @@ class SunpathMesh:
         sunMesh.visual.face_colors = [1.0, 0.5, 0, 1.0]
         return sunMesh
 
-    def create_solar_spheres(self, suns: List[Sun], sunSize):
+    def create_solar_spheres(self, suns: list[Sun], sunSize):
         sunMeshes = []
         for i in range(0, len(suns)):
             if suns[i].over_horizon:
@@ -94,9 +125,78 @@ class SunpathMesh:
             vs[len(x[h]), :] = vs[0, :]
 
             path = trimesh.path.Path3D(entities=lines, vertices=vs, colors=path_colors)
+
             path_meshes.append(path)
 
         return path_meshes
+
+    def create_sunpath_loops_mesh(
+        self, x, y, z, radius: float, width: float, colors: Colors
+    ):
+        meshes = []
+
+        for h in x:
+            n_suns = len(x[h])
+            offset_vertices_L = np.zeros((n_suns + 1, 3))
+            offset_vertices_R = np.zeros((n_suns + 1, 3))
+
+            v_counter = 0
+            vertices = []
+            faces = []
+            vertex_colors = []
+
+            for i in range(0, n_suns - 1):
+                i_next = i + 1
+                if i == n_suns - 1:
+                    i_next = 0
+
+                sun_pos_1 = np.array([x[h][i], y[h][i], z[h][i]])
+                sun_pos_2 = np.array([x[h][i_next], y[h][i_next], z[h][i_next]])
+                vec_1 = utils.normalise_vector(0.5 * (sun_pos_1 + sun_pos_2))
+                vec_2 = utils.normalise_vector(sun_pos_2 - sun_pos_1)
+                vec_3 = utils.cross_product(vec_2, vec_1)
+
+                # Offset vertices to create a width for path
+                offset_vertices_L[i, :] = sun_pos_1 + (width * vec_3)
+                offset_vertices_R[i, :] = sun_pos_1 - (width * vec_3)
+
+                vertices.append(offset_vertices_L[i, :])
+                vertices.append(offset_vertices_R[i, :])
+
+                if i < (n_suns - 2):
+                    faces.append([v_counter, v_counter + 2, v_counter + 1])
+                    faces.append([v_counter + 1, v_counter + 2, v_counter + 3])
+                    v_counter += 2
+                else:
+                    faces.append([v_counter, 0, v_counter + 1])
+                    faces.append([v_counter + 1, 0, 1])
+
+                v_color = colors.get_blended_color_yellow_red(radius, z[h][i])
+
+                vertex_colors.append(v_color)
+                vertex_colors.append(v_color)
+
+            vertices = np.array(vertices)
+            faces = np.array(faces)
+            vertex_colors = np.array(vertex_colors)
+            mesh = Mesh(vertices=vertices, vertex_colors=vertex_colors, faces=faces)
+            meshes.append(mesh)
+
+        return meshes
+
+    def create_sunpath_pc(self, x, y, z, radius: float, colors: Colors):
+        points = []
+        for h in x:
+            n_suns = len(x[h])
+
+            for i in range(0, n_suns - 1):
+                sun_pos_1 = np.array([x[h][i], y[h][i], z[h][i]])
+                points.append(sun_pos_1)
+
+        points = np.array(points)
+        print(points)
+        pc = PointCloud(points=points)
+        return pc
 
 
 class SunpathVis:
@@ -128,7 +228,7 @@ class SunpathVis:
         ax.scatter3D(x, y, z, c=z, cmap=cmap, vmin=0, vmax=radius)
 
     def plot_analemmas(
-        self, all_sun_pos: Dict[int, List[Vec3]], radius, ax, plot_night, cmap, gmt_diff
+        self, all_sun_pos: Dict[int, list[Vec3]], radius, ax, plot_night, cmap, gmt_diff
     ):
         x, y, z = [], [], []
         z_max_indices = []

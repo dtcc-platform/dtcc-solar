@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from enum import Enum, IntEnum
 from dataclasses import dataclass
 from typing import List, Dict
+from dtcc_model import Mesh
+from dtcc_io import save_mesh
 
 
 class DataSource(IntEnum):
@@ -28,6 +30,11 @@ class ColorBy(IntEnum):
 class Mode(IntEnum):
     single_sun = 1
     multiple_sun = 2
+
+
+class ViewerType(IntEnum):
+    pyglet = 1
+    opengl = 2
 
 
 class AnalysisType(IntEnum):
@@ -313,3 +320,21 @@ def get_index_of_closest_point(point, array_of_points):
             index = i
 
     return index
+
+
+def concatenate_meshes(meshes: list[Mesh]):
+    all_vertices = np.array([[0, 0, 0]])
+    all_faces = np.array([[0, 0, 0]])
+    for mesh in meshes:
+        faces_offset = len(all_vertices) - 1
+        all_vertices = np.vstack([all_vertices, mesh.vertices])
+        faces_to_add = mesh.faces + faces_offset
+        all_faces = np.vstack([all_faces, faces_to_add])
+
+    # Remove the [0,0,0] row that was added to enable concatenate.
+    all_vertices = np.delete(all_vertices, obj=0, axis=0)
+    all_faces = np.delete(all_faces, obj=0, axis=0)
+
+    mesh = Mesh(vertices=all_vertices, faces=all_faces)
+
+    return mesh
