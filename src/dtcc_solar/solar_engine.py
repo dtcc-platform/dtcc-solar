@@ -1,6 +1,6 @@
 import math
 import numpy as np
-import dtcc_solar.raycasting as raycasting
+import dtcc_solar.raycasting as ray
 import trimesh
 import copy
 import dtcc_solar.mesh_compute as mc
@@ -10,17 +10,22 @@ from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
 from typing import List, Any
 from dtcc_solar.utils import Sun
+from trimesh import Trimesh
+
+from dtcc_model import Mesh
+from dtcc_model.geometry import Bounds
 
 
 class SolarEngine:
-    mesh: trimesh
+    dmesh: Mesh  # Dtcc mesh
+    tmesh: Trimesh  # Trimesh
     origin: np.ndarray
     f_count: int
     v_count: int
     horizon_z: float
     sunpath_radius: float
     sun_size: float
-    bb: np.ndarray
+    bb: Bounds
     bbx: np.ndarray
     bby: np.ndarray
     bbz: np.ndarray
@@ -30,74 +35,82 @@ class SolarEngine:
     city_mesh_face_mid_points: np.ndarray
     skydome: SkyDome
 
-    def __init__(self, mesh: trimesh) -> None:
-        self.mesh = mesh
+    def __init__(self, dmesh: Mesh) -> None:
+        self.dmesh = dmesh
+        self.tmesh = trimesh.Trimesh(vertices=dmesh.vertices, faces=dmesh.faces)
         self.origin = np.array([0, 0, 0])
-        self.f_count = len(self.mesh.faces)
-        self.v_count = len(self.mesh.vertices)
+        self.f_count = len(self.dmesh.faces)
+        self.v_count = len(self.dmesh.vertices)
 
         self.horizon_z = 0
         self.sunpath_radius = 0
         self.sun_size = 0
         self.dome_radius = 0
-        self.bb = 0
-        self.bbx = 0  # (min_x, max_x)
-        self.bby = 0  # (min_y, max_y)
-        self.bbz = 0  # (min_z, max_z)
         self.preprocess_mesh(True)
 
         # Create volume object for ray caster with NcollPyDe
-        self.volume = Volume(self.mesh.vertices, self.mesh.faces)
+        self.volume = Volume(self.dmesh.vertices, self.dmesh.faces)
         self.city_mesh_faces = np.array(self.volume.faces)
         self.city_mesh_points = np.array(self.volume.points)
         self.city_mesh_face_mid_points = 0
 
         self.skydome = SkyDome(self.dome_radius)
 
-    def preprocess_mesh(self, center_mesh):
-        bb = trimesh.bounds.corners(self.mesh.bounding_box.bounds)
-        bbx = np.array([np.min(bb[:, 0]), np.max(bb[:, 0])])
-        bby = np.array([np.min(bb[:, 1]), np.max(bb[:, 1])])
-        bbz = np.array([np.min(bb[:, 2]), np.max(bb[:, 2])])
+    def preprocess_mesh(self, move_to_center: bool):
+        self._calc_bounds()
         # Center mesh based on x and y coordinates only
-        centerVec = self.origin - np.array([np.average([bbx]), np.average([bby]), 0])
+        center_bb = np.array([np.average(self.bbx), np.average(self.bby), 0])
+        centerVec = self.origin - center_bb
 
         # Move the mesh to the centre of the model
-        if center_mesh:
-            self.mesh.vertices += centerVec
-
-        self.horizon_z = np.average(self.mesh.vertices[:, 2])
+        if move_to_center:
+            self.dmesh.vertices += centerVec
+            self.tmesh.vertices += centerVec
 
         # Update bounding box after the mesh has been moved
-        self.bb = trimesh.bounds.corners(self.mesh.bounding_box.bounds)
-        self.bbx = np.array([np.min(self.bb[:, 0]), np.max(self.bb[:, 0])])
-        self.bby = np.array([np.min(self.bb[:, 1]), np.max(self.bb[:, 1])])
-        self.bbz = np.array([np.min(self.bb[:, 2]), np.max(self.bb[:, 2])])
+        self._calc_bounds()
+
+        # Assumption: The horizon is the avrage z height in the mesh
+        self.horizon_z = np.average(self.dmesh.vertices[:, 2])
 
         # Calculating sunpath radius
-        xRange = np.max(self.bb[:, 0]) - np.min(self.bb[:, 0])
-        yRange = np.max(self.bb[:, 1]) - np.min(self.bb[:, 1])
-        zRange = np.max(self.bb[:, 2]) - np.min(self.bb[:, 2])
+        xRange = self.bb.width
+        yRange = self.bb.height
+        zRange = self.zmax - self.zmin
         self.sunpath_radius = math.sqrt(
             math.pow(xRange / 2, 2) + math.pow(yRange / 2, 2) + math.pow(zRange / 2, 2)
         )
+
+        # Hard coded size proportions
         self.sun_size = self.sunpath_radius / 90.0
         self.dome_radius = self.sunpath_radius / 40
+
+    def _calc_bounds(self):
+        self.xmin = self.dmesh.vertices[:, 0].min()
+        self.xmax = self.dmesh.vertices[:, 0].max()
+        self.ymin = self.dmesh.vertices[:, 1].min()
+        self.ymax = self.dmesh.vertices[:, 1].max()
+        self.zmin = self.dmesh.vertices[:, 2].min()
+        self.zmax = self.dmesh.vertices[:, 2].max()
+
+        self.bbx = np.array([self.xmin, self.xmax])
+        self.bby = np.array([self.ymin, self.ymax])
+        self.bbz = np.array([self.zmin, self.zmax])
+
+        self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
     def sun_raycasting(self, suns: List[Sun], results: Results):
         n = len(suns)
         print("Iterative analysis started for " + str(n) + " number of iterations")
         counter = 0
 
-        print(results)
-
         for sun in suns:
             if sun.over_horizon:
                 sun_vec = utils.convert_vec3_to_ndarray(sun.sun_vec)
                 sun_vec_rev = utils.reverse_vector(sun_vec)
 
-                face_in_sun = raycasting.raytrace_f(self.volume, sun_vec_rev)
-                face_sun_angles = mc.face_sun_angle(self.mesh, sun_vec)
+                face_in_sun = ray.raytrace(self.volume, sun_vec_rev)
+                face_sun_angles = mc.face_sun_angle(self.tmesh, sun_vec)
                 irradianceF = mc.compute_irradiance(
                     face_in_sun, face_sun_angles, self.f_count, sun.irradiance_dn
                 )
@@ -110,9 +123,9 @@ class SolarEngine:
                 print("Iteration: " + str(counter) + " completed")
 
     def sky_raycasting(self, suns: List[Sun], results: Results):
-        sky_portion = raycasting.raytrace_skydome(
-            self.volume, self.skydome.get_ray_targets(), self.skydome.get_ray_areas()
-        )
+        ray_targets = self.skydome.get_ray_targets()
+        ray_areas = self.skydome.get_ray_areas()
+        sky_portion = ray.raytrace_skydome(self.volume, ray_targets, ray_areas)
 
         # Results independent of weather data
         face_in_sky = np.ones(len(sky_portion), dtype=bool)

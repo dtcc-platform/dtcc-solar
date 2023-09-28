@@ -3,6 +3,7 @@ import trimesh
 import copy
 
 from dtcc_solar import utils
+from trimesh import Trimesh
 
 
 def compute_irradiance(face_in_sun, face_angles, f_count, flux):
@@ -17,7 +18,7 @@ def compute_irradiance(face_in_sun, face_angles, f_count, flux):
     return irradiance
 
 
-def face_sun_angle(mesh, sunVec):
+def face_sun_angle(mesh: Trimesh, sunVec):
     face_sun_angles = np.zeros(len(mesh.faces))
     mesh_faces = list(mesh.faces)
     mesh_face_normals = list(mesh.face_normals)
@@ -28,59 +29,3 @@ def face_sun_angle(mesh, sunVec):
         face_sun_angles[i] = face_sun_angle
 
     return face_sun_angles
-
-
-def find_shadow_border_faces_rayV(mesh, faceShading):
-    borderFaceMask = np.ones(len(mesh.faces), dtype=bool)
-    faces = list(mesh.faces)
-    for i in range(len(faces)):
-        if faceShading[i] < 3 and faceShading[i] > 0:
-            borderFaceMask[i] = False
-
-    return borderFaceMask
-
-
-def split_mesh(mesh, borderFaceMask, faceShading, face_in_sun):
-    # Reversed face mask booleans
-    borderFaceMask_not = [not elem for elem in borderFaceMask]
-
-    meshNormal = copy.deepcopy(mesh)
-    meshNormal.update_faces(borderFaceMask)
-    meshNormal.remove_unreferenced_vertices()
-
-    face_shading_normal = faceShading[borderFaceMask]
-    face_in_sun_normal = face_in_sun[borderFaceMask]
-
-    meshborder = copy.deepcopy(mesh)
-    meshborder.update_faces(borderFaceMask_not)
-    meshborder.remove_unreferenced_vertices()
-    return [meshNormal, meshborder, face_shading_normal, face_in_sun_normal]
-
-
-def subdivide_border(meshBorder, maxEdgeLength, maxIter):
-    [vs, fs] = trimesh.remesh.subdivide_to_size(
-        meshBorder.vertices,
-        meshBorder.faces,
-        max_edge=maxEdgeLength,
-        max_iter=maxIter,
-        return_index=False,
-    )
-    meshBorderSD = trimesh.Trimesh(vs, fs)
-    return meshBorderSD
-
-
-def calculate_average_edge_length(mesh):
-    edges = mesh.edges_unique
-    eCount = len(edges)
-    vertices = list(mesh.vertices)
-    edgeL = 0
-
-    for edge in edges:
-        vIndex1 = edge[0]
-        vIndex2 = edge[1]
-        d = utils.distance(vertices[vIndex1], vertices[vIndex2])
-        edgeL += d
-
-    edgeL = edgeL / eCount
-
-    return edgeL

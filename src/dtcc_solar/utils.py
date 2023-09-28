@@ -32,11 +32,6 @@ class Mode(IntEnum):
     multiple_sun = 2
 
 
-class ViewerType(IntEnum):
-    pyglet = 1
-    opengl = 2
-
-
 class AnalysisType(IntEnum):
     sun_raycasting = 1
     sky_raycasting = 2
@@ -117,38 +112,6 @@ class OutputAcum:
     face_irradiance_dh: List[float]
     face_irradiance_di: List[float]
     face_irradiance_tot: List[float]
-
-
-"""
-class Parameters:
-    def __init__(
-        self,
-        file_name: str,
-        w_file: str,
-        a_type: int,
-        lat: float,
-        lon: float,
-        prep_disp: int,
-        disp: int,
-        data_source: int,
-        color_by: int,
-        export: bool,
-        s_date: str,
-        e_date: str,
-    ):
-        self.file_name = file_name
-        self.weather_file = w_file
-        self.a_type = AnalysisType(a_type)
-        self.latitude = lat
-        self.longitude = lon
-        self.prepare_display = bool(prep_disp)
-        self.display = bool(disp)
-        self.data_source = DataSource(data_source)
-        self.color_by = ColorBy(color_by)
-        self.export = export
-        self.start_date = s_date
-        self.end_date = e_date
-"""
 
 
 @dataclass

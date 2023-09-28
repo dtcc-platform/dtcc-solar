@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar import utils
 from dtcc_solar.utils import Vec3, Sun
-from dtcc_solar.viewer import Colors
+from dtcc_solar.colors import *
 from dtcc_solar.sunpath import SunpathUtils
 from dtcc_solar.sunpath import Sunpath
 
@@ -42,48 +42,37 @@ class SunpathMesh:
         return self.sun_meshes
 
     def create_sunpath_diagram(
-        self, suns: list[Sun], sunpath: Sunpath, city_model: SolarEngine, colors: Colors
+        self, suns: list[Sun], sunpath: Sunpath, city_model: SolarEngine
     ):
+        r = city_model.sunpath_radius
+
         # Create analemmas mesh
         [sunX, sunY, sunZ, analemmas_dict] = sunpath.get_analemmas(2019, 5)
-        self.analemmas_meshes = self.create_sunpath_loops(
-            sunX, sunY, sunZ, city_model.sunpath_radius, colors
-        )
+        self.analemmas_meshes = self.create_sunpath_loops(sunX, sunY, sunZ, r)
 
         # Create mesh for day path
         [sunX, sunY, sunZ] = sunpath.get_daypaths(
             pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"]), 10
         )
-        self.daypath_meshes = self.create_sunpath_loops(
-            sunX, sunY, sunZ, city_model.sunpath_radius, colors
-        )
-
+        self.daypath_meshes = self.create_sunpath_loops(sunX, sunY, sunZ, r)
         self.sun_meshes = self.create_solar_spheres(suns, city_model.sun_size)
 
     def create_sunpath_diagram_gl(
-        self,
-        suns: list[Sun],
-        sunpath: Sunpath,
-        solar_engine: SolarEngine,
-        colors: Colors,
+        self, suns: list[Sun], sunpath: Sunpath, solar_engine: SolarEngine
     ):
         r = solar_engine.sunpath_radius
 
         [sunX, sunY, sunZ, analemmas_dict] = sunpath.get_analemmas(2019, 2)
 
-        self.analemmas_meshes = self.create_sunpath_loops_mesh(
-            sunX, sunY, sunZ, r, 3.0, colors
-        )
+        self.analemmas_meshes = self.create_sunpath_loops_mesh(sunX, sunY, sunZ, r, 3.0)
 
-        self.pc = self.create_sunpath_pc(sunX, sunY, sunZ, r, colors)
+        self.pc = self.create_sunpath_pc(sunX, sunY, sunZ, r)
 
         [sunX, sunY, sunZ] = sunpath.get_daypaths(
             pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"]), 2
         )
 
-        self.daypath_meshes = self.create_sunpath_loops_mesh(
-            sunX, sunY, sunZ, r, 3.0, colors
-        )
+        self.daypath_meshes = self.create_sunpath_loops_mesh(sunX, sunY, sunZ, r, 3.0)
 
     def create_solar_sphere(self, sunPos, sunSize):
         sunMesh = trimesh.primitives.Sphere(
@@ -104,7 +93,7 @@ class SunpathMesh:
                 sunMeshes.append(sunMesh)
         return sunMeshes
 
-    def create_sunpath_loops(self, x, y, z, radius, colors: Colors):
+    def create_sunpath_loops(self, x, y, z, radius):
         path_meshes = []
         for h in x:
             vs = np.zeros((len(x[h]) + 1, 3))
@@ -117,7 +106,7 @@ class SunpathMesh:
                 vs[i, :] = sunPos
                 vi[i] = i
                 index2 = i + 1
-                color = colors.get_blended_color_yellow_red(radius, z[h][i])
+                color = get_blended_color_yellow_red(radius, z[h][i])
                 path_colors.append(color)
                 line = trimesh.path.entities.Line([i, index2])
                 lines.append(line)
@@ -130,9 +119,7 @@ class SunpathMesh:
 
         return path_meshes
 
-    def create_sunpath_loops_mesh(
-        self, x, y, z, radius: float, width: float, colors: Colors
-    ):
+    def create_sunpath_loops_mesh(self, x, y, z, radius: float, width: float):
         meshes = []
 
         for h in x:
@@ -171,7 +158,7 @@ class SunpathMesh:
                     faces.append([v_counter, 0, v_counter + 1])
                     faces.append([v_counter + 1, 0, 1])
 
-                v_color = colors.get_blended_color_yellow_red(radius, z[h][i])
+                v_color = get_blended_color_yellow_red(radius, z[h][i])
 
                 vertex_colors.append(v_color)
                 vertex_colors.append(v_color)
@@ -184,7 +171,7 @@ class SunpathMesh:
 
         return meshes
 
-    def create_sunpath_pc(self, x, y, z, radius: float, colors: Colors):
+    def create_sunpath_pc(self, x, y, z, radius: float):
         points = []
         for h in x:
             n_suns = len(x[h])

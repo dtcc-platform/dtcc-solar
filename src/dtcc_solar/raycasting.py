@@ -5,17 +5,17 @@ from dtcc_solar import utils
 from ncollpyde import Volume
 
 
-def raytrace_f(volume: Volume, sunVecRev):
+def raytrace(volume: Volume, sunVecRev):
     mesh_faces = volume.faces
     mesh_points = volume.points
     fCount = len(mesh_faces)
 
-    [ptRayOrigin, ptRayTarget] = pre_process_f(mesh_faces, mesh_points, sunVecRev)
+    [ptRayOrigin, ptRayTarget] = pre_process(mesh_faces, mesh_points, sunVecRev)
     [seg_idxs, intersections, is_backface] = volume.intersections(
         ptRayOrigin,
         ptRayTarget,
     )
-    face_in_sun = post_process_f(seg_idxs, fCount)
+    face_in_sun = post_process(seg_idxs, fCount)
 
     # print("---- Face midpoint intersection results ----")
     print("Found nr of intersections: " + str(len(seg_idxs)))
@@ -23,7 +23,7 @@ def raytrace_f(volume: Volume, sunVecRev):
     return face_in_sun
 
 
-def pre_process_f(mesh_faces, mesh_points, sun_vec_rev):
+def pre_process(mesh_faces, mesh_points, sun_vec_rev):
     ptRayOrigin = np.zeros([len(mesh_faces), 3])
     ptRayTarget = np.zeros([len(mesh_faces), 3])
     tol = 0.01
@@ -43,69 +43,13 @@ def pre_process_f(mesh_faces, mesh_points, sun_vec_rev):
     return ptRayOrigin, ptRayTarget
 
 
-def post_process_f(seg_idxs, f_count):
+def post_process(seg_idxs, f_count):
     # Rearrange intersection results
     face_in_sun = np.ones(f_count, dtype=bool)
     for ray_index in seg_idxs:
         face_in_sun[ray_index] = False
 
     return face_in_sun
-
-
-def raytrace_v(meshes, sun_vec_rev):
-    mesh_tri = meshes.city_mesh
-    volume = meshes.volume
-
-    [pt_ray_origin, pt_ray_target] = pre_process_v(mesh_tri, sun_vec_rev)
-
-    [seg_idxs, intersections, is_backface] = volume.intersections(
-        pt_ray_origin,
-        pt_ray_target,
-    )
-
-    [face_shading, vertex_in_sun, face_in_sun] = post_process_v(mesh_tri, seg_idxs)
-
-    # print("---- Vertex intersection results ----")
-    print("Found nr of intersections: " + str(len(seg_idxs)))
-
-    return face_shading, vertex_in_sun, face_in_sun
-
-
-def pre_process_v(mesh_tri, sun_vec_rev):
-    mesh_points = mesh_tri.vertices
-    pt_ray_origin = np.zeros([len(mesh_points), 3])
-    pt_ray_target = np.zeros([len(mesh_points), 3])
-    tol = 0.01
-    ray_length = 1000
-
-    sunVecRevNp = np.array(sun_vec_rev)  # Already numpy array?
-    pt_ray_origin = mesh_points + (sunVecRevNp * tol)
-    pt_ray_target = mesh_points + (sunVecRevNp * ray_length)
-
-    return pt_ray_origin, pt_ray_target
-
-
-def post_process_v(meshTri, seg_idxs):
-    vertex_in_sun = np.ones(len(meshTri.vertices), dtype=bool)
-    for v_index_in_shade in seg_idxs:
-        vertex_in_sun[v_index_in_shade] = False
-
-    f_counter = 0
-    face_shading = np.zeros(len(meshTri.faces), dtype=int)
-    face_in_sun = np.zeros(len(meshTri.faces), dtype=bool)
-    for face in meshTri.faces:
-        v_counter = 0
-        for v_index in face:
-            if vertex_in_sun[v_index]:
-                v_counter += 1
-        face_shading[f_counter] = v_counter
-
-        if v_counter == 3:
-            face_in_sun[f_counter] = True
-
-        f_counter += 1
-
-    return face_shading, vertex_in_sun, face_in_sun
 
 
 def raytrace_skydome(volume: Volume, ray_targets, ray_areas):
