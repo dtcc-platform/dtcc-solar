@@ -16,6 +16,7 @@ from dtcc_solar.results import Results
 from dtcc_solar import weather_data as weather
 from dtcc_solar.utils import concatenate_meshes
 from dtcc_solar.colors import *
+from dtcc_viewer import MeshShading
 
 import dtcc_solar.smhi_data as smhi
 import dtcc_solar.meteo_data as meteo
@@ -226,11 +227,11 @@ def run_script(command_line_args):
         analemmas = concatenate_meshes(analemmas)
         day_paths = concatenate_meshes(day_paths)
 
-        viewer_gl.add_mesh("Dtcc mesh", solar_engine.dmesh, colors=colors)
-        viewer_gl.add_mesh("Analemmas", analemmas)
-        viewer_gl.add_mesh("Day paths", day_paths)
-        viewer_gl.add_pc("All suns", all_pc)
-        viewer_gl.add_pc("Active suns", sun_pc)
+        viewer_gl.add_mesh("Dtcc mesh", mesh=solar_engine.dmesh, colors=colors)
+        viewer_gl.add_mesh("Analemmas", mesh=analemmas, shading=MeshShading.ambient)
+        viewer_gl.add_mesh("Day paths", mesh=day_paths, shading=MeshShading.ambient)
+        viewer_gl.add_pc("All suns", all_pc, 0.3)
+        viewer_gl.add_pc("Active suns", sun_pc, 2.0)
 
         if p.display:
             viewer_gl.show()
