@@ -29,17 +29,17 @@ class TestSunpathVisual:
 
     def test_analemmas(self):
         year = 2018
-        [x, y, z, pos_dict] = self.sunpath.get_analemmas(year, 5)
+        sun_pos_dict = self.sunpath.get_analemmas(year, 5)
         ax = self.sunvis.initialise_plot(self.radius, "Analemmas")
-        self.sunvis.plot_analemmas(pos_dict, self.radius, ax, True, "autumn_r", 0)
+        self.sunvis.plot_analemmas(sun_pos_dict, self.radius, ax, True, "autumn_r", 0)
         plt.show()
         pass
 
     def test_daypath(self):
         dates = pd.date_range(start="2019-01-01", end="2019-09-30", freq="10D")
-        [x, y, z] = self.sunpath.get_daypaths(dates, 10)
+        sun_pos_dict = self.sunpath.get_daypaths(dates, 10)
         ax = self.sunvis.initialise_plot(self.radius, "Day paths")
-        self.sunvis.plot_daypath(x, y, z, self.radius, ax, True)
+        self.sunvis.plot_daypath(sun_pos_dict, self.radius, ax, True)
         plt.show()
         pass
 

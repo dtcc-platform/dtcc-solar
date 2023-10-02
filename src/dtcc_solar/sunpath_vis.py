@@ -13,6 +13,7 @@ from dtcc_solar.sunpath import Sunpath
 from dtcc_model import Mesh, PointCloud
 
 from typing import Dict, Any
+from pprint import pp
 
 # from timezonefinder import TimezoneFinder
 
@@ -46,17 +47,16 @@ class SunpathMesh:
     ):
         r = solar_engine.sunpath_radius
         w = solar_engine.path_width
-        [sunX, sunY, sunZ, analemmas_dict] = sunpath.get_analemmas(2019, 2)
+        sun_pos_dict = sunpath.get_analemmas(2019, 2)
+        self.analemmas_meshes = self.create_loops_mesh(sun_pos_dict, r, w)
 
-        self.analemmas_meshes = self.create_sunpath_loops_mesh(sunX, sunY, sunZ, r, w)
+        self.pc = self.create_sunpath_pc(sun_pos_dict)
 
-        self.pc = self.create_sunpath_pc(sunX, sunY, sunZ, r)
+        days = pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"])
+        minute_sample_rate = 2
+        days_dict = sunpath.get_daypaths(days, minute_sample_rate)
 
-        [sunX, sunY, sunZ] = sunpath.get_daypaths(
-            pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"]), 2
-        )
-
-        self.daypath_meshes = self.create_sunpath_loops_mesh(sunX, sunY, sunZ, r, w)
+        self.daypath_meshes = self.create_loops_mesh(days_dict, r, w)
 
         self.sun_pc = self.create_sun_spheres(suns)
 
@@ -67,15 +67,15 @@ class SunpathMesh:
                 points.append(utils.vec_2_ndarray(suns[i].position))
 
         points = np.array(points)
-        print(points)
         pc = PointCloud(points=points)
         return pc
 
-    def create_sunpath_loops_mesh(self, x, y, z, radius: float, width: float):
+    def create_loops_mesh(self, sun_pos_dict, radius: float, width: float):
         meshes = []
 
-        for h in x:
-            n_suns = len(x[h])
+        for h in sun_pos_dict:
+            n_suns = len(sun_pos_dict[h])
+            pos = sun_pos_dict[h]
             offset_vertices_L = np.zeros((n_suns + 1, 3))
             offset_vertices_R = np.zeros((n_suns + 1, 3))
 
@@ -89,8 +89,11 @@ class SunpathMesh:
                 if i == n_suns - 1:
                     i_next = 0
 
-                sun_pos_1 = np.array([x[h][i], y[h][i], z[h][i]])
-                sun_pos_2 = np.array([x[h][i_next], y[h][i_next], z[h][i_next]])
+                sun_pos_1 = np.array([pos[i].x, pos[i].y, pos[i].z])
+                sun_pos_2 = np.array([pos[i_next].x, pos[i_next].y, pos[i_next].z])
+
+                # sun_pos_1 = np.array([x[h][i], y[h][i], z[h][i]])
+                # sun_pos_2 = np.array([x[h][i_next], y[h][i_next], z[h][i_next]])
                 vec_1 = utils.normalise_vector(0.5 * (sun_pos_1 + sun_pos_2))
                 vec_2 = utils.normalise_vector(sun_pos_2 - sun_pos_1)
                 vec_3 = utils.cross_product(vec_2, vec_1)
@@ -110,7 +113,7 @@ class SunpathMesh:
                     faces.append([v_counter, 0, v_counter + 1])
                     faces.append([v_counter + 1, 0, 1])
 
-                v_color = get_blended_color_yellow_red(radius, z[h][i])
+                v_color = get_blended_color_yellow_red(radius, pos[i].z)
 
                 vertex_colors.append(v_color)
                 vertex_colors.append(v_color)
@@ -123,14 +126,13 @@ class SunpathMesh:
 
         return meshes
 
-    def create_sunpath_pc(self, x, y, z, radius: float):
+    def create_sunpath_pc(self, sun_pos_dict):
         points = []
-        for h in x:
-            n_suns = len(x[h])
-
-            for i in range(0, n_suns - 1):
-                sun_pos_1 = np.array([x[h][i], y[h][i], z[h][i]])
-                points.append(sun_pos_1)
+        for h in sun_pos_dict:
+            pos_list = sun_pos_dict[h]
+            for pos in pos_list:
+                sun_pos = np.array([pos.x, pos.y, pos.z])
+                points.append(sun_pos)
 
         points = np.array(points)
         pc = PointCloud(points=points)
@@ -221,28 +223,28 @@ class SunpathVis:
                 fontsize=12,
             )
 
-    def plot_daypath(self, x_dict, y_dict, z_dict, radius, ax, plot_night):
-        for key in x_dict:
-            x = x_dict[key]
-            y = y_dict[key]
-            z = z_dict[key]
+    def plot_daypath(self, sun_pos_dict, radius, ax, plot_night):
+        sun_pos_arr = utils.dict_2_np_array(sun_pos_dict)
+        day_indices = np.where(sun_pos_arr[:, 2] > 0)
+        night_indices = np.where(sun_pos_arr[:, 2] <= 0)
+        z_color = sun_pos_arr[day_indices, 2]
 
-            day_indices = np.where(z > 0)
-            night_indices = np.where(z <= 0)
-            z_color = z[day_indices]
+        ax.scatter3D(
+            sun_pos_arr[day_indices, 0],
+            sun_pos_arr[day_indices, 1],
+            sun_pos_arr[day_indices, 2],
+            c=z_color,
+            cmap="autumn_r",
+            vmin=0,
+            vmax=radius,
+        )
+        if plot_night:
             ax.scatter3D(
-                x[day_indices],
-                y[day_indices],
-                z[day_indices],
-                c=z_color,
-                cmap="autumn_r",
-                vmin=0,
-                vmax=radius,
+                sun_pos_arr[night_indices, 0],
+                sun_pos_arr[night_indices, 1],
+                sun_pos_arr[night_indices, 2],
+                color="w",
             )
-            if plot_night:
-                ax.scatter3D(
-                    x[night_indices], y[night_indices], z[night_indices], color="w"
-                )
 
     def plot_single_sun(self, x, y, z, radius, ax):
         z_color = z

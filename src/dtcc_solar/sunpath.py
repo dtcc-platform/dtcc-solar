@@ -8,7 +8,6 @@ from dtcc_solar import utils
 from dtcc_solar.utils import Vec3, Sun
 from dtcc_solar.utils import Parameters
 from pvlib import solarposition
-from typing import List, Dict, Any
 
 # from timezonefinder import TimezoneFinder
 from pprint import pp
@@ -44,110 +43,65 @@ class Sunpath:
         days = np.zeros(num_of_days)
         num_evaluated_days = len(days[0 : len(days) : sample_rate])
 
-        mat_elev_hour = np.zeros((24, num_evaluated_days))
-        mat_azim_hour = np.zeros((24, num_evaluated_days))
-        mat_zeni_hour = np.zeros((24, num_evaluated_days))
+        elev = np.zeros((24, num_evaluated_days))
+        azim = np.zeros((24, num_evaluated_days))
+        zeni = np.zeros((24, num_evaluated_days))
 
         loop_hours = np.unique(sol_pos_hour.index.hour)
-        x = dict.fromkeys([h for h in loop_hours])
-        y = dict.fromkeys([h for h in loop_hours])
-        z = dict.fromkeys([h for h in loop_hours])
-        analemmas_dict = dict.fromkeys([h for h in loop_hours])
+        sun_pos_dict = dict.fromkeys([h for h in loop_hours])
+
+        r = self.radius
 
         # Get hourly sun path loops in matrix form and elevaion, azimuth and zenith coordinates
-        for hour in loop_hours:
-            subset = sol_pos_hour.loc[sol_pos_hour.index.hour == hour, :]
+        for h in loop_hours:
+            subset = sol_pos_hour.loc[sol_pos_hour.index.hour == h, :]
             rad_elev = np.radians(subset.apparent_elevation)
             rad_azim = np.radians(subset.azimuth)
             rad_zeni = np.radians(subset.zenith)
-            mat_elev_hour[hour, :] = rad_elev.values[
-                0 : len(rad_elev.values) : sample_rate
-            ]
-            mat_azim_hour[hour, :] = rad_azim.values[
-                0 : len(rad_azim.values) : sample_rate
-            ]
-            mat_zeni_hour[hour, :] = rad_zeni.values[
-                0 : len(rad_zeni.values) : sample_rate
-            ]
+            elev[h, :] = rad_elev.values[0 : len(rad_elev.values) : sample_rate]
+            azim[h, :] = rad_azim.values[0 : len(rad_azim.values) : sample_rate]
+            zeni[h, :] = rad_zeni.values[0 : len(rad_zeni.values) : sample_rate]
 
         # Convert hourly sun path loops from spherical to cartesian coordiantes
         for h in range(0, 24):
-            x[h] = (
-                self.radius * np.cos(mat_elev_hour[h, :]) * np.cos(-mat_azim_hour[h, :])
-                + self.origin[0]
-            )
-            y[h] = (
-                self.radius * np.cos(mat_elev_hour[h, :]) * np.sin(-mat_azim_hour[h, :])
-                + self.origin[1]
-            )
-            z[h] = self.radius * np.sin(mat_elev_hour[h, :]) + self.origin[2]
-            analemmas_dict[h] = utils.create_list_of_vectors(x[h], y[h], z[h])
+            x = r * np.cos(elev[h, :]) * np.cos(-azim[h, :]) + self.origin[0]
+            y = r * np.cos(elev[h, :]) * np.sin(-azim[h, :]) + self.origin[1]
+            z = r * np.sin(elev[h, :]) + self.origin[2]
 
-        return x, y, z, analemmas_dict
+            sun_pos_dict[h] = utils.create_list_of_vec3(x, y, z)
+
+        return sun_pos_dict
 
     def get_daypaths(self, dates: pd.DatetimeIndex, minute_step: float):
         n = len(dates.values)
         n_evaluation = int(math.ceil(24 * 60 / minute_step))
-        mat_elev_day = np.zeros((n, n_evaluation + 1))
-        mat_azim_day = np.zeros((n, n_evaluation + 1))
+        elev = np.zeros((n, n_evaluation + 1))
+        azim = np.zeros((n, n_evaluation + 1))
         date_counter = 0
 
-        x = dict.fromkeys([d for d in range(0, n)])
-        y = dict.fromkeys([d for d in range(0, n)])
-        z = dict.fromkeys([d for d in range(0, n)])
+        days_dict = dict.fromkeys([d for d in range(0, n)])
+        min_step_str = str(minute_step) + "min"
+        day_step = pd.Timedelta(str(24) + "h")
 
         for date in dates.values:
-            times = pd.date_range(
-                date, date + pd.Timedelta(str(24) + "h"), freq=str(minute_step) + "min"
-            )
+            times = pd.date_range(date, date + day_step, freq=min_step_str)
             sol_pos_day = solarposition.get_solarposition(times, self.lat, self.lon)
             rad_elev_day = np.radians(sol_pos_day.apparent_elevation)
             rad_azim_day = np.radians(sol_pos_day.azimuth)
-            mat_elev_day[date_counter, :] = rad_elev_day.values
-            mat_azim_day[date_counter, :] = rad_azim_day.values
+            elev[date_counter, :] = rad_elev_day.values
+            azim[date_counter, :] = rad_azim_day.values
             date_counter = date_counter + 1
 
         for d in range(0, date_counter):
-            x[d] = (
-                self.radius * np.cos(mat_elev_day[d, :]) * np.cos(-mat_azim_day[d, :])
-                + self.origin[0]
-            )
-            y[d] = (
-                self.radius * np.cos(mat_elev_day[d, :]) * np.sin(-mat_azim_day[d, :])
-                + self.origin[1]
-            )
-            z[d] = self.radius * np.sin(mat_elev_day[d, :]) + self.origin[2]
+            x = self.radius * np.cos(elev[d, :]) * np.cos(-azim[d, :]) + self.origin[0]
+            y = self.radius * np.cos(elev[d, :]) * np.sin(-azim[d, :]) + self.origin[1]
+            z = self.radius * np.sin(elev[d, :]) + self.origin[2]
 
-        return x, y, z
+            days_dict[d] = utils.create_list_of_vec3(x, y, z)
 
-    """
-    def get_single_sun(self, date: pd.DatetimeIndex):
-        sun_pos = np.zeros(3)
-        sun_pos_day = solarposition.get_solarposition(date, self.lat, self.lon)
-        rad_elev_day = np.radians(sun_pos_day.apparent_elevation)
-        rad_azim_day = np.radians(sun_pos_day.azimuth)
-        elev = rad_elev_day.values
-        azim = rad_azim_day.values
-        sun_pos[0] = self.radius * np.cos(elev) * np.cos(-azim) + self.origin[0]
-        sun_pos[1] = self.radius * np.cos(elev) * np.sin(-azim) + self.origin[1]
-        sun_pos[2] = self.radius * np.sin(elev) + self.origin[2]
-        sun_positions = np.c_[sun_pos[0], sun_pos[1], sun_pos[2]]
-        return sun_positions
+        return days_dict
 
-    def get_multiple_suns(self, dict_keys: List[str]):
-        dates = pd.to_datetime(dict_keys)
-        solpos = solarposition.get_solarposition(dates, self.lat, self.lon)
-        elev = np.radians(solpos.apparent_elevation.to_list())
-        azim = np.radians(solpos.azimuth.to_list())
-        x = self.radius * np.cos(elev) * np.cos(-azim) + self.origin[0]
-        y = self.radius * np.cos(elev) * np.sin(-azim) + self.origin[1]
-        z = self.radius * np.sin(elev) + self.origin[2]
-        sun_positions = np.c_[x, y, z]
-
-        return sun_positions
-    """
-
-    def get_suns_positions(self, suns: List[Sun]):
+    def get_suns_positions(self, suns: list[Sun]):
         date_from_str = suns[0].datetime_str
         date_to_str = suns[-1].datetime_str
         dates = pd.date_range(start=date_from_str, end=date_to_str, freq="1H")
@@ -176,13 +130,6 @@ class Sunpath:
             print("Something went wrong in when retrieving solar positions!")
 
         return suns
-
-    def remove_sun_under_horizon(self, horizon_z, sun_positions, dict_keys):
-        z = sun_positions[:, 2]
-        z_mask = z >= horizon_z
-        sun_positions = sun_positions[z_mask]
-        dict_keys = dict_keys[z_mask]
-        return sun_positions, dict_keys
 
     def create_sun_timestamps(self, start_date: str, end_date: str):
         time_from = pd.to_datetime(start_date)

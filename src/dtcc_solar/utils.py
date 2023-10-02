@@ -69,20 +69,25 @@ class Vec3:
 
 @dataclass
 class Sun:
-    datetime_str: str  # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
-    datetime_ts: pd.Timestamp  # TimeStamp object with the same date and time
+    # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
+    datetime_str: str
+    # TimeStamp object with the same date and time
+    datetime_ts: pd.Timestamp
     index: int
-    irradiance_dn: float = 0.0  # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    irradiance_dh: float = 0.0  # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    irradiance_di: float = 0.0  # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
-    over_horizon: bool = (
-        False  # True if the possition of over the horizon, otherwise false.
-    )
-    zenith: float = 0.0  # Angle between earth surface normal and the reversed solar vector (both pointing away for the earth surface)
-    position: Vec3 = Vec3(
-        0, 0, 0
-    )  # Position of the  sun in cartesian coordinates based on the size of the model
-    sun_vec: Vec3 = Vec3(0, 0, 0)  # Normalised solar vector for calculations
+    # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
+    irradiance_dn: float = 0.0
+    # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
+    irradiance_dh: float = 0.0
+    # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
+    irradiance_di: float = 0.0
+    # True if the possition of over the horizon, otherwise false.
+    over_horizon: bool = False
+    # Angle between earth surface normal and the reversed solar vector (both pointing away for the earth surface)
+    zenith: float = 0.0
+    # Position of the  sun in cartesian coordinates based on the size of the model
+    position: Vec3 = Vec3(0, 0, 0)
+    # Normalised solar vector for calculations
+    sun_vec: Vec3 = Vec3(0, 0, 0)
 
 
 @dataclass
@@ -134,12 +139,22 @@ def vec_2_ndarray(vec: Vec3):
     return np.array([vec.x, vec.y, vec.z])
 
 
-def create_list_of_vectors(x_list, y_list, z_list) -> List[Vec3]:
-    vector_list = []
+def create_list_of_vec3(x_list, y_list, z_list) -> List[Vec3]:
+    vec_list = []
     for i in range(0, len(x_list)):
         vec = Vec3(x=x_list[i], y=y_list[i], z=z_list[i])
-        vector_list.append(vec)
-    return vector_list
+        vec_list.append(vec)
+    return vec_list
+
+
+def dict_2_np_array(sun_pos_dict):
+    arr = []
+    for key in sun_pos_dict:
+        for pos in sun_pos_dict[key]:
+            arr.append([pos.x, pos.y, pos.z])
+
+    arr = np.array(arr)
+    return arr
 
 
 """

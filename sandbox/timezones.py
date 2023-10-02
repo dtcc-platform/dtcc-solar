@@ -168,7 +168,7 @@ def get_sunpath_hour_loops(
         print("Local Hour: " + str(local_h))
         utc_h = SunpathUtils.convert_local_time_to_utc(local_h, location["GMT_diff"])
         print("UTC Hour: " + str(utc_h))
-        sun_pos[h] = utils.create_list_of_vectors(x[h], y[h], z[h])
+        sun_pos[h] = utils.create_list_of_vec3(x[h], y[h], z[h])
 
         if plot_results:
             plot_day_loop_with_text(

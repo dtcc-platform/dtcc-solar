@@ -231,7 +231,7 @@ def run_script(command_line_args):
         viewer_gl.add_mesh("Analemmas", mesh=analemmas, shading=MeshShading.ambient)
         viewer_gl.add_mesh("Day paths", mesh=day_paths, shading=MeshShading.ambient)
         viewer_gl.add_pc("All suns", all_pc, 0.3)
-        viewer_gl.add_pc("Active suns", sun_pc, 2.0)
+        viewer_gl.add_pc("Active suns", sun_pc, 15.0)
 
         if p.display:
             viewer_gl.show()
@@ -361,4 +361,4 @@ if __name__ == "__main__":
         "7",
     ]
 
-    run_script(args_1)
+    run_script(args_4)
