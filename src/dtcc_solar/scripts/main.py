@@ -209,32 +209,18 @@ def run_script(command_line_args):
     results.calc_average_results()
 
     if p.prepare_display:
-        viewer_gl = Viewer()
+        viewer = Viewer()
 
-        # Create sunpath so that the solar postion are given a context in the 3D visualisation
-        sunpath_mesh = SunpathMesh(solar_engine.sunpath_radius)
-        sunpath_mesh.create_sunpath_diagram_gl(suns, sunpath, solar_engine)
+        viewer.create_sunpath_diagram(suns, solar_engine, sunpath)
 
         # Color city mesh and add to viewer
         colors = color_city_mesh(results.res_acum, p.color_by)
 
-        # Get analemmas, day paths, and pc for sun positions
-        analemmas = sunpath_mesh.get_analemmas_meshes()
-        day_paths = sunpath_mesh.get_daypath_meshes()
-        all_pc = sunpath_mesh.get_analemmas_pc()
-        sun_pc = sunpath_mesh.get_sun_pc()
-
-        analemmas = concatenate_meshes(analemmas)
-        day_paths = concatenate_meshes(day_paths)
-
-        viewer_gl.add_mesh("Dtcc mesh", mesh=solar_engine.dmesh, colors=colors)
-        viewer_gl.add_mesh("Analemmas", mesh=analemmas, shading=MeshShading.ambient)
-        viewer_gl.add_mesh("Day paths", mesh=day_paths, shading=MeshShading.ambient)
-        viewer_gl.add_pc("All suns", all_pc, 0.3)
-        viewer_gl.add_pc("Active suns", sun_pc, 15.0)
+        # Add mesh with colors from analysis
+        viewer.add_mesh("Dtcc mesh", mesh=solar_engine.dmesh, colors=colors)
 
         if p.display:
-            viewer_gl.show()
+            viewer.show()
 
     clock2 = time.perf_counter()
     print("Total computation time elapsed: " + str(round(clock2 - clock1, 4)))

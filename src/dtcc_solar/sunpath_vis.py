@@ -24,7 +24,7 @@ class SunpathMesh:
     sun_pc: list[Any]
     analemmas_meshes: list[Any]
     daypath_meshes: list[Any]
-    pc: PointCloud
+    analemmas_pc: PointCloud
 
     def __init__(self, radius: float):
         self.radius = radius
@@ -34,7 +34,7 @@ class SunpathMesh:
         return self.analemmas_meshes
 
     def get_analemmas_pc(self):
-        return self.pc
+        return self.analemmas_pc
 
     def get_daypath_meshes(self):
         return self.daypath_meshes
@@ -42,22 +42,28 @@ class SunpathMesh:
     def get_sun_pc(self):
         return self.sun_pc
 
-    def create_sunpath_diagram_gl(
+    def create_sunpath_diagram(
         self, suns: list[Sun], sunpath: Sunpath, solar_engine: SolarEngine
     ):
         r = solar_engine.sunpath_radius
         w = solar_engine.path_width
+
+        # Get analemmas mesh and sun positions represented as a point cloud
         sun_pos_dict = sunpath.get_analemmas(2019, 2)
-        self.analemmas_meshes = self.create_loops_mesh(sun_pos_dict, r, w)
+        self.analemmas_meshes = self.create_mesh_strip(sun_pos_dict, r, w)
+        self.analemmas_pc = self.create_sunpath_pc(sun_pos_dict)
 
-        self.pc = self.create_sunpath_pc(sun_pos_dict)
+        # Get every sun position for each minute in a year as points in a point cloud
+        dates = pd.date_range(start="2019-01-01", end="2019-12-31", freq="1D")
+        sun_pos_dict = sunpath.get_daypaths(dates, 1)
+        self.all_suns_pc = self.create_sunpath_pc(sun_pos_dict)
 
+        # Get day path loops as mesh strips
         days = pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"])
-        minute_sample_rate = 2
-        days_dict = sunpath.get_daypaths(days, minute_sample_rate)
+        days_dict = sunpath.get_daypaths(days, 2)
+        self.daypath_meshes = self.create_mesh_strip(days_dict, r, w)
 
-        self.daypath_meshes = self.create_loops_mesh(days_dict, r, w)
-
+        # Create pc representation of current sun positions
         self.sun_pc = self.create_sun_spheres(suns)
 
     def create_sun_spheres(self, suns: list[Sun]):
@@ -70,7 +76,7 @@ class SunpathMesh:
         pc = PointCloud(points=points)
         return pc
 
-    def create_loops_mesh(self, sun_pos_dict, radius: float, width: float):
+    def create_mesh_strip(self, sun_pos_dict, radius: float, width: float):
         meshes = []
 
         for h in sun_pos_dict:
@@ -92,11 +98,8 @@ class SunpathMesh:
                 sun_pos_1 = np.array([pos[i].x, pos[i].y, pos[i].z])
                 sun_pos_2 = np.array([pos[i_next].x, pos[i_next].y, pos[i_next].z])
 
-                # sun_pos_1 = np.array([x[h][i], y[h][i], z[h][i]])
-                # sun_pos_2 = np.array([x[h][i_next], y[h][i_next], z[h][i_next]])
                 vec_1 = utils.normalise_vector(0.5 * (sun_pos_1 + sun_pos_2))
                 vec_2 = utils.normalise_vector(sun_pos_2 - sun_pos_1)
-                # vec_3 = utils.cross_product(vec_2, vec_1)
                 vec_3 = np.cross(vec_1, vec_2)
 
                 # Offset vertices to create a width for path

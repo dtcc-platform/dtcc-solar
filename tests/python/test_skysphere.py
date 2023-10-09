@@ -57,8 +57,6 @@ class TestSkysphere:
 
         self.skysphere.tilt(z_vec, sunpath_axis)
 
-        meshes.save(self.skysphere.mesh, "./m2.obj")
-
         window = Window(1200, 800)
         scene = Scene()
         scene.add_mesh("Sky sphere", self.skysphere.mesh)
