@@ -157,6 +157,36 @@ def dict_2_np_array(sun_pos_dict):
     return arr
 
 
+def calc_rotation_matrix(vec_from: np.ndarray, vec_to: np.ndarray):
+    # https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
+
+    a = vec_from
+    b = vec_to
+
+    a_norm = np.linalg.norm(a)
+    b_norm = np.linalg.norm(b)
+
+    a = a / a_norm
+    b = b / b_norm
+
+    v = np.cross(a, b)
+
+    angle = math.acos(
+        ((a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2])) / (a_norm * b_norm)
+    )
+
+    s = np.linalg.norm(v) * math.sin(angle)
+    c = (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) * math.cos(angle)
+
+    I = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    Vx = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    constant = 1.0 / (1.0 + c)
+
+    R = I + Vx + np.dot(Vx, Vx) * constant
+
+    return R
+
+
 """
 def find_distributed_face_mid_points(nx, ny, mesh:trimesh):
 
@@ -266,7 +296,7 @@ def calculate_normal(v1, v2):
 def cross_product(a, b):
     vCross = np.zeros(3)
     vCross[0] = a[1] * b[2] - a[2] * b[1]
-    vCross[1] = a[0] * b[2] - a[2] * b[0]
+    vCross[1] = a[2] * b[0] - a[0] * b[2]
     vCross[2] = a[0] * b[1] - a[1] * b[0]
     return vCross
 

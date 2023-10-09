@@ -8,11 +8,15 @@ from dtcc_solar import utils
 
 
 class SkyDome:
-    def __init__(self, dome_radius):
+    def __init__(self, dome_radius, div_count: int = 10):
+        # Skydome parameters:
+        self.n = div_count  # Number of stripes in which the sphere is divided
+        self.r = 1  # Unit radius to be scaled in the intersection calc function
+
         self.meshes_quads = []
         self.meshes_points = []
-        self.ray_targets = np.zeros((1000, 3), dtype=np.float64)
-        self.ray_areas = np.zeros(1000, dtype=float)
+        self.ray_targets = np.zeros((div_count * 200, 3), dtype=np.float64)
+        self.ray_areas = np.zeros(div_count * 200, dtype=float)
 
         self.joined_mesh_points = 0
         self.dome_mesh = 0
@@ -25,7 +29,7 @@ class SkyDome:
         self.quad_sun_angle = 0
         self.quad_count = 0
 
-        self.create_skydome_mesh()
+        self.build_mesh()
 
     def get_quad_count(self):
         return self.quad_count
@@ -36,49 +40,33 @@ class SkyDome:
     def get_ray_areas(self):
         return self.ray_areas
 
-    def create_skydome_mesh(self):
+    def build_mesh(self):
         # Assuming the ray origin to be at [0,0,0] so that the sphere of ray targets positions
         # can be moved easily to each mesh face center for the ray casting.
 
-        n = 10
-        r = 1  # Unit radius to be scaled in the intersection calc function
         r_visual = self.dome_radius  # Radius for visualisation
         top_cap_div = 4
         max_azim = 2 * math.pi
         max_elev = 0.5 * math.pi
-        d_elev = max_elev / n
+        d_elev = max_elev / self.n  # elevation stepsize
 
         elev = max_elev - d_elev
         azim = 0
 
         # Calculate the area of the initial cap based on the dElev value
-        top_cap_area = self.calc_sphere_cap_area(elev, r)
-        hemisphere_area = self.calc_hemisphere_area(r)
+        top_cap_area = self.calc_sphere_cap_area(elev, self.r)
+        hemisphere_area = self.calc_hemisphere_area(self.r)
         target_area = top_cap_area / top_cap_div
         face_area_part = target_area / hemisphere_area
 
-        [
-            self.ray_targets,
-            self.ray_areas,
-            self.meshes_quads,
-            counter,
-        ] = self.get_top_cap(
-            self.ray_targets,
-            self.ray_areas,
-            max_elev,
-            elev,
-            max_azim,
-            top_cap_div,
-            r,
-            r_visual,
-            face_area_part,
-            self.meshes_quads,
+        counter = self.get_top_cap(
+            max_elev, elev, max_azim, top_cap_div, self.r, r_visual, face_area_part
         )
 
-        for i in range(0, n - 1):
+        for i in range(0, self.n - 1):
             # Reducing the elevation for every loop
             next_elev = elev - d_elev
-            strip_area = self.calc_sphere_strip_area(elev, next_elev, r)
+            strip_area = self.calc_sphere_strip_area(elev, next_elev, self.r)
             n_azim = int(strip_area / target_area)
             d_azim = max_azim / n_azim
             azim = 0
@@ -90,13 +78,13 @@ class SkyDome:
                 mesh_quad = self.create_dome_mesh_quad(
                     r_visual, azim, next_azim, elev, next_elev
                 )
-                mesh_quad.visual.face_colors = [1.0, 0.5, 0, 1.0]
+                # mesh_quad.visual.face_colors = [1.0, 0.5, 0, 1.0]
                 self.meshes_quads.append(mesh_quad)
 
                 mid_pt_azim = (azim + next_azim) / 2.0
-                x = r * math.cos(mid_pt_elev) * math.cos(mid_pt_azim)
-                y = r * math.cos(mid_pt_elev) * math.sin(mid_pt_azim)
-                z = r * math.sin(mid_pt_elev)
+                x = self.r * math.cos(mid_pt_elev) * math.cos(mid_pt_azim)
+                y = self.r * math.cos(mid_pt_elev) * math.sin(mid_pt_azim)
+                z = self.r * math.sin(mid_pt_elev)
                 pt_ray = np.array([x, y, z])
 
                 self.ray_targets[counter, :] = pt_ray
@@ -192,17 +180,7 @@ class SkyDome:
         return mesh
 
     def get_top_cap(
-        self,
-        ray_target,
-        ray_areas,
-        max_elev,
-        elev,
-        max_azim,
-        n_azim,
-        r,
-        r_visual,
-        face_area_part,
-        meshes_quad,
+        self, max_elev, elev, max_azim, n_azim, r, r_visual, face_area_part
     ):
         elev_mid = (elev + max_elev) / 2.0
         d_azim = max_azim / n_azim
@@ -214,17 +192,17 @@ class SkyDome:
             x = r * math.cos(elev_mid) * math.cos(azim_mid)
             y = r * math.cos(elev_mid) * math.sin(azim_mid)
             z = r * math.sin(elev_mid)
-            ray_target[counter, :] = [x, y, z]
-            ray_areas[counter] = face_area_part
+            self.ray_targets[counter, :] = [x, y, z]
+            self.ray_areas[counter] = face_area_part
 
             quad = self.create_top_cap_quads(r_visual, max_elev, elev, azim, d_azim)
-            meshes_quad.append(quad)
+            self.meshes_quads.append(quad)
 
             azim = azim + d_azim
             azim_mid = azim_mid + d_azim
             counter += 1
 
-        return ray_target, ray_areas, meshes_quad, counter
+        return counter
 
     def postprocess_raycasting(self, seg_idxs):
         shaded_portion = np.sum(self.ray_areas[seg_idxs])

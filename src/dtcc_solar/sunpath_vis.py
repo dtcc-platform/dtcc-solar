@@ -96,7 +96,8 @@ class SunpathMesh:
                 # sun_pos_2 = np.array([x[h][i_next], y[h][i_next], z[h][i_next]])
                 vec_1 = utils.normalise_vector(0.5 * (sun_pos_1 + sun_pos_2))
                 vec_2 = utils.normalise_vector(sun_pos_2 - sun_pos_1)
-                vec_3 = utils.cross_product(vec_2, vec_1)
+                # vec_3 = utils.cross_product(vec_2, vec_1)
+                vec_3 = np.cross(vec_1, vec_2)
 
                 # Offset vertices to create a width for path
                 offset_vertices_L[i, :] = sun_pos_1 + (width * vec_3)

@@ -55,7 +55,7 @@ class Sunpath:
         # Get hourly sun path loops in matrix form and elevaion, azimuth and zenith coordinates
         for h in loop_hours:
             subset = sol_pos_hour.loc[sol_pos_hour.index.hour == h, :]
-            rad_elev = np.radians(subset.apparent_elevation)
+            rad_elev = np.radians(subset.elevation)
             rad_azim = np.radians(subset.azimuth)
             rad_zeni = np.radians(subset.zenith)
             elev[h, :] = rad_elev.values[0 : len(rad_elev.values) : sample_rate]
@@ -86,7 +86,7 @@ class Sunpath:
         for date in dates.values:
             times = pd.date_range(date, date + day_step, freq=min_step_str)
             sol_pos_day = solarposition.get_solarposition(times, self.lat, self.lon)
-            rad_elev_day = np.radians(sol_pos_day.apparent_elevation)
+            rad_elev_day = np.radians(sol_pos_day.elevation)
             rad_azim_day = np.radians(sol_pos_day.azimuth)
             elev[date_counter, :] = rad_elev_day.values
             azim[date_counter, :] = rad_azim_day.values
@@ -107,7 +107,7 @@ class Sunpath:
         dates = pd.date_range(start=date_from_str, end=date_to_str, freq="1H")
 
         solpos = solarposition.get_solarposition(dates, self.lat, self.lon)
-        elev = np.radians(solpos.apparent_elevation.to_list())
+        elev = np.radians(solpos.elevation.to_list())
         azim = np.radians(solpos.azimuth.to_list())
         zeni = np.radians(solpos.zenith.to_list())
         x_sun = self.radius * np.cos(elev) * np.cos(-azim) + self.origin[0]
@@ -148,6 +148,28 @@ class Sunpath:
         suns = self.create_sun_timestamps(p.start_date, p.end_date)
         suns = self.get_suns_positions(suns)
         return suns
+
+    def calc_central_axis_vec(self, p: Parameters):
+        start_date = "2019-06-21-10:00:00"
+        end_date = "2019-06-21-20:00"
+        p.start_date = start_date
+        p.end_date = end_date
+        suns = self.create_suns(p)
+
+        pt1 = suns[0].position
+        pt2 = suns[5].position
+        pt3 = suns[10].position
+
+        v1 = np.array([pt2.x - pt1.x, pt2.y - pt1.y, pt2.z - pt1.z])
+        v2 = np.array([pt3.x - pt1.x, pt3.y - pt1.y, pt3.z - pt1.z])
+
+        v3 = np.cross(v2, v1)
+
+        v3 = v3 / np.linalg.norm(v3)
+
+        print(v3)
+
+        return v3
 
 
 class SunpathUtils:
