@@ -189,12 +189,12 @@ def run_script(command_line_args):
 
     # city_mesh = trimesh.load_mesh(p.file_name)
 
-    dmesh = meshes.load_mesh(p.file_name)
-    solar_engine = SolarEngine(dmesh)
+    mesh = meshes.load_mesh(p.file_name)
+    solar_engine = SolarEngine(mesh)
     sunpath = Sunpath(p.latitude, p.longitude, solar_engine.sunpath_radius)
     suns = sunpath.create_suns(p)
     suns = weather.append_weather_data(p, suns)
-    results = Results(suns, len(dmesh.faces))
+    results = Results(suns, len(mesh.faces))
 
     # Execute analysis
     if p.a_type == AnalysisType.sun_raycasting:
@@ -210,14 +210,9 @@ def run_script(command_line_args):
 
     if p.prepare_display:
         viewer = Viewer()
-
         viewer.create_sunpath_diagram(suns, solar_engine, sunpath)
-
-        # Color city mesh and add to viewer
         colors = color_city_mesh(results.res_acum, p.color_by)
-
-        # Add mesh with colors from analysis
-        viewer.add_mesh("Dtcc mesh", mesh=solar_engine.dmesh, colors=colors)
+        viewer.add_mesh("City mesh", mesh=solar_engine.dmesh, colors=colors)
 
         if p.display:
             viewer.show()
@@ -347,4 +342,4 @@ if __name__ == "__main__":
         "7",
     ]
 
-    run_script(args_4)
+    run_script(args_1)

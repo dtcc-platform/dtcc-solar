@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from enum import Enum, IntEnum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict
 from dtcc_model import Mesh
 from dtcc_io import save_mesh
@@ -58,6 +58,16 @@ class Shading(Enum):
     Sun = 1
     Boarder = 2
     Shade = 3
+
+
+@dataclass
+class SunQuad:
+    face_index_a: int
+    face_index_b: int
+    area: float = 0.0
+    over_horizon = False
+    center: np.ndarray = field(default_factory=lambda: np.empty(0))
+    sun_indices: np.ndarray = field(default_factory=lambda: np.empty(0))
 
 
 @dataclass

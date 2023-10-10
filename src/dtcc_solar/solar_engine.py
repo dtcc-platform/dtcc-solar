@@ -102,6 +102,9 @@ class SolarEngine:
 
         self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
+    def sun_precasting(self, suns: List[Sun], results: Results):
+        pass
+
     def sun_raycasting(self, suns: List[Sun], results: Results):
         n = len(suns)
         print("Iterative analysis started for " + str(n) + " number of iterations")
