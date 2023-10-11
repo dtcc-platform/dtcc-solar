@@ -9,6 +9,7 @@ from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
 from dtcc_solar import utils
 from dtcc_solar.utils import Sun
+from dtcc_solar.logging import info, debug, warning, error
 
 
 def get_data_from_api_call(lon: float, lat: float, suns: list[Sun]):
@@ -53,11 +54,14 @@ def get_data_from_api_call(lon: float, lat: float, suns: list[Sun]):
                 suns[i].irradiance_dn = ni_json[i]["value"]
                 suns[i].irradiance_di = hi_json[i]["value"]
 
+        info("Wheter data successfully collected from the API of SMHI")
+        info(f"Source: {strong_data_path}")
+
         return suns
 
     elif status_ni == 404 or status_hi == 404:
-        print("SMHI Open Data API Docs HTTP code 404:")
-        print(
+        error("SMHI Open Data API Docs HTTP code 404:")
+        error(
             "The request points to a resource that do not exist."
             + "This might happen if you query for a station that do"
             + "not produce data for a specific parameter or you are"
@@ -67,8 +71,8 @@ def get_data_from_api_call(lon: float, lat: float, suns: list[Sun]):
         )
 
     elif status_ni == 500 or status_hi == 500:
-        print("SMHI Open Data API Docs HTTP code 500:")
-        print(
+        error("SMHI Open Data API Docs HTTP code 500:")
+        error(
             "Something went wrong internally in the system. This"
             + "might be fixed after a while so try again later on."
         )
@@ -120,8 +124,8 @@ def check_geo_data(lon, lat):
         p1, p2 = nearest_points(geo_polygon, test_pt)
         lon = p1.x
         lat = p1.y
-        print(
-            "Warning: Location is outside of weather data domain"
+        warning(
+            "Location is outside of weather data domain"
             + "The closest location to the domain is locaded at, "
             + "(lon: "
             + str(lon)
@@ -167,8 +171,8 @@ def get_shmi_stations_from_api():
         return stations_dict
 
     elif status == 404:
-        print("SMHI Open Data API Docs HTTP code 404:")
-        print(
+        error("SMHI Open Data API Docs HTTP code 404:")
+        error(
             "The request points to a resource that do not exist."
             + "This might happen if you query for a station that do"
             + "not produce data for a specific parameter or you are"
@@ -177,8 +181,8 @@ def get_shmi_stations_from_api():
             + "station do not have any data for the latest hour."
         )
     elif status == 500:
-        print("SMHI Open Data API Docs HTTP code 500:")
-        print(
+        error("SMHI Open Data API Docs HTTP code 500:")
+        error(
             "Something went wrong internally in the system. This"
             + "might be fixed after a while so try again later on."
         )

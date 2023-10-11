@@ -6,6 +6,7 @@ from dtcc_solar.sunpath import Sunpath
 from shapely import LineString
 from pprint import pp
 from dtcc_solar.utils import distance, normalise_vector
+from dtcc_solar.logging import info, debug, warning, error
 
 
 class SkyCylinder:

@@ -5,6 +5,7 @@ from pandas import Timestamp
 from pprint import pp
 from dtcc_solar import utils
 from dtcc_solar.utils import Sun
+from dtcc_solar.logging import info, debug, warning, error
 
 
 # This function reads a *.epw weather file, which contains recorde data for a full year which has been
@@ -13,7 +14,7 @@ from dtcc_solar.utils import Sun
 def import_weather_data(suns: list[Sun], weather_file: str):
     name_parts = weather_file.split(".")
     if name_parts[-1] != "epw":
-        print(
+        error(
             "The wrong file type was provided. File extension *.epw was expected, but *."
             + name_parts[-1]
             + " was given."
@@ -60,6 +61,8 @@ def import_weather_data(suns: list[Sun], weather_file: str):
                 suns[sun_index].irradiance_di = diffuse_horisontal_radiation[epw_index]
                 sun_index += 1
         epw_index += 1
+
+    info(f"Wheter data successfully collected from: {weather_file}")
 
     return suns
 

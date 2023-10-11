@@ -2,6 +2,7 @@ import numpy as np
 import dtcc_solar.mesh_compute as mc
 from dtcc_solar.utils import ColorBy, Sun, Output, OutputAcum
 from typing import List, Dict
+from dtcc_solar.logging import info, debug, warning, error
 
 
 # This class contains all the results from analysis that will be accessed for visualisation

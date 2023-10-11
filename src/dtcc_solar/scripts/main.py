@@ -17,6 +17,8 @@ from dtcc_solar.utils import concatenate_meshes, print_list
 from dtcc_solar.colors import *
 from dtcc_viewer import MeshShading
 from dtcc_solar.skycylinder import SkyCylinder
+from dtcc_solar.skydome import SkyDome
+from dtcc_solar.logging import set_log_level, info, debug, warning, error
 
 import dtcc_solar.smhi_data as smhi
 import dtcc_solar.meteo_data as meteo
@@ -25,8 +27,6 @@ import dtcc_solar.clm_data as clm
 
 from dtcc_model import Mesh
 from dtcc_io import meshes
-
-
 from pprint import pp
 
 
@@ -144,7 +144,7 @@ def register_args(args):
 def print_args(args):
     for arg in vars(args):
         print(arg, "\t", getattr(args, arg))
-    print("----------------------------------------")
+    info("----------------------------------------")
 
 
 def export(p: Parameters, city_results: Results, exportpath: str):
@@ -187,10 +187,9 @@ def run_script(command_line_args):
 
     print_args(args)
 
-    # city_mesh = trimesh.load_mesh(p.file_name)
-
     mesh = meshes.load_mesh(p.file_name)
     solar_engine = SolarEngine(mesh)
+    skydome = SkyDome(solar_engine.dome_radius)
     sunpath = Sunpath(p.latitude, p.longitude, solar_engine.sunpath_radius)
     skycylinder = SkyCylinder(sunpath, solar_engine.horizon_z, 150, 20)
     suns = sunpath.create_suns(p)
@@ -201,15 +200,15 @@ def run_script(command_line_args):
     if p.a_type == AnalysisType.sun_raycasting:
         solar_engine.sun_raycasting(suns, results)
     elif p.a_type == AnalysisType.sky_raycasting:
-        solar_engine.sky_raycasting(suns, results)
+        solar_engine.sky_raycasting(suns, results, skydome)
     elif p.a_type == AnalysisType.com_raycasting:
         solar_engine.sun_raycasting(suns, results)
-        solar_engine.sky_raycasting(suns, results)
+        solar_engine.sky_raycasting(suns, results, skydome)
     elif p.a_type == AnalysisType.sun_precasting:
-        solar_engine.sun_precasting(suns, results)
+        solar_engine.sun_precasting(suns, results, skycylinder)
     elif p.a_type == AnalysisType.com_precasting:
-        solar_engine.sun_precasting(suns, results)
-        solar_engine.sky_raycasting(suns, results)
+        solar_engine.sun_precasting(suns, results, skycylinder)
+        solar_engine.sky_raycasting(suns, results, skydome)
 
     results.calc_accumulated_results()
     results.calc_average_results()
@@ -230,6 +229,7 @@ def run_script(command_line_args):
 
 
 if __name__ == "__main__":
+    set_log_level("INFO")
     inputfile_S = "../../../data/models/CitySurfaceS.stl"
     inputfile_M = "../../../data/models/CitySurfaceM.stl"
     inputfile_L = "../../../data/models/CitySurfaceL.stl"
@@ -348,4 +348,4 @@ if __name__ == "__main__":
         "7",
     ]
 
-    run_script(args_1)
+    run_script(args_2)

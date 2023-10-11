@@ -5,6 +5,7 @@ import math
 import copy
 
 from dtcc_solar import utils
+from dtcc_solar.logging import info, debug, warning, error
 
 
 class SkyDome:
@@ -110,6 +111,8 @@ class SkyDome:
         self.joined_mesh_points = trimesh.util.concatenate(self.meshes_points)
         self.dome_mesh = trimesh.util.concatenate(self.meshes_quads)
         self.quad_count = len(self.meshes_quads)
+
+        info("Sky dome mesh created")
 
     def calc_quad_sun_angle(self, sun_vec):
         quad_sun_angle = np.zeros(len(self.ray_targets))

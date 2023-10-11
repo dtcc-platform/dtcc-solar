@@ -4,6 +4,7 @@ import time
 from dtcc_solar import utils
 from ncollpyde import Volume
 from dtcc_solar.utils import SunQuad
+from dtcc_solar.logging import info, debug, warning, error
 
 
 def raytrace(volume: Volume, sunVecRev):
@@ -20,7 +21,7 @@ def raytrace(volume: Volume, sunVecRev):
     face_in_sun = post_process(seg_idxs, fCount)
 
     # print("---- Face midpoint intersection results ----")
-    print("Found nr of intersections: " + str(len(seg_idxs)))
+    info(f"Found {len(seg_idxs)} intersections")
 
     return face_in_sun
 
@@ -93,11 +94,8 @@ def raytrace_skydome(volume: Volume, ray_targets, ray_areas):
         shaded_portion = np.sum(ray_areas[seg_idxs])
         sky_portion[i] = 1.0 - shaded_portion
         if (i % 100) == 0:
-            print(
-                "Diffuse calculation for face:"
-                + str(i)
-                + " finished. Diffusion = "
-                + str(sky_portion[i])
+            info(
+                f"Diffuse calculation for {i} face finished, Diffusion = {sky_portion[i]:.2}"
             )
 
     return sky_portion
@@ -119,6 +117,6 @@ def raytrace_skycylinder(volume: Volume, sun_quads: list[SunQuad]):
             face_in_sun = post_process(seg_idxs, fCount)
 
     # print("---- Face midpoint intersection results ----")
-    print("Found nr of intersections: " + str(len(seg_idxs)))
+    info(f"Found {len(seg_idxs)} intersections")
 
     return face_in_sun

@@ -38,6 +38,7 @@ class TestRaytracing:
         self.city_mesh = trimesh.load_mesh(self.file_name)
         self.solar_engine = SolarEngine(self.city_mesh)
         self.sunpath = Sunpath(self.lat, self.lon, self.solar_engine.sunpath_radius)
+        self.skydome = SkyDome(self.solar_engine.dome_radius)
 
         self.p = Parameters(
             file_name=self.file_name,
@@ -97,7 +98,7 @@ class TestRaytracing:
         self.suns = weather.append_weather_data(self.p, self.suns)
 
         self.results = Results(self.suns, self.solar_engine.f_count)
-        self.solar_engine.sky_raycasting(self.suns, self.results)
+        self.solar_engine.sky_raycasting(self.suns, self.results, self.skydome)
 
         face_in_sky = self.results.res_acum.face_in_sky
         is_error = False
@@ -116,7 +117,7 @@ class TestRaytracing:
         self.suns = weather.append_weather_data(self.p, self.suns)
 
         self.results = Results(self.suns, self.solar_engine.f_count)
-        self.solar_engine.sky_raycasting(self.suns, self.results)
+        self.solar_engine.sky_raycasting(self.suns, self.results, self.skydome)
 
         res_list = self.results.res_list
         is_error = False

@@ -17,6 +17,7 @@ from trimesh import Trimesh
 
 from dtcc_model import Mesh
 from dtcc_model.geometry import Bounds
+from dtcc_solar.logging import info, debug, warning, error
 
 
 class SolarEngine:
@@ -59,7 +60,7 @@ class SolarEngine:
         self.city_mesh_points = np.array(self.volume.points)
         self.city_mesh_face_mid_points = 0
 
-        self.skydome = SkyDome(self.dome_radius)
+        info("Solar engine created")
 
     def _preprocess_mesh(self, move_to_center: bool):
         self._calc_bounds()
@@ -110,9 +111,6 @@ class SolarEngine:
 
         pass
 
-    def sun_precasting(self, suns: list[Sun], results: Results):
-        pass
-
     def sun_raycasting(self, suns: list[Sun], results: Results):
         n = len(suns)
         print("Iterative analysis started for " + str(n) + " number of iterations")
@@ -136,9 +134,9 @@ class SolarEngine:
                 counter += 1
                 print("Iteration: " + str(counter) + " completed")
 
-    def sky_raycasting(self, suns: list[Sun], results: Results):
-        ray_targets = self.skydome.get_ray_targets()
-        ray_areas = self.skydome.get_ray_areas()
+    def sky_raycasting(self, suns: list[Sun], results: Results, skydome: SkyDome):
+        ray_targets = skydome.get_ray_targets()
+        ray_areas = skydome.get_ray_areas()
         sky_portion = ray.raytrace_skydome(self.volume, ray_targets, ray_areas)
 
         # Results independent of weather data
@@ -155,3 +153,8 @@ class SolarEngine:
             sky_portion_copy = copy.deepcopy(sky_portion)
             diffuse_irradiance = irradiance_diffuse * sky_portion_copy
             results.res_list[sun.index].face_irradiance_di = diffuse_irradiance
+
+    def sun_precasting(
+        self, suns: list[Sun], results: Results, skycylinder: SkyCylinder
+    ):
+        pass

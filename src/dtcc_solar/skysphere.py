@@ -7,6 +7,7 @@ import copy
 from dtcc_solar import utils
 from dtcc_solar.skydome import SkyDome
 from dtcc_model import Mesh
+from dtcc_solar.logging import info, debug, warning, error
 
 
 class SkySphere:
@@ -38,13 +39,4 @@ class SkySphere:
         mesh_lower = Mesh(vertices=vs, faces=rev_faces)
         self.mesh = utils.concatenate_meshes([mesh_lower, mesh_upper])
 
-    def tilt(self, vec_from: np.ndarray, vec_to: np.ndarray):
-        R = utils.calc_rotation_matrix(vec_from, vec_to)
-        vs = self.mesh.vertices
-        new_vs = []
-        for i in range(len(vs)):
-            new_vertex = np.matmul(R, vs[i, :])
-            new_vs.append(new_vertex)
-
-        new_vs = np.array(new_vs)
-        self.mesh.vertices = new_vs
+        info("Sky dome mesh created")

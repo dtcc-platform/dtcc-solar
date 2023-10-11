@@ -52,11 +52,6 @@ class TestSkysphere:
 
         self.skysphere = SkySphere(self.radius, div_count=50)
 
-        z_vec = np.array([0, 0, 1])
-        sunpath_axis = self.sunpath.calc_central_axis_vec(self.p)
-
-        self.skysphere.tilt(z_vec, sunpath_axis)
-
         window = Window(1200, 800)
         scene = Scene()
         scene.add_mesh("Sky sphere", self.skysphere.mesh)

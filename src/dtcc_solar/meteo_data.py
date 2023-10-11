@@ -4,6 +4,7 @@ import numpy as np
 from pandas import Timestamp
 from pprint import pp
 from dtcc_solar.utils import Sun
+from dtcc_solar.logging import info, debug, warning, error
 
 
 def get_data_from_api_call(lon: float, lat: float, suns: list[Sun]):
@@ -61,11 +62,14 @@ def get_data_from_api_call(lon: float, lat: float, suns: list[Sun]):
                     suns[sun_counter].irradiance_di = diffuse_radiation_hourly[i]
                     sun_counter += 1
 
+        info("Wheter data successfully collected from Open Meteo API")
+        info(f"Source: {url_1}")
+
         return suns
 
     elif status_ni == 400 or status_dr == 400:
-        print("Open Meteo HTTP status code 400:")
-        print(
+        error("Open Meteo HTTP status code 400:")
+        error(
             "The request points to a resource that do not exist."
             + "This might happen if you query for a station that do"
             + "not produce data for a specific parameter or you are"

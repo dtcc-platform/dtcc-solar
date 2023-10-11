@@ -69,6 +69,7 @@ class SunQuad:
     face_index_b: int
     id: int
     area: float = 0.0
+    has_sun: bool = False
     over_horizon = False
     center: np.ndarray = field(default_factory=lambda: np.empty(0))
     sun_indices: np.ndarray = field(default_factory=lambda: np.empty(0))
