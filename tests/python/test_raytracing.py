@@ -5,7 +5,6 @@ import pandas as pd
 import math
 
 from dtcc_solar import utils
-from dtcc_solar import data_io
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import AnalysisType, Parameters, DataSource
 from dtcc_solar.solar_engine import SolarEngine

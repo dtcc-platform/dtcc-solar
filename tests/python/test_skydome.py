@@ -1,16 +1,11 @@
 import os
 import trimesh
-import numpy as np
-import pandas as pd
-import math
-import copy
 
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.sunpath_vis import SunpathMesh
 
 from dtcc_solar.skydome import SkyDome
-
 from pprint import pp
 from dtcc_model import Mesh, PointCloud
 from dtcc_viewer import Scene, Window, MeshShading

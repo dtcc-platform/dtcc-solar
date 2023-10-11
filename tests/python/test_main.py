@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 from dtcc_solar.scripts.main import run_script
 
 

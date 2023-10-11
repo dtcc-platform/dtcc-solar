@@ -5,7 +5,6 @@ from dtcc_solar import meteo_data
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import AnalysisType, Parameters, DataSource, ColorBy
-import dtcc_solar.utils as utils
 
 
 class TestOpenMeteoApi:

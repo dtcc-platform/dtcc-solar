@@ -1,12 +1,9 @@
 import os
 import pandas as pd
-from dtcc_solar import data_io
 from dtcc_solar import clm_data
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import AnalysisType, Parameters, DataSource, ColorBy
-from dtcc_solar import weather_data as weather
-from dtcc_solar import utils
 
 
 class TestClmData:

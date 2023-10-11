@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-from dtcc_solar import data_io
 from dtcc_solar import epw_data
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
