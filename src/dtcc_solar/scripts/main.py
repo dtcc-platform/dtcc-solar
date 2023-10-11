@@ -6,7 +6,6 @@ import trimesh
 import argparse
 import sys
 
-from dtcc_solar import data_io
 from dtcc_solar.sunpath import Sunpath, Sun
 from dtcc_solar.sunpath_vis import SunpathMesh
 from dtcc_solar.viewer import Viewer
@@ -14,9 +13,10 @@ from dtcc_solar.utils import ColorBy, AnalysisType, Parameters, DataSource
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.results import Results
 from dtcc_solar import weather_data as weather
-from dtcc_solar.utils import concatenate_meshes
+from dtcc_solar.utils import concatenate_meshes, print_list
 from dtcc_solar.colors import *
 from dtcc_viewer import MeshShading
+from dtcc_solar.skycylinder import SkyCylinder
 
 import dtcc_solar.smhi_data as smhi
 import dtcc_solar.meteo_data as meteo
@@ -149,13 +149,13 @@ def print_args(args):
 
 def export(p: Parameters, city_results: Results, exportpath: str):
     if p.color_by == ColorBy.face_sun_angle:
-        data_io.print_list(city_results.get_face_sun_angles(), exportpath)
+        print_list(city_results.get_face_sun_angles(), exportpath)
     elif p.color_by == ColorBy.face_sun_angle_shadows:
-        data_io.print_list(city_results.get_face_sun_angles(), exportpath)
+        print_list(city_results.get_face_sun_angles(), exportpath)
     elif p.color_by == ColorBy.face_irradiance_dn:
-        data_io.print_list(city_results.get_face_irradiance(), exportpath)
+        print_list(city_results.get_face_irradiance(), exportpath)
     elif p.color_by == ColorBy.face_shadows:
-        data_io.print_list(city_results.get_face_in_sun(), exportpath)
+        print_list(city_results.get_face_in_sun(), exportpath)
 
 
 ###############################################################################################################################
@@ -192,6 +192,7 @@ def run_script(command_line_args):
     mesh = meshes.load_mesh(p.file_name)
     solar_engine = SolarEngine(mesh)
     sunpath = Sunpath(p.latitude, p.longitude, solar_engine.sunpath_radius)
+    skycylinder = SkyCylinder(sunpath, solar_engine.horizon_z, 150, 20)
     suns = sunpath.create_suns(p)
     suns = weather.append_weather_data(p, suns)
     results = Results(suns, len(mesh.faces))
@@ -204,13 +205,18 @@ def run_script(command_line_args):
     elif p.a_type == AnalysisType.com_raycasting:
         solar_engine.sun_raycasting(suns, results)
         solar_engine.sky_raycasting(suns, results)
+    elif p.a_type == AnalysisType.sun_precasting:
+        solar_engine.sun_precasting(suns, results)
+    elif p.a_type == AnalysisType.com_precasting:
+        solar_engine.sun_precasting(suns, results)
+        solar_engine.sky_raycasting(suns, results)
 
     results.calc_accumulated_results()
     results.calc_average_results()
 
     if p.prepare_display:
         viewer = Viewer()
-        viewer.create_sunpath_diagram(suns, solar_engine, sunpath)
+        viewer.create_sunpath_diagram(suns, solar_engine, sunpath, skycylinder)
         colors = color_city_mesh(results.res_acum, p.color_by)
         viewer.add_mesh("City mesh", mesh=solar_engine.dmesh, colors=colors)
 

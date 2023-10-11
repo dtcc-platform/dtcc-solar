@@ -3,9 +3,11 @@ import numpy as np
 import time
 from dtcc_solar import utils
 from ncollpyde import Volume
+from dtcc_solar.utils import SunQuad
 
 
 def raytrace(volume: Volume, sunVecRev):
+    """Raycasting function using ncollpyde"""
     mesh_faces = volume.faces
     mesh_points = volume.points
     fCount = len(mesh_faces)
@@ -99,3 +101,24 @@ def raytrace_skydome(volume: Volume, ray_targets, ray_areas):
             )
 
     return sky_portion
+
+
+def raytrace_skycylinder(volume: Volume, sun_quads: list[SunQuad]):
+    faces = volume.faces
+    vertices = volume.points
+    fCount = len(faces)
+
+    # Dictionary for storing the results
+    res = dict.fromkeys([sun_quad.id for sun_quad in sun_quads])
+
+    for sun_quad in sun_quads:
+        if sun_quad.over_horizon:
+            sun_vec_rev = np.array(sun_quad.center)
+            ray_start, ray_end = pre_process(faces, vertices, sun_vec_rev)
+            [seg_idxs, int_sec, is_bf] = volume.intersections(ray_start, ray_end)
+            face_in_sun = post_process(seg_idxs, fCount)
+
+    # print("---- Face midpoint intersection results ----")
+    print("Found nr of intersections: " + str(len(seg_idxs)))
+
+    return face_in_sun

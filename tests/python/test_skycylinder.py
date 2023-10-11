@@ -35,8 +35,7 @@ class TestSkycylinder:
         self.sunpath_mesh = SunpathMesh(self.radius)
 
     def test_skycylinder_day_loops(self):
-        self.skycylinder = SkyCylinder()
-        self.skycylinder.create_skycylinder_mesh(
+        self.skycylinder = SkyCylinder(
             self.sunpath,
             self.solar_engine.horizon_z,
             150,
@@ -44,12 +43,16 @@ class TestSkycylinder:
         )
 
         mesh = self.skycylinder.mesh
-        pc = self.skycylinder.pc
+        pc_quad_mid_pts = self.skycylinder.pc
+
+        sun_pos_dict = self.sunpath.get_analemmas(2019, 2)
+        pc_analemmas = self.sunpath_mesh.create_sunpath_pc(sun_pos_dict)
 
         window = Window(1200, 800)
         scene = Scene()
-        scene.add_pointcloud("Points", pc, size=0.08)
-        scene.add_mesh("Mesh", mesh)
+        scene.add_pointcloud("Points", pc_quad_mid_pts, size=0.02)
+        scene.add_pointcloud("Analemmas", pc_analemmas, size=0.08)
+        scene.add_mesh("Mesh", mesh, shading=MeshShading.wireframe)
         window.render(scene)
 
 

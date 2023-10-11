@@ -8,6 +8,9 @@ import dtcc_solar.utils as utils
 from ncollpyde import Volume
 from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
+from dtcc_solar.sunpath import Sunpath
+
+from dtcc_solar.skycylinder import SkyCylinder
 from typing import List, Any
 from dtcc_solar.utils import Sun
 from trimesh import Trimesh
@@ -48,7 +51,7 @@ class SolarEngine:
         self.sun_size = 0
         self.dome_radius = 0
         self.path_width = 0
-        self.preprocess_mesh(True)
+        self._preprocess_mesh(True)
 
         # Create volume object for ray caster with NcollPyDe
         self.volume = Volume(self.dmesh.vertices, self.dmesh.faces)
@@ -58,7 +61,7 @@ class SolarEngine:
 
         self.skydome = SkyDome(self.dome_radius)
 
-    def preprocess_mesh(self, move_to_center: bool):
+    def _preprocess_mesh(self, move_to_center: bool):
         self._calc_bounds()
         # Center mesh based on x and y coordinates only
         center_bb = np.array([np.average(self.bbx), np.average(self.bby), 0])
@@ -102,10 +105,15 @@ class SolarEngine:
 
         self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
-    def sun_precasting(self, suns: List[Sun], results: Results):
+    def _match_suns_and_quads(self, suns: list[Sun]):
+        # Associate suns and sky cylinder quads
+
         pass
 
-    def sun_raycasting(self, suns: List[Sun], results: Results):
+    def sun_precasting(self, suns: list[Sun], results: Results):
+        pass
+
+    def sun_raycasting(self, suns: list[Sun], results: Results):
         n = len(suns)
         print("Iterative analysis started for " + str(n) + " number of iterations")
         counter = 0
@@ -128,7 +136,7 @@ class SolarEngine:
                 counter += 1
                 print("Iteration: " + str(counter) + " completed")
 
-    def sky_raycasting(self, suns: List[Sun], results: Results):
+    def sky_raycasting(self, suns: list[Sun], results: Results):
         ray_targets = self.skydome.get_ray_targets()
         ray_areas = self.skydome.get_ray_areas()
         sky_portion = ray.raytrace_skydome(self.volume, ray_targets, ray_areas)

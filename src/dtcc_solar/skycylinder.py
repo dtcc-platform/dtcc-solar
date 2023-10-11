@@ -1,10 +1,8 @@
 import numpy as np
 import pandas as pd
-import math
-from dtcc_model import Mesh, PointCloud, RoadNetwork, Road
-from dtcc_solar.utils import calc_rotation_matrix, SunQuad
+from dtcc_model import Mesh, PointCloud
+from dtcc_solar.utils import SunQuad
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.sunpath_vis import SunpathVis
 from shapely import LineString
 from pprint import pp
 from dtcc_solar.utils import distance, normalise_vector
@@ -20,12 +18,14 @@ class SkyCylinder:
     quads: list[SunQuad]
     quad_mid_pts: np.ndarray  # [n_quads * 3] mid points for all quads
 
-    def __init__(self):
+    def __init__(self, sunpath: Sunpath, horizon_z: float, div_n: int, div_m: int):
         self.center = np.array([0, 0, 0])
+        self.create_skycylinder_mesh(sunpath, horizon_z, div_n, div_m)
 
     def create_skycylinder_mesh(
         self, sunpath: Sunpath, horizon_z: float, div_n: int, div_m: int
     ):
+        """Creates a cylindrical mesh mapped to the sphere of the sunpath diagram"""
         day_loop1, day_loop2 = self._calc_outermost_day_loops(sunpath)
 
         self.pc, self.mesh, self.quads = self._create_mesh(
@@ -39,6 +39,7 @@ class SkyCylinder:
         self._process_quads(horizon_z)
 
     def _calc_outermost_day_loops(self, sunpath: Sunpath):
+        """Returns the outermost day path loops"""
         dates = pd.date_range(start="2019-01-01", end="2019-12-31", freq="1D")
         sun_pos_dict = sunpath.get_daypaths(dates, 10)
         day_loops = []
@@ -67,6 +68,7 @@ class SkyCylinder:
         return day_loops[index1], day_loops[index2]
 
     def _get_pt_index_far_from_other_pt(self, pts: np.ndarray, far_from_pt: np.ndarray):
+        """Returns the index of the point that is the furtherst from the far_from_pt"""
         dmax = -10000000000
         index = None
         for i, pt in enumerate(pts):
@@ -80,13 +82,15 @@ class SkyCylinder:
     def _create_mesh(
         self, radius: float, loop_1: LineString, loop_2: LineString, n: int, m: int
     ):
+        """Creates a sunpath diagram mesh inbetween the outermost day path loops"""
         points = []
         avrg_length = (loop_1.length + loop_2.length) / 2
         step_n = avrg_length / n
         ds_n = np.arange(0, avrg_length, step_n)
         faces = []
         quads = []
-        face_counter = 0
+        face_count = 0
+        quad_count = 0
 
         for i, d_n in enumerate(ds_n):
             pt1 = loop_1.interpolate(d_n)
@@ -108,8 +112,9 @@ class SkyCylinder:
                         face2 = [current + m, current + 1, current + m + 1]
                         faces.append(face1)
                         faces.append(face2)
-                        quads.append(SunQuad(face_counter, face_counter + 1))
-                        face_counter += 2
+                        quads.append(SunQuad(face_count, face_count + 1, quad_count))
+                        quad_count += 1
+                        face_count += 2
 
                 elif i == (n - 1):
                     if j < (m - 1):
@@ -118,8 +123,9 @@ class SkyCylinder:
                         face2 = [j, current + 1, j + 1]
                         faces.append(face1)
                         faces.append(face2)
-                        quads.append(SunQuad(face_counter, face_counter + 1))
-                        face_counter += 2
+                        quads.append(SunQuad(face_count, face_count + 1, quad_count))
+                        quad_count += 1
+                        face_count += 2
 
                 points.append(pt)
 
@@ -131,6 +137,7 @@ class SkyCylinder:
         return pc, mesh, quads
 
     def _process_quads(self, horizon_z: float):
+        """Calculates the center and area of each quad"""
         for sun_quad in self.quads:
             face_a = self.mesh.faces[sun_quad.face_index_a]
             face_b = self.mesh.faces[sun_quad.face_index_b]

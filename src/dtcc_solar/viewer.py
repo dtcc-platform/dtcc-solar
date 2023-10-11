@@ -6,6 +6,7 @@ from dtcc_solar.utils import Sun
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import concatenate_meshes
+from dtcc_solar.skycylinder import SkyCylinder
 
 
 class Viewer:
@@ -36,7 +37,11 @@ class Viewer:
         self.scene.add_pointcloud(name, pc=pc, size=size, colors=colors, data=data)
 
     def create_sunpath_diagram(
-        self, suns: list[Sun], solar_engine: SolarEngine, sunpath: Sunpath
+        self,
+        suns: list[Sun],
+        solar_engine: SolarEngine,
+        sunpath: Sunpath,
+        skycylinder: SkyCylinder,
     ):
         # Create sunpath so that the solar postion are given a context in the 3D visualisation
         self.sunpath_mesh = SunpathMesh(solar_engine.sunpath_radius)
@@ -48,10 +53,12 @@ class Viewer:
         analemmas_pc = self.sunpath_mesh.analemmas_pc
         all_suns_pc = self.sunpath_mesh.all_suns_pc
         sun_pc = self.sunpath_mesh.sun_pc
+        sky_mesh = skycylinder.mesh
 
         analemmas = concatenate_meshes(analemmas)
         day_paths = concatenate_meshes(day_paths)
 
+        self.add_mesh("Sunpath mesh", mesh=sky_mesh, shading=MeshShading.wireframe)
         self.add_mesh("Analemmas", mesh=analemmas, shading=MeshShading.ambient)
         self.add_mesh("Day paths", mesh=day_paths, shading=MeshShading.ambient)
         self.add_pc("Suns per min", all_suns_pc, 0.2 * solar_engine.path_width)
