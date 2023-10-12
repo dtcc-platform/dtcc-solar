@@ -135,7 +135,7 @@ class OutputAcum:
 
 
 @dataclass
-class Parameters:
+class SolarParameters:
     file_name: str = "Undefined model input file"
     weather_file: str = "Undefined weather data file"
     a_type: AnalysisType = AnalysisType.sky_raycasting

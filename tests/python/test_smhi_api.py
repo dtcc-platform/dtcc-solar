@@ -3,7 +3,7 @@ import pandas as pd
 from pprint import pp
 from dtcc_solar import data_smhi
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, Parameters, DataSource, ColorBy
+from dtcc_solar.utils import AnalysisType, SolarParameters, DataSource, ColorBy
 
 
 class TestSmhiApi:
@@ -27,7 +27,7 @@ class TestSmhiApi:
         sunpath = Sunpath(self.lat, self.lon, 1.0)
         a_type = AnalysisType.sun_raycasting
 
-        p = Parameters(
+        p = SolarParameters(
             file_name=self.file_name,
             weather_file=self.w_file_clm,
             a_type=AnalysisType.sun_raycasting,
@@ -67,7 +67,7 @@ class TestSmhiApi:
         sunpath = Sunpath(self.lat, self.lon, 1.0)
         a_type = AnalysisType.sun_raycasting
 
-        p = Parameters(
+        p = SolarParameters(
             file_name=self.file_name,
             weather_file=self.w_file_clm,
             a_type=AnalysisType.sun_raycasting,

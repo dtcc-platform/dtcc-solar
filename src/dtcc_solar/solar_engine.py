@@ -9,6 +9,7 @@ from ncollpyde import Volume
 from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
 from dtcc_solar.sunpath import Sunpath
+from dtcc_solar.utils import distance, vec_2_ndarray
 
 from dtcc_solar.sundome import SunDome
 from typing import List, Any
@@ -90,6 +91,9 @@ class SolarEngine:
         # Hard coded size proportions
         self.sun_size = self.sunpath_radius / 90.0
         self.dome_radius = self.sunpath_radius / 40
+        self.tolerance = self.sunpath_radius / 1.0e7
+
+        info(f"Tolerance for point comparions set to: {self.tolerance}")
 
     def _calc_bounds(self):
         self.xmin = self.dmesh.vertices[:, 0].min()
@@ -105,14 +109,28 @@ class SolarEngine:
 
         self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
-    def _match_suns_and_quads(self, suns: list[Sun]):
-        # Associate suns and sky cylinder quads
+    def match_suns_and_quads(self, suns: list[Sun], sundome: SunDome):
+        for sun in suns:
+            dmin = 1000000000
+            quad_index = None
+            for j, quad in enumerate(sundome.quads):
+                if quad.over_horizon:
+                    d = distance(quad.center, vec_2_ndarray(sun.position))
 
-        pass
+                    if d < dmin:
+                        dmin = d
+                        quad_index = j
+
+            # Add sun to the closest quad
+            if quad_index is not None:
+                sundome.quads[quad_index].sun_indices = np.append(
+                    sundome.quads[quad_index].sun_indices, sun.index
+                )
+                sundome.quads[quad_index].has_sun = True
 
     def sun_raycasting(self, suns: list[Sun], results: Results):
         n = len(suns)
-        print("Iterative analysis started for " + str(n) + " number of iterations")
+        info(f"Iterative analysis started for {n} number of iterations")
         counter = 0
 
         for sun in suns:
@@ -131,7 +149,7 @@ class SolarEngine:
                 results.res_list[sun.index].face_irradiance_dn = irradianceF
 
                 counter += 1
-                print("Iteration: " + str(counter) + " completed")
+                info(f"Iteration: {counter} completed")
 
     def sky_raycasting(self, suns: list[Sun], results: Results, skydome: SkyDome):
         ray_targets = skydome.get_ray_targets()

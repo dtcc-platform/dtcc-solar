@@ -8,10 +8,9 @@ import sys
 
 from dtcc_solar.sunpath import Sunpath, Sun
 from dtcc_solar.viewer import Viewer
-from dtcc_solar.utils import ColorBy, AnalysisType, Parameters, DataSource
+from dtcc_solar.utils import ColorBy, AnalysisType, SolarParameters, DataSource
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.results import Results
-from dtcc_solar import weather_data as weather
 from dtcc_solar.utils import concatenate_meshes, print_list
 from dtcc_solar.colors import *
 from dtcc_viewer import MeshShading
@@ -146,7 +145,7 @@ def print_args(args):
     info("----------------------------------------")
 
 
-def export(p: Parameters, city_results: Results, exportpath: str):
+def export(p: SolarParameters, city_results: Results, exportpath: str):
     if p.color_by == ColorBy.face_sun_angle:
         print_list(city_results.get_face_sun_angles(), exportpath)
     elif p.color_by == ColorBy.face_sun_angle_shadows:
@@ -169,7 +168,7 @@ def run_script(command_line_args):
 
     # Convert command line input to enums and data formated for the analysis
 
-    p = Parameters(
+    p = SolarParameters(
         args.inputfile,
         args.w_file,
         args.analysis,
@@ -193,6 +192,10 @@ def run_script(command_line_args):
     sundome = SunDome(sunpath, solar_engine.horizon_z, 150, 20)
     suns = sunpath.create_suns(p)
     results = Results(suns, len(mesh.faces))
+
+    # Match suns and quads
+    solar_engine.match_suns_and_quads(suns, sundome)
+    sunquad_mesh = sundome.get_sub_sundome_mesh(solar_engine.tolerance)
 
     # Execute analysis
     if p.a_type == AnalysisType.sun_raycasting:
@@ -346,4 +349,4 @@ if __name__ == "__main__":
         "7",
     ]
 
-    run_script(args_6)
+    run_script(args_4)

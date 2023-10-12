@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from dtcc_solar import utils
 from dtcc_solar.utils import Vec3, Sun, DataSource
-from dtcc_solar.utils import Parameters
+from dtcc_solar.utils import SolarParameters
 from pvlib import solarposition
 from dtcc_solar import data_clm, data_epw, data_meteo, data_smhi
 from dtcc_model import Mesh, PointCloud
@@ -112,7 +112,7 @@ class Sunpath:
 
         return days_dict
 
-    def create_suns(self, p: Parameters):
+    def create_suns(self, p: SolarParameters):
         suns = self._create_sun_timestamps(p.start_date, p.end_date)
         suns = self._get_suns_positions(suns)
         suns = self._append_weather_data(p, suns)
@@ -161,7 +161,7 @@ class Sunpath:
 
         return suns
 
-    def _append_weather_data(self, p: Parameters, suns: list[Sun]):
+    def _append_weather_data(self, p: SolarParameters, suns: list[Sun]):
         if p.data_source == DataSource.smhi:
             suns = data_smhi.get_data(p.longitude, p.latitude, suns)
         if p.data_source == DataSource.meteo:

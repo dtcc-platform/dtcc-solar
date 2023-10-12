@@ -4,9 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, Parameters, Sun, DataSource, ColorBy
+from dtcc_solar.utils import AnalysisType, SolarParameters, Sun, DataSource, ColorBy
 from typing import List, Dict, Any
-from dtcc_solar import weather_data as weather
 import copy
 
 
@@ -30,7 +29,7 @@ class TestWeatherDataComparison:
         self.sunpath = Sunpath(self.lat, self.lon, 1.0)
         a_type = AnalysisType.sun_raycasting
 
-        self.p_smhi = Parameters(
+        self.p_smhi = SolarParameters(
             file_name=self.file_name,
             weather_file=self.w_file_clm,
             a_type=a_type,
@@ -66,13 +65,9 @@ class TestWeatherDataComparison:
         self.p_epw.end_date = end_date
 
         suns_smhi = self.sunpath.create_suns(self.p_smhi)
-        suns_smhi = weather.append_weather_data(self.p_smhi, suns_smhi)
         suns_meteo = self.sunpath.create_suns(self.p_meteo)
-        suns_meteo = weather.append_weather_data(self.p_meteo, suns_meteo)
         suns_clm = self.sunpath.create_suns(self.p_clm)
-        suns_clm = weather.append_weather_data(self.p_clm, suns_clm)
         suns_epw = self.sunpath.create_suns(self.p_epw)
-        suns_epw = weather.append_weather_data(self.p_epw, suns_epw)
 
         if (
             len(suns_smhi) != len(suns_meteo)
@@ -108,13 +103,9 @@ class TestWeatherDataComparison:
         self.p_epw.end_date = end_date
 
         suns_smhi = self.sunpath.create_suns(self.p_smhi)
-        suns_smhi = weather.append_weather_data(self.p_smhi, suns_smhi)
         suns_meteo = self.sunpath.create_suns(self.p_meteo)
-        suns_meteo = weather.append_weather_data(self.p_meteo, suns_meteo)
         suns_clm = self.sunpath.create_suns(self.p_clm)
-        suns_clm = weather.append_weather_data(self.p_clm, suns_clm)
         suns_epw = self.sunpath.create_suns(self.p_epw)
-        suns_epw = weather.append_weather_data(self.p_epw, suns_epw)
 
         [w_data_normal_smhi, w_data_horizontal_smhi] = format_data_per_day_suns(
             suns_smhi
@@ -205,13 +196,9 @@ class TestWeatherDataComparison:
         self.p_epw.end_date = end_date
 
         suns_smhi = self.sunpath.create_suns(self.p_smhi)
-        suns_smhi = weather.append_weather_data(self.p_smhi, suns_smhi)
         suns_meteo = self.sunpath.create_suns(self.p_meteo)
-        suns_meteo = weather.append_weather_data(self.p_meteo, suns_meteo)
         suns_clm = self.sunpath.create_suns(self.p_clm)
-        suns_clm = weather.append_weather_data(self.p_clm, suns_clm)
         suns_epw = self.sunpath.create_suns(self.p_epw)
-        suns_epw = weather.append_weather_data(self.p_epw, suns_epw)
 
         [w_data_normal_smhi, w_data_horizontal_smhi] = format_data_per_day_suns(
             suns_smhi

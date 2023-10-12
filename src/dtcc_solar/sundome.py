@@ -166,3 +166,54 @@ class SunDome:
             area_b = 0.5 * np.cross(vec3, vec4)
 
             sun_quad.area = area_a + area_b
+
+    def get_sub_sundome_mesh(self, tolerance: float):
+        """Returns a sub sundome with the quads that have suns"""
+        new_faces = []
+        new_vertices = []
+        v_index = 0
+        for quad in self.quads:
+            if quad.has_sun:
+                face1 = self.mesh.faces[quad.face_index_a, :]
+                face2 = self.mesh.faces[quad.face_index_b, :]
+
+                vertices1 = self.mesh.vertices[face1, :]
+                vertices2 = self.mesh.vertices[face2, :]
+                new_face1 = []
+                for v in vertices1:
+                    existing_v_index = self.vertex_exists(new_vertices, v, tolerance)
+                    if existing_v_index == -1:
+                        # Vertex did not exist so a new one is created
+                        new_vertices.append(v)
+                        new_face1.append(v_index)
+                        v_index += 1
+                    else:
+                        new_face1.append(existing_v_index)
+
+                new_face2 = []
+                for v in vertices2:
+                    existing_v_index = self.vertex_exists(new_vertices, v, tolerance)
+                    if existing_v_index == -1:
+                        # Vertex did not exist so a new one is created
+                        new_vertices.append(v)
+                        new_face2.append(v_index)
+                        v_index += 1
+                    else:
+                        new_face2.append(existing_v_index)
+
+                new_faces.append(new_face1)
+                new_faces.append(new_face2)
+
+        new_vertices = np.array(new_vertices)
+        new_faces = np.array(new_faces)
+        mesh = Mesh(vertices=new_vertices, faces=new_faces)
+
+        return mesh
+
+    def vertex_exists(self, vertices, vertex, tolerance):
+        for i, v in enumerate(vertices):
+            d = distance(v, vertex)
+            if d < tolerance:
+                return i
+
+        return -1

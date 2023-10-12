@@ -6,7 +6,7 @@ import math
 
 from dtcc_solar import utils
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, Parameters, DataSource
+from dtcc_solar.utils import AnalysisType, SolarParameters, DataSource
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
@@ -39,7 +39,7 @@ class TestRaytracing:
         self.sunpath = Sunpath(self.lat, self.lon, self.solar_engine.sunpath_radius)
         self.skydome = SkyDome(self.solar_engine.dome_radius)
 
-        self.p = Parameters(
+        self.p = SolarParameters(
             file_name=self.file_name,
             weather_file=self.w_file,
             latitude=self.lat,

@@ -3,8 +3,7 @@ import pandas as pd
 from dtcc_solar import data_epw
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, Parameters, DataSource, ColorBy
-from dtcc_solar import weather_data as weather
+from dtcc_solar.utils import AnalysisType, SolarParameters, DataSource, ColorBy
 from dtcc_solar import utils
 
 
@@ -28,7 +27,7 @@ class TestEpwData:
         end_date = "2019-12-31 00:00:00"
         sunpath = Sunpath(self.lat, self.lon, 1.0)
 
-        p = Parameters(
+        p = SolarParameters(
             file_name=self.file_name,
             weather_file=self.w_file_epw,
             a_type=AnalysisType.sun_raycasting,

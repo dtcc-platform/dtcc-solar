@@ -14,7 +14,7 @@ from pprint import pp
 from dtcc_model import Mesh, PointCloud
 from dtcc_io import meshes
 from dtcc_viewer import Scene, Window, MeshShading
-from dtcc_solar.utils import Parameters
+from dtcc_solar.utils import SolarParameters
 
 from dtcc_solar.utils import concatenate_meshes
 
@@ -33,7 +33,7 @@ class TestSkysphere:
         self.city_mesh = trimesh.load_mesh(self.file_name)
         self.solar_engine = SolarEngine(self.city_mesh)
         self.sunpath = Sunpath(self.lat, self.lon, self.radius)
-        self.p = Parameters(
+        self.p = SolarParameters(
             file_name=self.file_name,
             latitude=self.lat,
             longitude=self.lon,

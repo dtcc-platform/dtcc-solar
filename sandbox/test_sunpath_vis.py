@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from typing import Dict, List, Any
 from dtcc_solar.sunpath import Sunpath
 from sandbox.sunpath_vis import SunpathVis
-from dtcc_solar.utils import Parameters
+from dtcc_solar.utils import SolarParameters
 
 
 class TestSunpathVisual:
@@ -25,7 +25,7 @@ class TestSunpathVisual:
         self.origin = np.array([0, 0, 0])
         self.sunpath = Sunpath(self.lat, self.lon, self.radius)
         self.sunvis = SunpathVis()
-        self.p = Parameters()
+        self.p = SolarParameters()
 
     def test_analemmas(self):
         year = 2018
