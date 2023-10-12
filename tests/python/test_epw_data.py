@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from dtcc_solar import epw_data
+from dtcc_solar import data_epw
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import AnalysisType, Parameters, DataSource, ColorBy

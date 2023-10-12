@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from pprint import pp
-from dtcc_solar import smhi_data
+from dtcc_solar import data_smhi
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import AnalysisType, Parameters, DataSource, ColorBy
 
@@ -50,7 +50,7 @@ class TestSmhiApi:
         assert self.assert_no_summer_time_in_data()
 
     def test_weather_stations_location_import(self):
-        pos_dict = smhi_data.get_shmi_stations_from_api()
+        pos_dict = data_smhi.get_shmi_stations_from_api()
         pp(pos_dict)
         assert pos_dict
 

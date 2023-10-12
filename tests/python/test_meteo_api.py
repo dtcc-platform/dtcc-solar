@@ -1,7 +1,7 @@
 import os
 import pandas as pd
-from dtcc_solar import smhi_data
-from dtcc_solar import meteo_data
+from dtcc_solar import data_smhi
+from dtcc_solar import data_meteo
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import AnalysisType, Parameters, DataSource, ColorBy

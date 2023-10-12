@@ -10,7 +10,7 @@ from dtcc_solar.utils import AnalysisType, Parameters, DataSource
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
-import dtcc_solar.meteo_data as meteo
+import dtcc_solar.data_meteo as meteo
 from dtcc_solar import weather_data as weather
 
 from typing import List, Any
