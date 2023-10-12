@@ -7,7 +7,6 @@ import argparse
 import sys
 
 from dtcc_solar.sunpath import Sunpath, Sun
-from dtcc_solar.sunpath_vis import SunpathMesh
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.utils import ColorBy, AnalysisType, Parameters, DataSource
 from dtcc_solar.solar_engine import SolarEngine
@@ -214,7 +213,7 @@ def run_script(command_line_args):
 
     if p.prepare_display:
         viewer = Viewer()
-        viewer.create_sunpath_diagram(suns, solar_engine, sunpath, sundome)
+        viewer.build_sunpath_diagram(suns, solar_engine, sunpath, sundome)
         colors = color_city_mesh(results.res_acum, p.color_by)
         viewer.add_mesh("City mesh", mesh=solar_engine.dmesh, colors=colors)
 
@@ -347,4 +346,4 @@ if __name__ == "__main__":
         "7",
     ]
 
-    run_script(args_2)
+    run_script(args_6)

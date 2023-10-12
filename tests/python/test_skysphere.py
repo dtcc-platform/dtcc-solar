@@ -7,7 +7,6 @@ import copy
 
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.sunpath_vis import SunpathMesh
 
 from dtcc_solar.skysphere import SkySphere
 
@@ -34,7 +33,6 @@ class TestSkysphere:
         self.city_mesh = trimesh.load_mesh(self.file_name)
         self.solar_engine = SolarEngine(self.city_mesh)
         self.sunpath = Sunpath(self.lat, self.lon, self.radius)
-        self.sunpath_mesh = SunpathMesh(self.radius)
         self.p = Parameters(
             file_name=self.file_name,
             latitude=self.lat,
@@ -48,7 +46,7 @@ class TestSkysphere:
 
     def test_skysphere_vis(self):
         sun_pos_dict = self.sunpath.get_analemmas(2019, 2)
-        pc = self.sunpath_mesh.create_sunpath_pc(sun_pos_dict)
+        pc = self.sunpath.create_sunpath_pc(sun_pos_dict)
 
         self.skysphere = SkySphere(self.radius, div_count=50)
 

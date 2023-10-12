@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from typing import Dict, List, Any
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.sunpath_vis import SunpathVis
+from sandbox.sunpath_vis import SunpathVis
 from dtcc_solar.utils import Parameters
 
 

@@ -30,7 +30,7 @@ class SunDome:
         day_loop1, day_loop2 = self._calc_outermost_day_loops(sunpath)
 
         self.pc, self.mesh, self.quads = self._create_mesh(
-            sunpath.radius,
+            sunpath.r,
             day_loop1,
             day_loop2,
             div_n,

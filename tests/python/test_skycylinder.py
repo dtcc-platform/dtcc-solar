@@ -6,7 +6,6 @@ import math
 
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.sunpath_vis import SunpathMesh
 from dtcc_solar.sundome import SunDome
 
 from pprint import pp
@@ -30,7 +29,6 @@ class TestSkycylinder:
         self.city_mesh = trimesh.load_mesh(self.file_name)
         self.solar_engine = SolarEngine(self.city_mesh)
         self.sunpath = Sunpath(self.lat, self.lon, self.radius)
-        self.sunpath_mesh = SunpathMesh(self.radius)
 
     def test_skycylinder_day_loops(self):
         self.skycylinder = SunDome(
@@ -44,7 +42,7 @@ class TestSkycylinder:
         pc_quad_mid_pts = self.skycylinder.pc
 
         sun_pos_dict = self.sunpath.get_analemmas(2019, 2)
-        pc_analemmas = self.sunpath_mesh.create_sunpath_pc(sun_pos_dict)
+        pc_analemmas = self.sunpath.create_sunpath_pc(sun_pos_dict)
 
         window = Window(1200, 800)
         scene = Scene()

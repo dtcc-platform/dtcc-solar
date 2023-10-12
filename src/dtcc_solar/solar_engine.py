@@ -90,7 +90,6 @@ class SolarEngine:
         # Hard coded size proportions
         self.sun_size = self.sunpath_radius / 90.0
         self.dome_radius = self.sunpath_radius / 40
-        self.path_width = self.sunpath_radius / 300
 
     def _calc_bounds(self):
         self.xmin = self.dmesh.vertices[:, 0].min()
