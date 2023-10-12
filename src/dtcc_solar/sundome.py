@@ -9,7 +9,7 @@ from dtcc_solar.utils import distance, normalise_vector
 from dtcc_solar.logging import info, debug, warning, error
 
 
-class SkyCylinder:
+class SunDome:
     radius: float
     div_tangent: int
     div_height: int

@@ -7,7 +7,7 @@ import math
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.sunpath_vis import SunpathMesh
-from dtcc_solar.skycylinder import SkyCylinder
+from dtcc_solar.sundome import SunDome
 
 from pprint import pp
 from dtcc_model import Mesh, PointCloud
@@ -19,7 +19,7 @@ class TestSkycylinder:
     lon: float
     lat: float
     solar_engine: SolarEngine
-    skycylinder: SkyCylinder
+    skycylinder: SunDome
 
     def setup_method(self):
         self.lon = -0.12
@@ -33,7 +33,7 @@ class TestSkycylinder:
         self.sunpath_mesh = SunpathMesh(self.radius)
 
     def test_skycylinder_day_loops(self):
-        self.skycylinder = SkyCylinder(
+        self.skycylinder = SunDome(
             self.sunpath,
             self.solar_engine.horizon_z,
             150,

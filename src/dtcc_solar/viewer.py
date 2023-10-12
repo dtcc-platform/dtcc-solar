@@ -6,7 +6,7 @@ from dtcc_solar.utils import Sun
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import concatenate_meshes
-from dtcc_solar.skycylinder import SkyCylinder
+from dtcc_solar.sundome import SunDome
 
 
 class Viewer:
@@ -41,7 +41,7 @@ class Viewer:
         suns: list[Sun],
         solar_engine: SolarEngine,
         sunpath: Sunpath,
-        skycylinder: SkyCylinder,
+        skycylinder: SunDome,
     ):
         # Create sunpath so that the solar postion are given a context in the 3D visualisation
         self.sunpath_mesh = SunpathMesh(solar_engine.sunpath_radius)

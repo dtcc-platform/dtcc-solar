@@ -16,14 +16,14 @@ from dtcc_solar import weather_data as weather
 from dtcc_solar.utils import concatenate_meshes, print_list
 from dtcc_solar.colors import *
 from dtcc_viewer import MeshShading
-from dtcc_solar.skycylinder import SkyCylinder
+from dtcc_solar.sundome import SunDome
 from dtcc_solar.skydome import SkyDome
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
 
-import dtcc_solar.smhi_data as smhi
-import dtcc_solar.meteo_data as meteo
-import dtcc_solar.epw_data as epw
-import dtcc_solar.clm_data as clm
+import dtcc_solar.data_smhi as smhi
+import dtcc_solar.data_meteo as meteo
+import dtcc_solar.data_epw as epw
+import dtcc_solar.data_clm as clm
 
 from dtcc_model import Mesh
 from dtcc_io import meshes
@@ -189,11 +189,10 @@ def run_script(command_line_args):
 
     mesh = meshes.load_mesh(p.file_name)
     solar_engine = SolarEngine(mesh)
-    skydome = SkyDome(solar_engine.dome_radius)
     sunpath = Sunpath(p.latitude, p.longitude, solar_engine.sunpath_radius)
-    skycylinder = SkyCylinder(sunpath, solar_engine.horizon_z, 150, 20)
+    skydome = SkyDome(solar_engine.dome_radius)
+    sundome = SunDome(sunpath, solar_engine.horizon_z, 150, 20)
     suns = sunpath.create_suns(p)
-    suns = weather.append_weather_data(p, suns)
     results = Results(suns, len(mesh.faces))
 
     # Execute analysis
@@ -205,9 +204,9 @@ def run_script(command_line_args):
         solar_engine.sun_raycasting(suns, results)
         solar_engine.sky_raycasting(suns, results, skydome)
     elif p.a_type == AnalysisType.sun_precasting:
-        solar_engine.sun_precasting(suns, results, skycylinder)
+        solar_engine.sun_precasting(suns, results, sundome)
     elif p.a_type == AnalysisType.com_precasting:
-        solar_engine.sun_precasting(suns, results, skycylinder)
+        solar_engine.sun_precasting(suns, results, sundome)
         solar_engine.sky_raycasting(suns, results, skydome)
 
     results.calc_accumulated_results()
@@ -215,7 +214,7 @@ def run_script(command_line_args):
 
     if p.prepare_display:
         viewer = Viewer()
-        viewer.create_sunpath_diagram(suns, solar_engine, sunpath, skycylinder)
+        viewer.create_sunpath_diagram(suns, solar_engine, sunpath, sundome)
         colors = color_city_mesh(results.res_acum, p.color_by)
         viewer.add_mesh("City mesh", mesh=solar_engine.dmesh, colors=colors)
 

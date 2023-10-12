@@ -7,7 +7,7 @@ from dtcc_solar.utils import Sun
 from dtcc_solar.logging import info, debug, warning, error
 
 
-def get_data_from_api_call(lon: float, lat: float, suns: list[Sun]):
+def get_data(lon: float, lat: float, suns: list[Sun]):
     date_from_str = timestamp_str(suns[0].datetime_ts)
     date_to_str = timestamp_str(suns[-1].datetime_ts)
 

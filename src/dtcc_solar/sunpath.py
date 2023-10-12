@@ -5,9 +5,10 @@ import datetime
 import numpy as np
 import pandas as pd
 from dtcc_solar import utils
-from dtcc_solar.utils import Vec3, Sun
+from dtcc_solar.utils import Vec3, Sun, DataSource
 from dtcc_solar.utils import Parameters
 from pvlib import solarposition
+from dtcc_solar import data_clm, data_epw, data_meteo, data_smhi
 
 # from timezonefinder import TimezoneFinder
 from pprint import pp
@@ -147,29 +148,19 @@ class Sunpath:
     def create_suns(self, p: Parameters):
         suns = self.create_sun_timestamps(p.start_date, p.end_date)
         suns = self.get_suns_positions(suns)
+        suns = self._append_weather_data(p, suns)
         return suns
 
-    def calc_central_axis_vec(self, p: Parameters):
-        start_date = "2019-06-21-10:00:00"
-        end_date = "2019-06-21-20:00"
-        p.start_date = start_date
-        p.end_date = end_date
-        suns = self.create_suns(p)
-
-        pt1 = suns[0].position
-        pt2 = suns[5].position
-        pt3 = suns[10].position
-
-        v1 = np.array([pt2.x - pt1.x, pt2.y - pt1.y, pt2.z - pt1.z])
-        v2 = np.array([pt3.x - pt1.x, pt3.y - pt1.y, pt3.z - pt1.z])
-
-        v3 = np.cross(v2, v1)
-
-        v3 = v3 / np.linalg.norm(v3)
-
-        print(v3)
-
-        return v3
+    def _append_weather_data(self, p: Parameters, suns: list[Sun]):
+        if p.data_source == DataSource.smhi:
+            suns = data_smhi.get_data(p.longitude, p.latitude, suns)
+        if p.data_source == DataSource.meteo:
+            suns = data_meteo.get_data(p.longitude, p.latitude, suns)
+        elif p.data_source == DataSource.clm:
+            suns = data_clm.import_data(suns, p.weather_file)
+        elif p.data_source == DataSource.epw:
+            suns = data_epw.import_data(suns, p.weather_file)
+        return suns
 
 
 class SunpathUtils:

@@ -10,7 +10,7 @@ from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
 from dtcc_solar.sunpath import Sunpath
 
-from dtcc_solar.skycylinder import SkyCylinder
+from dtcc_solar.sundome import SunDome
 from typing import List, Any
 from dtcc_solar.utils import Sun
 from trimesh import Trimesh
@@ -154,7 +154,5 @@ class SolarEngine:
             diffuse_irradiance = irradiance_diffuse * sky_portion_copy
             results.res_list[sun.index].face_irradiance_di = diffuse_irradiance
 
-    def sun_precasting(
-        self, suns: list[Sun], results: Results, skycylinder: SkyCylinder
-    ):
+    def sun_precasting(self, suns: list[Sun], results: Results, skycylinder: SunDome):
         pass

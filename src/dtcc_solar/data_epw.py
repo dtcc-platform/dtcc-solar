@@ -11,7 +11,7 @@ from dtcc_solar.logging import info, debug, warning, error
 # This function reads a *.epw weather file, which contains recorde data for a full year which has been
 # compiled by combining data from different months for the years inbetween 2007 and 2021. The time span
 # defined in by arguments if then used to obain a sub set of the data for analysis.
-def import_weather_data(suns: list[Sun], weather_file: str):
+def import_data(suns: list[Sun], weather_file: str):
     name_parts = weather_file.split(".")
     if name_parts[-1] != "epw":
         error(
