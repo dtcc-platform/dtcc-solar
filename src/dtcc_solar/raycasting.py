@@ -7,52 +7,40 @@ from dtcc_solar.utils import SunQuad
 from dtcc_solar.logging import info, debug, warning, error
 
 
-def raytrace(volume: Volume, sunVecRev):
+def raytrace(volume: Volume, sun_vec_rev: np.ndarray):
     """Raycasting function using ncollpyde"""
     mesh_faces = volume.faces
     mesh_points = volume.points
-    fCount = len(mesh_faces)
+    f_count = len(mesh_faces)
 
-    [ptRayOrigin, ptRayTarget] = pre_process(mesh_faces, mesh_points, sunVecRev)
-    [seg_idxs, intersections, is_backface] = volume.intersections(
-        ptRayOrigin,
-        ptRayTarget,
-    )
-    face_in_sun = post_process(seg_idxs, fCount)
-
-    # print("---- Face midpoint intersection results ----")
-    info(f"Found {len(seg_idxs)} intersections")
-
-    return face_in_sun
-
-
-def pre_process(mesh_faces, mesh_points, sun_vec_rev):
-    ptRayOrigin = np.zeros([len(mesh_faces), 3])
-    ptRayTarget = np.zeros([len(mesh_faces), 3])
+    ray_start = np.zeros([f_count, 3])
+    ray_end = np.zeros([f_count, 3])
     tol = 0.01
     rayLength = 1000.0
 
-    sunVecRevNp = np.array(sun_vec_rev)
-    faceVertexIndex1 = mesh_faces[:, 0]
-    faceVertexIndex2 = mesh_faces[:, 1]
-    faceVertexIndex3 = mesh_faces[:, 2]
-    vertex1 = mesh_points[faceVertexIndex1]
-    vertex2 = mesh_points[faceVertexIndex2]
-    vertex3 = mesh_points[faceVertexIndex3]
-    faceMidPt = (vertex1 + vertex2 + vertex3) / 3.0
-    ptRayOrigin = faceMidPt + (sunVecRevNp * tol)
-    ptRayTarget = faceMidPt + (sunVecRevNp * rayLength)
+    sun_vec_rev_np = np.array(sun_vec_rev)
+    face_vertex_index_1 = mesh_faces[:, 0]
+    face_vertex_index_2 = mesh_faces[:, 1]
+    face_vertex_index_3 = mesh_faces[:, 2]
+    vertex1 = mesh_points[face_vertex_index_1]
+    vertex2 = mesh_points[face_vertex_index_2]
+    vertex3 = mesh_points[face_vertex_index_3]
+    face_mid_pt = (vertex1 + vertex2 + vertex3) / 3.0
+    ray_start = face_mid_pt + (sun_vec_rev_np * tol)
+    ray_end = face_mid_pt + (sun_vec_rev_np * rayLength)
 
-    return ptRayOrigin, ptRayTarget
+    # Calculate intersections
+    [seg_idxs, int_sec, is_bf] = volume.intersections(ray_start, ray_end)
 
-
-def post_process(seg_idxs, f_count):
     # Rearrange intersection results
     face_in_sun = np.ones(f_count, dtype=bool)
     for ray_index in seg_idxs:
         face_in_sun[ray_index] = False
 
-    return face_in_sun
+    # Return number of intersections
+    n_int = len(seg_idxs)
+
+    return face_in_sun, n_int
 
 
 def raytrace_skydome(volume: Volume, ray_targets, ray_areas):
@@ -101,7 +89,7 @@ def raytrace_skydome(volume: Volume, ray_targets, ray_areas):
     return sky_portion
 
 
-def raytrace_skycylinder(volume: Volume, sun_quads: list[SunQuad]):
+def raytrace_sundome(volume: Volume, sun_quads: list[SunQuad]):
     faces = volume.faces
     vertices = volume.points
     fCount = len(faces)
@@ -112,11 +100,5 @@ def raytrace_skycylinder(volume: Volume, sun_quads: list[SunQuad]):
     for sun_quad in sun_quads:
         if sun_quad.over_horizon:
             sun_vec_rev = np.array(sun_quad.center)
-            ray_start, ray_end = pre_process(faces, vertices, sun_vec_rev)
-            [seg_idxs, int_sec, is_bf] = volume.intersections(ray_start, ray_end)
-            face_in_sun = post_process(seg_idxs, fCount)
 
-    # print("---- Face midpoint intersection results ----")
-    info(f"Found {len(seg_idxs)} intersections")
-
-    return face_in_sun
+            pass

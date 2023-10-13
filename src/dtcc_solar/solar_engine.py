@@ -138,7 +138,7 @@ class SolarEngine:
                 sun_vec = utils.vec_2_ndarray(sun.sun_vec)
                 sun_vec_rev = utils.reverse_vector(sun_vec)
 
-                face_in_sun = ray.raytrace(self.volume, sun_vec_rev)
+                face_in_sun, n_int = ray.raytrace(self.volume, sun_vec_rev)
                 face_sun_angles = mc.face_sun_angle(self.tmesh, sun_vec)
                 irradianceF = mc.compute_irradiance(
                     face_in_sun, face_sun_angles, self.f_count, sun.irradiance_dn
@@ -149,7 +149,10 @@ class SolarEngine:
                 results.res_list[sun.index].face_irradiance_dn = irradianceF
 
                 counter += 1
-                info(f"Iteration: {counter} completed")
+
+                info(
+                    f"Sun raycasting iteration {counter} done, {n_int} intersections were found"
+                )
 
     def sky_raycasting(self, suns: list[Sun], results: Results, skydome: SkyDome):
         ray_targets = skydome.get_ray_targets()

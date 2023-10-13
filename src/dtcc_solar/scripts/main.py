@@ -28,123 +28,6 @@ from dtcc_io import meshes
 from pprint import pp
 
 
-def register_args(args):
-    default_path = (
-        "/Users/jensolsson/Documents/Dev/DTCC/dtcc-solar/data/models/CitySurfaceL.stl"
-    )
-    parser = argparse.ArgumentParser(
-        description="Parameters to run city solar analysis",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "-a",
-        "--analysis",
-        type=int,
-        metavar="",
-        default=AnalysisType.sun_raycasting,
-        help=" sun_raycasting = 1, sky_raycasting = 2, com_raycasting = 3, dome_raycasting = 4",
-    )
-    parser.add_argument(
-        "-lat",
-        "--latitude",
-        type=float,
-        metavar="",
-        default=51.5,
-        help="Latitude for location of analysis",
-    )
-    parser.add_argument(
-        "-lon",
-        "--longitude",
-        type=float,
-        metavar="",
-        default=-0.12,
-        help="Longitude for location of analysis",
-    )
-    parser.add_argument(
-        "-f",
-        "--inputfile",
-        type=str,
-        metavar="",
-        default=default_path,
-        help="Filename (incl. path) for city mesh (*.stl, *.vtu)",
-    )
-    parser.add_argument(
-        "-sd",
-        "--start_date",
-        type=str,
-        metavar="",
-        default="2019-03-30 07:00:00",
-        help="Start date for iterative analysis",
-    )
-    parser.add_argument(
-        "-ed",
-        "--end_date",
-        type=str,
-        metavar="",
-        default="2019-03-30 21:00:00",
-        help="End date for iterative analysis",
-    )
-    parser.add_argument(
-        "-disp",
-        "--display",
-        type=int,
-        metavar="",
-        default=1,
-        help="Display results with pyglet",
-    )
-    parser.add_argument(
-        "-pd",
-        "--prep_disp",
-        type=int,
-        metavar="",
-        default=1,
-        help="Preproscess colors and other graphic for display",
-    )
-    parser.add_argument(
-        "-ds",
-        "--data_source",
-        type=int,
-        metavar="",
-        default=DataSource.clm,
-        help="Enum for data source. 1 = SMHI, 2 = Open Meteo, 3 = Clm file, 4 = Epw file",
-    )
-    parser.add_argument(
-        "-c",
-        "--colorby",
-        type=int,
-        metavar="",
-        default=ColorBy.face_sun_angle_shadows,
-        help="Colo_by: face_sun_angle =1, face_sun_angle_shadows = 2, shadows = 3 , irradiance_direct_normal = 4, irradiance_direct_horizontal = 5, irradiance_diffuse = 6, irradiance_all = 7",
-    )
-    parser.add_argument(
-        "-e", "--export", type=bool, metavar="", default=True, help="Export data"
-    )
-    parser.add_argument(
-        "-ep",
-        "--exportpath",
-        type=str,
-        metavar="",
-        default="./data/dataExport.txt",
-        help="Path for data export of type *.txt",
-    )
-    parser.add_argument(
-        "-wf",
-        "--w_file",
-        type=str,
-        metavar="",
-        default="./data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm",
-        help="Weather data file to be uploaded by the user",
-    )
-    new_args = parser.parse_args(args)
-    return new_args
-
-
-def print_args(args):
-    for arg in vars(args):
-        print(arg, "\t", getattr(args, arg))
-    info("----------------------------------------")
-
-
 def export(p: SolarParameters, city_results: Results, exportpath: str):
     if p.color_by == ColorBy.face_sun_angle:
         print_list(city_results.get_face_sun_angles(), exportpath)
@@ -159,38 +42,18 @@ def export(p: SolarParameters, city_results: Results, exportpath: str):
 ###############################################################################################################################
 
 
-def run_script(command_line_args):
-    clock1 = time.perf_counter()
+def run_script(solar_parameters: SolarParameters):
     os.system("clear")
     print("-------- Solar Analysis Started -------")
 
-    args = register_args(command_line_args)
-
-    # Convert command line input to enums and data formated for the analysis
-
-    p = SolarParameters(
-        args.inputfile,
-        args.w_file,
-        args.analysis,
-        args.latitude,
-        args.longitude,
-        args.prep_disp,
-        args.display,
-        args.data_source,
-        args.colorby,
-        args.export,
-        args.start_date,
-        args.end_date,
-    )
-
-    print_args(args)
-
+    p = solar_parameters
     mesh = meshes.load_mesh(p.file_name)
     solar_engine = SolarEngine(mesh)
     sunpath = Sunpath(p.latitude, p.longitude, solar_engine.sunpath_radius)
     skydome = SkyDome(solar_engine.dome_radius)
     sundome = SunDome(sunpath, solar_engine.horizon_z, 150, 20)
     suns = sunpath.create_suns(p)
+
     results = Results(suns, len(mesh.faces))
 
     # Match suns and quads
@@ -223,9 +86,6 @@ def run_script(command_line_args):
         if p.display:
             viewer.show()
 
-    clock2 = time.perf_counter()
-    print("Total computation time elapsed: " + str(round(clock2 - clock1, 4)))
-    print("----------------------------------------")
     return True
 
 
@@ -235,118 +95,74 @@ if __name__ == "__main__":
     inputfile_M = "../../../data/models/CitySurfaceM.stl"
     inputfile_L = "../../../data/models/CitySurfaceL.stl"
 
-    other_file_to_run = "../../../data/models/new_file.stl"
-
     weather_file_clm = (
         "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
     )
 
     # Instant solar anaysis
-    args_1 = [
-        "--inputfile",
-        inputfile_L,
-        "--analysis",
-        "1",
-        "--start_date",
-        "2019-03-30 09:00:00",
-        "--end_date",
-        "2019-03-30 09:00:00",
-        "--data_source",
-        "3",
-        "--w_file",
-        weather_file_clm,
-        "--colorby",
-        "2",
-    ]
+    p_1 = SolarParameters(
+        file_name=inputfile_L,
+        weather_file=weather_file_clm,
+        a_type=AnalysisType.sun_raycasting,
+        start_date="2019-03-30 09:00:00",
+        end_date="2019-03-30 09:00:00",
+        data_source=DataSource.clm,
+        color_by=ColorBy.face_sun_angle_shadows,
+    )
 
     # Instant sky analysis
-    args_2 = [
-        "--inputfile",
-        inputfile_S,
-        "--analysis",
-        "2",
-        "--start_date",
-        "2019-03-30 12:00:00",
-        "--end_date",
-        "2019-03-30 12:00:00",
-        "--data_source",
-        "3",
-        "--w_file",
-        weather_file_clm,
-        "--colorby",
-        "6",
-    ]
+    p_2 = SolarParameters(
+        file_name=inputfile_S,
+        weather_file=weather_file_clm,
+        a_type=AnalysisType.sky_raycasting,
+        start_date="2019-03-30 12:00:00",
+        end_date="2019-03-30 12:00:00",
+        data_source=DataSource.clm,
+        color_by=ColorBy.face_irradiance_di,
+    )
 
     # Instant combined analysis
-    args_3 = [
-        "--inputfile",
-        inputfile_S,
-        "--analysis",
-        "3",
-        "--start_date",
-        "2015-03-30 12:00:00",
-        "--end_date",
-        "2015-03-30 12:00:00",
-        "--data_source",
-        "3",
-        "--w_file",
-        weather_file_clm,
-        "--colorby",
-        "7",
-    ]
+    p_3 = SolarParameters(
+        file_name=inputfile_S,
+        weather_file=weather_file_clm,
+        a_type=AnalysisType.com_raycasting,
+        start_date="2019-03-30 12:00:00",
+        end_date="2019-03-30 12:00:00",
+        data_source=DataSource.clm,
+        color_by=ColorBy.face_irradiance_tot,
+    )
 
     # Iterative solar analysis
-    args_4 = [
-        "--inputfile",
-        inputfile_L,
-        "--analysis",
-        "1",
-        "--start_date",
-        "2019-06-01 11:00:00",
-        "--end_date",
-        "2019-06-01 15:00:00",
-        "--data_source",
-        "3",
-        "--w_file",
-        weather_file_clm,
-        "--colorby",
-        "4",
-    ]
+    p_4 = SolarParameters(
+        file_name=inputfile_L,
+        weather_file=weather_file_clm,
+        a_type=AnalysisType.sun_raycasting,
+        start_date="2019-06-01 11:00:00",
+        end_date="2019-06-01 15:00:00",
+        data_source=DataSource.clm,
+        color_by=ColorBy.face_irradiance_dn,
+    )
 
     # Iterative sky analysis
-    args_5 = [
-        "--inputfile",
-        inputfile_S,
-        "--analysis",
-        "2",
-        "--start_date",
-        "2019-03-30 06:00:00",
-        "--end_date",
-        "2019-03-30 21:00:00",
-        "--data_source",
-        "3",
-        "--w_file",
-        weather_file_clm,
-        "--colorby",
-        "6",
-    ]
+    p_5 = SolarParameters(
+        file_name=inputfile_S,
+        weather_file=weather_file_clm,
+        a_type=AnalysisType.sky_raycasting,
+        start_date="2019-03-30 06:00:00",
+        end_date="2019-03-30 21:00:00",
+        data_source=DataSource.clm,
+        color_by=ColorBy.face_irradiance_di,
+    )
 
     # Iterative combined analysis
-    args_6 = [
-        "--inputfile",
-        inputfile_L,
-        "--analysis",
-        "3",
-        "--start_date",
-        "2019-03-30 06:00:00",
-        "--end_date",
-        "2019-03-30 21:00:00",
-        "--data_source",
-        "3",
-        "--w_file",
-        weather_file_clm,
-        "--colorby",
-        "7",
-    ]
+    p_6 = SolarParameters(
+        file_name=inputfile_L,
+        weather_file=weather_file_clm,
+        a_type=AnalysisType.com_raycasting,
+        start_date="2019-03-30 06:00:00",
+        end_date="2019-03-30 21:00:00",
+        data_source=DataSource.clm,
+        color_by=ColorBy.face_irradiance_tot,
+    )
 
-    run_script(args_4)
+    run_script(p_3)

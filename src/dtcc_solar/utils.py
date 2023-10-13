@@ -139,10 +139,10 @@ class SolarParameters:
     file_name: str = "Undefined model input file"
     weather_file: str = "Undefined weather data file"
     a_type: AnalysisType = AnalysisType.sky_raycasting
-    latitude: float = -0.12
-    longitude: float = 51.5
-    prepare_display: bool = False
-    display: bool = False
+    latitude: float = 51.5
+    longitude: float = -0.12
+    prepare_display: bool = True
+    display: bool = True
     data_source: DataSource = DataSource.clm
     color_by: ColorBy = ColorBy.face_sun_angle_shadows
     export: bool = False

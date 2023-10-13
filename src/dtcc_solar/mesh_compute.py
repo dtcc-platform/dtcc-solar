@@ -9,9 +9,8 @@ from trimesh import Trimesh
 def compute_irradiance(face_in_sun, face_angles, f_count, flux):
     irradiance = np.zeros(f_count)
     for i in range(0, f_count):
-        angle_fraction = (
-            face_angles[i] / np.pi
-        )  # 1 if the angle is pi, which is = 180 degrees.
+        # angle_fraction = 1 if the angle is pi (180 degrees).
+        angle_fraction = face_angles[i] / np.pi
         face_in_sun_int = float(face_in_sun[i])
         irradiance[i] = flux * face_in_sun_int * angle_fraction
 
