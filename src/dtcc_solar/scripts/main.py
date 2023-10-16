@@ -29,12 +29,6 @@ def run_script(solar_parameters: SolarParameters):
     sundome = SunDome(sunpath, solar_engine.horizon_z, 150, 20)
     results = Results(sunpath.suns, len(mesh.faces))
 
-    # Use these commands to view the individual componets of the dtcc solar package.
-    # solar_engine.mesh.view()
-    # skydome.mesh.view()
-    # sundome.mesh.view()
-    # sunpath.mesh.view()
-
     solar_engine.run_analysis(p, sunpath, results, skydome, sundome)
 
     if p.display:

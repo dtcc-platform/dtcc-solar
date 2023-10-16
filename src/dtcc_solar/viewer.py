@@ -37,7 +37,6 @@ class Viewer:
 
     def build_sunpath_diagram(
         self,
-        suns: list[Sun],
         sunpath: Sunpath,
         sundome: SunDome,
     ):
