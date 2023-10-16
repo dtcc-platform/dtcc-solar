@@ -141,7 +141,6 @@ class SolarParameters:
     a_type: AnalysisType = AnalysisType.sky_raycasting
     latitude: float = 51.5
     longitude: float = -0.12
-    prepare_display: bool = True
     display: bool = True
     data_source: DataSource = DataSource.clm
     color_by: ColorBy = ColorBy.face_sun_angle_shadows

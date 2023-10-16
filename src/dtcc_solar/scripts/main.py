@@ -1,45 +1,20 @@
 import numpy as np
 import pandas as pd
-import time
 import os
-import trimesh
-import argparse
-import sys
 
-from dtcc_solar.sunpath import Sunpath, Sun
-from dtcc_solar.viewer import Viewer
 from dtcc_solar.utils import ColorBy, AnalysisType, SolarParameters, DataSource
 from dtcc_solar.solar_engine import SolarEngine
+from dtcc_solar.sunpath import Sunpath
+from dtcc_solar.viewer import Viewer
 from dtcc_solar.results import Results
-from dtcc_solar.utils import concatenate_meshes, print_list
-from dtcc_solar.colors import *
-from dtcc_viewer import MeshShading
 from dtcc_solar.sundome import SunDome
 from dtcc_solar.skydome import SkyDome
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
-
-import dtcc_solar.data_smhi as smhi
-import dtcc_solar.data_meteo as meteo
-import dtcc_solar.data_epw as epw
-import dtcc_solar.data_clm as clm
+from dtcc_solar.colors import color_city_mesh
 
 from dtcc_model import Mesh
 from dtcc_io import meshes
 from pprint import pp
-
-
-def export(p: SolarParameters, city_results: Results, exportpath: str):
-    if p.color_by == ColorBy.face_sun_angle:
-        print_list(city_results.get_face_sun_angles(), exportpath)
-    elif p.color_by == ColorBy.face_sun_angle_shadows:
-        print_list(city_results.get_face_sun_angles(), exportpath)
-    elif p.color_by == ColorBy.face_irradiance_dn:
-        print_list(city_results.get_face_irradiance(), exportpath)
-    elif p.color_by == ColorBy.face_shadows:
-        print_list(city_results.get_face_in_sun(), exportpath)
-
-
-###############################################################################################################################
 
 
 def run_script(solar_parameters: SolarParameters):
@@ -49,44 +24,25 @@ def run_script(solar_parameters: SolarParameters):
     p = solar_parameters
     mesh = meshes.load_mesh(p.file_name)
     solar_engine = SolarEngine(mesh)
-    sunpath = Sunpath(p.latitude, p.longitude, solar_engine.sunpath_radius)
-    skydome = SkyDome(solar_engine.dome_radius)
+    sunpath = Sunpath(p, solar_engine.sunpath_radius)
+    skydome = SkyDome(solar_engine.dome_radius, 10)
     sundome = SunDome(sunpath, solar_engine.horizon_z, 150, 20)
-    suns = sunpath.create_suns(p)
+    results = Results(sunpath.suns, len(mesh.faces))
 
-    results = Results(suns, len(mesh.faces))
+    # Use these commands to view the individual componets of the dtcc solar package.
+    # solar_engine.mesh.view()
+    # skydome.mesh.view()
+    # sundome.mesh.view()
+    # sunpath.mesh.view()
 
-    # Match suns and quads
-    solar_engine.match_suns_and_quads(suns, sundome)
-    sunquad_mesh = sundome.get_sub_sundome_mesh(solar_engine.tolerance)
+    solar_engine.run_analysis(p, sunpath, results, skydome, sundome)
 
-    # Execute analysis
-    if p.a_type == AnalysisType.sun_raycasting:
-        solar_engine.sun_raycasting(suns, results)
-    elif p.a_type == AnalysisType.sky_raycasting:
-        solar_engine.sky_raycasting(suns, results, skydome)
-    elif p.a_type == AnalysisType.com_raycasting:
-        solar_engine.sun_raycasting(suns, results)
-        solar_engine.sky_raycasting(suns, results, skydome)
-    elif p.a_type == AnalysisType.sun_precasting:
-        solar_engine.sun_precasting(suns, results, sundome)
-    elif p.a_type == AnalysisType.com_precasting:
-        solar_engine.sun_precasting(suns, results, sundome)
-        solar_engine.sky_raycasting(suns, results, skydome)
-
-    results.calc_accumulated_results()
-    results.calc_average_results()
-
-    if p.prepare_display:
+    if p.display:
         viewer = Viewer()
-        viewer.build_sunpath_diagram(suns, solar_engine, sunpath, sundome)
+        viewer.build_sunpath_diagram(sunpath.suns, sunpath, sundome)
         colors = color_city_mesh(results.res_acum, p.color_by)
-        viewer.add_mesh("City mesh", mesh=solar_engine.dmesh, colors=colors)
-
-        if p.display:
-            viewer.show()
-
-    return True
+        viewer.add_mesh("City mesh", mesh=solar_engine.mesh, colors=colors)
+        viewer.show()
 
 
 if __name__ == "__main__":

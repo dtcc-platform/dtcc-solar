@@ -6,6 +6,7 @@ import copy
 
 from dtcc_solar import utils
 from dtcc_solar.logging import info, debug, warning, error
+from dtcc_model import Mesh
 
 
 class SkyDome:
@@ -20,8 +21,7 @@ class SkyDome:
         self.ray_areas = np.zeros(div_count * 200, dtype=float)
 
         self.joined_mesh_points = 0
-        self.dome_mesh = 0
-        self.dome_meshes = 0
+        self.mesh = 0
         self.dome_radius = dome_radius
 
         self.ray_in_sky = 0
@@ -109,7 +109,8 @@ class SkyDome:
 
         # Join the mesh into one
         self.joined_mesh_points = trimesh.util.concatenate(self.meshes_points)
-        self.dome_mesh = trimesh.util.concatenate(self.meshes_quads)
+        tmesh = trimesh.util.concatenate(self.meshes_quads)
+        self.mesh = Mesh(vertices=tmesh.vertices, faces=tmesh.faces)
         self.quad_count = len(self.meshes_quads)
 
         info("Sky dome mesh created")
@@ -221,7 +222,7 @@ class SkyDome:
 
     def move_dome_mesh(self, new_origin):
         new_pos_vec = np.array([0, 0, 0]) + new_origin
-        self.dome_mesh.vertices += new_pos_vec
+        self.mesh.vertices += new_pos_vec
 
     def calc_hemisphere_area(self, r):
         area = 2 * math.pi * r * r

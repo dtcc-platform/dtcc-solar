@@ -31,14 +31,15 @@ class TestSkysphere:
         self.file_name = "../data/models/CitySurfaceS.stl"
         self.w_file = "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
         self.city_mesh = trimesh.load_mesh(self.file_name)
-        self.solar_engine = SolarEngine(self.city_mesh)
-        self.sunpath = Sunpath(self.lat, self.lon, self.radius)
         self.p = SolarParameters(
             file_name=self.file_name,
             latitude=self.lat,
             longitude=self.lon,
             weather_file=self.w_file,
         )
+
+        self.solar_engine = SolarEngine(self.city_mesh)
+        self.sunpath = Sunpath(self.p, self.radius)
 
     def test_skysphere(self):
         skysphere = SkySphere(self.radius, div_count=20)

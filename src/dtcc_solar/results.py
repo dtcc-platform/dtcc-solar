@@ -1,8 +1,9 @@
 import numpy as np
 import dtcc_solar.mesh_compute as mc
-from dtcc_solar.utils import ColorBy, Sun, Output, OutputAcum
+from dtcc_solar.utils import ColorBy, Sun, Output, OutputAcum, SolarParameters
 from typing import List, Dict
 from dtcc_solar.logging import info, debug, warning, error
+from dtcc_solar.utils import print_list
 
 
 # This class contains all the results from analysis that will be accessed for visualisation
@@ -83,5 +84,8 @@ class Results:
             self.res_avrg.face_irradiance_dh += res.face_irradiance_dh / n
             self.res_avrg.face_irradiance_dn += res.face_irradiance_dn / n
             self.res_avrg.face_irradiance_di += res.face_irradiance_di / n
+
+    def save_to_file():
+        pass
 
     ###################### Getters an setters for city mesh results #######################

@@ -38,20 +38,16 @@ class Viewer:
     def build_sunpath_diagram(
         self,
         suns: list[Sun],
-        solar_engine: SolarEngine,
         sunpath: Sunpath,
-        skycylinder: SunDome,
+        sundome: SunDome,
     ):
-        # Create sunpath so that the solar postion are given a context in the 3D visualisation
-        sunpath.build_sunpath_diagram(suns)
-
         # Get analemmas, day paths, and pc for sun positions
         analemmas = sunpath.analemmas_meshes
         day_paths = sunpath.daypath_meshes
         analemmas_pc = sunpath.analemmas_pc
         all_suns_pc = sunpath.all_suns_pc
         sun_pc = sunpath.sun_pc
-        sky_mesh = skycylinder.mesh
+        sky_mesh = sundome.mesh
 
         analemmas = concatenate_meshes(analemmas)
         day_paths = concatenate_meshes(day_paths)

@@ -9,7 +9,7 @@ from ncollpyde import Volume
 from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import distance, vec_2_ndarray
+from dtcc_solar.utils import distance, vec_2_ndarray, AnalysisType, SolarParameters
 
 from dtcc_solar.sundome import SunDome
 from typing import List, Any
@@ -22,7 +22,7 @@ from dtcc_solar.logging import info, debug, warning, error
 
 
 class SolarEngine:
-    dmesh: Mesh  # Dtcc mesh
+    mesh: Mesh  # Dtcc mesh
     tmesh: Trimesh  # Trimesh
     origin: np.ndarray
     f_count: int
@@ -41,12 +41,12 @@ class SolarEngine:
     city_mesh_face_mid_points: np.ndarray
     skydome: SkyDome
 
-    def __init__(self, dmesh: Mesh) -> None:
-        self.dmesh = dmesh
-        self.tmesh = trimesh.Trimesh(vertices=dmesh.vertices, faces=dmesh.faces)
+    def __init__(self, mesh: Mesh) -> None:
+        self.mesh = mesh
+        self.tmesh = trimesh.Trimesh(vertices=mesh.vertices, faces=mesh.faces)
         self.origin = np.array([0, 0, 0])
-        self.f_count = len(self.dmesh.faces)
-        self.v_count = len(self.dmesh.vertices)
+        self.f_count = len(self.mesh.faces)
+        self.v_count = len(self.mesh.vertices)
 
         self.horizon_z = 0
         self.sunpath_radius = 0
@@ -56,7 +56,7 @@ class SolarEngine:
         self._preprocess_mesh(True)
 
         # Create volume object for ray caster with NcollPyDe
-        self.volume = Volume(self.dmesh.vertices, self.dmesh.faces)
+        self.volume = Volume(self.mesh.vertices, self.mesh.faces)
         self.city_mesh_faces = np.array(self.volume.faces)
         self.city_mesh_points = np.array(self.volume.points)
         self.city_mesh_face_mid_points = 0
@@ -71,14 +71,14 @@ class SolarEngine:
 
         # Move the mesh to the centre of the model
         if move_to_center:
-            self.dmesh.vertices += centerVec
+            self.mesh.vertices += centerVec
             self.tmesh.vertices += centerVec
 
         # Update bounding box after the mesh has been moved
         self._calc_bounds()
 
         # Assumption: The horizon is the avrage z height in the mesh
-        self.horizon_z = np.average(self.dmesh.vertices[:, 2])
+        self.horizon_z = np.average(self.mesh.vertices[:, 2])
 
         # Calculating sunpath radius
         xRange = self.bb.width
@@ -96,12 +96,12 @@ class SolarEngine:
         info(f"Tolerance for point comparions set to: {self.tolerance}")
 
     def _calc_bounds(self):
-        self.xmin = self.dmesh.vertices[:, 0].min()
-        self.xmax = self.dmesh.vertices[:, 0].max()
-        self.ymin = self.dmesh.vertices[:, 1].min()
-        self.ymax = self.dmesh.vertices[:, 1].max()
-        self.zmin = self.dmesh.vertices[:, 2].min()
-        self.zmax = self.dmesh.vertices[:, 2].max()
+        self.xmin = self.mesh.vertices[:, 0].min()
+        self.xmax = self.mesh.vertices[:, 0].max()
+        self.ymin = self.mesh.vertices[:, 1].min()
+        self.ymax = self.mesh.vertices[:, 1].max()
+        self.zmin = self.mesh.vertices[:, 2].min()
+        self.zmax = self.mesh.vertices[:, 2].max()
 
         self.bbx = np.array([self.xmin, self.xmax])
         self.bby = np.array([self.ymin, self.ymax])
@@ -109,7 +109,7 @@ class SolarEngine:
 
         self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
-    def match_suns_and_quads(self, suns: list[Sun], sundome: SunDome):
+    def _match_suns_and_quads(self, suns: list[Sun], sundome: SunDome):
         for sun in suns:
             dmin = 1000000000
             quad_index = None
@@ -128,7 +128,36 @@ class SolarEngine:
                 )
                 sundome.quads[quad_index].has_sun = True
 
-    def sun_raycasting(self, suns: list[Sun], results: Results):
+        # Extract all quads with suns into a sub sundome mesh
+        sundome.calc_sub_sundome_mesh(self.tolerance)
+
+    def run_analysis(
+        self,
+        p: SolarParameters,
+        sunpath: Sunpath,
+        results: Results,
+        skydome: SkyDome = None,
+        sundome: SunDome = None,
+    ):
+        if p.a_type == AnalysisType.sun_raycasting:
+            self._sun_raycasting(sunpath.suns, results)
+        elif p.a_type == AnalysisType.sky_raycasting:
+            self._sky_raycasting(sunpath.suns, results, skydome)
+        elif p.a_type == AnalysisType.com_raycasting:
+            self._sun_raycasting(sunpath.suns, results)
+            self._sky_raycasting(sunpath.suns, results, skydome)
+        elif p.a_type == AnalysisType.sun_precasting:
+            self._match_suns_and_quads(sunpath.suns, sundome)
+            self._sun_precasting(sunpath.suns, results, sundome)
+        elif p.a_type == AnalysisType.com_precasting:
+            self._match_suns_and_quads(sunpath.suns, sundome)
+            self._sun_precasting(sunpath.suns, results, sundome)
+            self._sky_raycasting(sunpath.suns, results, skydome)
+
+        results.calc_accumulated_results()
+        results.calc_average_results()
+
+    def _sun_raycasting(self, suns: list[Sun], results: Results):
         n = len(suns)
         info(f"Iterative analysis started for {n} number of iterations")
         counter = 0
@@ -154,25 +183,37 @@ class SolarEngine:
                     f"Sun raycasting iteration {counter} done, {n_int} intersections were found"
                 )
 
-    def sky_raycasting(self, suns: list[Sun], results: Results, skydome: SkyDome):
-        ray_targets = skydome.get_ray_targets()
-        ray_areas = skydome.get_ray_areas()
-        sky_portion = ray.raytrace_skydome(self.volume, ray_targets, ray_areas)
+    def _sky_raycasting(
+        self, suns: list[Sun], results: Results, skydome: SkyDome = None
+    ):
+        if skydome is None:
+            error("Skydome is None, cannot run sky raycasting")
+            return
+        else:
+            info("Sky raycasting started")
 
-        # Results independent of weather data
-        face_in_sky = np.ones(len(sky_portion), dtype=bool)
-        for i in range(0, len(sky_portion)):
-            if sky_portion[i] > 0.5:
-                face_in_sky[i] = False
+            ray_targets = skydome.get_ray_targets()
+            ray_areas = skydome.get_ray_areas()
+            sky_portion = ray.raytrace_skydome(self.volume, ray_targets, ray_areas)
 
-        results.res_acum.face_in_sky = face_in_sky
+            # Results independent of weather data
+            face_in_sky = np.ones(len(sky_portion), dtype=bool)
+            for i in range(0, len(sky_portion)):
+                if sky_portion[i] > 0.5:
+                    face_in_sky[i] = False
 
-        # Results which depends on wheater data
-        for sun in suns:
-            irradiance_diffuse = sun.irradiance_di
-            sky_portion_copy = copy.deepcopy(sky_portion)
-            diffuse_irradiance = irradiance_diffuse * sky_portion_copy
-            results.res_list[sun.index].face_irradiance_di = diffuse_irradiance
+            results.res_acum.face_in_sky = face_in_sky
 
-    def sun_precasting(self, suns: list[Sun], results: Results, skycylinder: SunDome):
-        pass
+            # Results which depends on wheater data
+            for sun in suns:
+                irradiance_diffuse = sun.irradiance_di
+                sky_portion_copy = copy.deepcopy(sky_portion)
+                diffuse_irradiance = irradiance_diffuse * sky_portion_copy
+                results.res_list[sun.index].face_irradiance_di = diffuse_irradiance
+
+    def _sun_precasting(self, suns: list[Sun], results: Results, sundome: SunDome):
+        if sundome is None:
+            error("Sundome is None, cannot run sky precasting calculations")
+            return
+        else:
+            info("Sundome precasting started")

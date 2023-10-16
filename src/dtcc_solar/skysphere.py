@@ -23,8 +23,8 @@ class SkySphere:
         self.build_mesh()
 
     def build_mesh(self):
-        vs = self.skydome.dome_mesh.vertices
-        fs = self.skydome.dome_mesh.faces
+        vs = self.skydome.mesh.vertices
+        fs = self.skydome.mesh.faces
         mesh_upper = Mesh(vertices=vs, faces=fs)
 
         vs = copy.deepcopy(mesh_upper.vertices)

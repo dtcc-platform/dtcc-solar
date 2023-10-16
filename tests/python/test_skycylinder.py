@@ -11,14 +11,14 @@ from dtcc_solar.sundome import SunDome
 from pprint import pp
 from dtcc_model import Mesh, PointCloud
 from dtcc_viewer import Scene, Window, MeshShading
-from dtcc_solar.utils import calc_rotation_matrix
+from dtcc_solar.utils import SolarParameters
 
 
-class TestSkycylinder:
+class TestSunDome:
     lon: float
     lat: float
     solar_engine: SolarEngine
-    skycylinder: SunDome
+    sundome: SunDome
 
     def setup_method(self):
         self.lon = -0.12
@@ -27,19 +27,27 @@ class TestSkycylinder:
         self.file_name = "../data/models/CitySurfaceS.stl"
         self.w_file = "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
         self.city_mesh = trimesh.load_mesh(self.file_name)
-        self.solar_engine = SolarEngine(self.city_mesh)
-        self.sunpath = Sunpath(self.lat, self.lon, self.radius)
 
-    def test_skycylinder_day_loops(self):
-        self.skycylinder = SunDome(
+        self.p = SolarParameters(
+            file_name=self.file_name,
+            latitude=self.lat,
+            longitude=self.lon,
+            weather_file=self.w_file,
+        )
+
+        self.solar_engine = SolarEngine(self.city_mesh)
+        self.sunpath = Sunpath(self.p, self.radius)
+
+    def test_sundome_day_loops(self):
+        self.sundome = SunDome(
             self.sunpath,
             self.solar_engine.horizon_z,
             150,
             20,
         )
 
-        mesh = self.skycylinder.mesh
-        pc_quad_mid_pts = self.skycylinder.pc
+        mesh = self.sundome.mesh
+        pc_quad_mid_pts = self.sundome.pc
 
         sun_pos_dict = self.sunpath.get_analemmas(2019, 2)
         pc_analemmas = self.sunpath.create_sunpath_pc(sun_pos_dict)
@@ -56,6 +64,6 @@ if __name__ == "__main__":
     os.system("clear")
     print("--------------------- Skycylinder test started -----------------------")
 
-    test = TestSkycylinder()
+    test = TestSunDome()
     test.setup_method()
-    test.test_skycylinder_day_loops()
+    test.test_sundome_day_loops()

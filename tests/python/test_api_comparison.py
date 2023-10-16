@@ -26,7 +26,6 @@ class TestWeatherDataComparison:
 
         start_date = "2019-01-01 00:00:00"
         end_date = "2019-12-31 00:00:00"
-        self.sunpath = Sunpath(self.lat, self.lon, 1.0)
         a_type = AnalysisType.sun_raycasting
 
         self.p_smhi = SolarParameters(
@@ -39,6 +38,7 @@ class TestWeatherDataComparison:
             color_by=ColorBy.face_sun_angle,
             start_date=start_date,
             end_date=end_date,
+            display=False,
         )
 
         self.p_meteo = copy.deepcopy(self.p_smhi)
@@ -64,24 +64,24 @@ class TestWeatherDataComparison:
         self.p_epw.start_date = start_date
         self.p_epw.end_date = end_date
 
-        suns_smhi = self.sunpath.create_suns(self.p_smhi)
-        suns_meteo = self.sunpath.create_suns(self.p_meteo)
-        suns_clm = self.sunpath.create_suns(self.p_clm)
-        suns_epw = self.sunpath.create_suns(self.p_epw)
+        sunpath_smhi = Sunpath(self.p_smhi, 1.0)
+        sunpath_meteo = Sunpath(self.p_meteo, 1.0)
+        sunpath_clm = Sunpath(self.p_clm, 1.0)
+        sunpath_epw = Sunpath(self.p_epw, 1.0)
 
         if (
-            len(suns_smhi) != len(suns_meteo)
-            or len(suns_smhi) != len(suns_clm)
-            or len(suns_smhi) != len(suns_epw)
+            len(sunpath_smhi.suns) != len(sunpath_meteo.suns)
+            or len(sunpath_smhi.suns) != len(sunpath_clm.suns)
+            or len(sunpath_smhi.suns) != len(sunpath_epw.suns)
         ):
             print("Keys missmatch")
             return False
 
-        for i in range(len(suns_smhi)):
+        for i in range(len(sunpath_smhi.suns)):
             if (
-                suns_smhi[i].datetime_str != suns_meteo[i].datetime_str
-                or suns_smhi[i].datetime_str != suns_clm[i].datetime_str
-                or suns_smhi[i].datetime_str != suns_epw[i].datetime_str
+                sunpath_smhi.suns[i].datetime_str != sunpath_meteo.suns[i].datetime_str
+                or sunpath_smhi.suns[i].datetime_str != sunpath_clm.suns[i].datetime_str
+                or sunpath_smhi.suns[i].datetime_str != sunpath_epw.suns[i].datetime_str
             ):
                 print("Keys missmatch")
                 return False
@@ -102,31 +102,35 @@ class TestWeatherDataComparison:
         self.p_epw.start_date = start_date
         self.p_epw.end_date = end_date
 
-        suns_smhi = self.sunpath.create_suns(self.p_smhi)
-        suns_meteo = self.sunpath.create_suns(self.p_meteo)
-        suns_clm = self.sunpath.create_suns(self.p_clm)
-        suns_epw = self.sunpath.create_suns(self.p_epw)
+        sunpath_smhi = Sunpath(self.p_smhi, 1.0)
+        sunpath_meteo = Sunpath(self.p_meteo, 1.0)
+        sunpath_clm = Sunpath(self.p_clm, 1.0)
+        sunpath_epw = Sunpath(self.p_epw, 1.0)
 
         [w_data_normal_smhi, w_data_horizontal_smhi] = format_data_per_day_suns(
-            suns_smhi
+            sunpath_smhi.suns
         )
 
         smhi_normal_avrg = get_monthly_average_data(w_data_normal_smhi)
         smhi_horizon_avrg = get_monthly_average_data(w_data_horizontal_smhi)
 
         [w_data_normal_meteo, w_data_horizontal_meteo] = format_data_per_day_suns(
-            suns_meteo
+            sunpath_meteo.suns
         )
 
         meteo_normal_avrg = get_monthly_average_data(w_data_normal_meteo)
         meteo_horizon_avrg = get_monthly_average_data(w_data_horizontal_meteo)
 
-        [w_data_normal_clm, w_data_horizontal_clm] = format_data_per_day_suns(suns_clm)
+        [w_data_normal_clm, w_data_horizontal_clm] = format_data_per_day_suns(
+            sunpath_clm.suns
+        )
 
         clm_normal_avrg = get_monthly_average_data(w_data_normal_clm)
         clm_horizon_avrg = get_monthly_average_data(w_data_horizontal_clm)
 
-        [w_data_normal_epw, w_data_horizontal_epw] = format_data_per_day_suns(suns_epw)
+        [w_data_normal_epw, w_data_horizontal_epw] = format_data_per_day_suns(
+            sunpath_epw.suns
+        )
 
         epw_normal_avrg = get_monthly_average_data(w_data_normal_epw)
         epw_horizon_avrg = get_monthly_average_data(w_data_horizontal_epw)
@@ -195,21 +199,25 @@ class TestWeatherDataComparison:
         self.p_epw.start_date = start_date
         self.p_epw.end_date = end_date
 
-        suns_smhi = self.sunpath.create_suns(self.p_smhi)
-        suns_meteo = self.sunpath.create_suns(self.p_meteo)
-        suns_clm = self.sunpath.create_suns(self.p_clm)
-        suns_epw = self.sunpath.create_suns(self.p_epw)
+        sunpath_smhi = Sunpath(self.p_smhi, 1.0)
+        sunpath_meteo = Sunpath(self.p_meteo, 1.0)
+        sunpath_clm = Sunpath(self.p_clm, 1.0)
+        sunpath_epw = Sunpath(self.p_epw, 1.0)
 
         [w_data_normal_smhi, w_data_horizontal_smhi] = format_data_per_day_suns(
-            suns_smhi
+            sunpath_smhi.suns
         )
         [w_data_normal_meteo, w_data_horizontal_meteo] = format_data_per_day_suns(
-            suns_meteo
+            sunpath_meteo.suns
         )
-        [w_data_normal_clm, w_data_horizontal_clm] = format_data_per_day_suns(suns_clm)
-        [w_data_normal_epw, w_data_horizontal_epw] = format_data_per_day_suns(suns_epw)
+        [w_data_normal_clm, w_data_horizontal_clm] = format_data_per_day_suns(
+            sunpath_clm.suns
+        )
+        [w_data_normal_epw, w_data_horizontal_epw] = format_data_per_day_suns(
+            sunpath_epw.suns
+        )
 
-        if len(suns_smhi) != len(suns_meteo):
+        if len(sunpath_smhi.suns) != len(sunpath_meteo.suns):
             print("SMHI and Open Meteo data format missmatch")
             return None
 

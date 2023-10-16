@@ -3,6 +3,7 @@ import trimesh
 import numpy as np
 import pandas as pd
 import math
+import copy
 
 from dtcc_solar import utils
 from dtcc_solar.sunpath import Sunpath
@@ -34,29 +35,30 @@ class TestRaytracing:
         self.file_name = "../data/models/CitySurfaceS.stl"
         self.w_file = "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
         self.city_mesh = trimesh.load_mesh(self.file_name)
-        self.solar_engine = SolarEngine(self.city_mesh)
-        self.sunpath = Sunpath(self.lat, self.lon, self.solar_engine.sunpath_radius)
-        self.skydome = SkyDome(self.solar_engine.dome_radius)
 
         self.p = SolarParameters(
             file_name=self.file_name,
             weather_file=self.w_file,
             latitude=self.lat,
             longitude=self.lon,
+            display=False,
         )
 
     def test_raytracing_sun_instant(self):
-        self.p.a_type = AnalysisType.sun_raycasting
-        self.p.start_date = "2019-06-01 12:00:00"
-        self.p.end_date = "2019-06-01 12:00:00"
+        p = copy.deepcopy(self.p)
+        p.a_type = AnalysisType.sun_raycasting
+        p.start_date = "2019-06-01 12:00:00"
+        p.end_date = "2019-06-01 12:00:00"
 
-        self.suns = self.sunpath.create_suns(self.p)
+        solar_engine = SolarEngine(self.city_mesh)
+        sunpath = Sunpath(p, solar_engine.sunpath_radius)
+        skydome = SkyDome(solar_engine.dome_radius)
 
-        self.results = Results(self.suns, self.solar_engine.f_count)
-        self.solar_engine.sun_raycasting(self.suns, self.results)
+        results = Results(sunpath.suns, solar_engine.f_count)
+        solar_engine.run_analysis(p, sunpath, results, skydome)
 
-        face_sun_angles = self.results.res_list[0].face_sun_angles
-        face_in_sun = self.results.res_list[0].face_in_sun
+        face_sun_angles = results.res_list[0].face_sun_angles
+        face_in_sun = results.res_list[0].face_in_sun
         is_error = False
 
         if np.sum(face_sun_angles) == 0.0 or np.sum(face_in_sun) == 0.0:
@@ -65,15 +67,19 @@ class TestRaytracing:
         assert not is_error
 
     def test_raytracing_sun_iterative(self):
-        self.p.a_type = AnalysisType.sun_raycasting
-        self.p.start_date = "2019-06-01 11:00:00"
-        self.p.end_date = "2019-06-01 15:00:00"
+        p = copy.deepcopy(self.p)
+        p.a_type = AnalysisType.sun_raycasting
+        p.start_date = "2019-06-01 11:00:00"
+        p.end_date = "2019-06-01 15:00:00"
 
-        self.suns = self.sunpath.create_suns(self.p)
-        self.results = Results(self.suns, self.solar_engine.f_count)
-        self.solar_engine.sun_raycasting(self.suns, self.results)
+        solar_engine = SolarEngine(self.city_mesh)
+        sunpath = Sunpath(p, solar_engine.sunpath_radius)
+        skydome = SkyDome(solar_engine.dome_radius)
 
-        res_list = self.results.res_list
+        results = Results(sunpath.suns, solar_engine.f_count)
+        solar_engine.run_analysis(p, sunpath, results, skydome)
+
+        res_list = results.res_list
         is_error = False
 
         for res in res_list:
@@ -88,16 +94,19 @@ class TestRaytracing:
         assert not is_error
 
     def test_raytracing_sky_instant(self):
-        self.p.a_type = AnalysisType.sky_raycasting
-        self.p.start_date = "2019-06-01 12:00:00"
-        self.p.end_date = "2019-06-01 12:00:00"
+        p = copy.deepcopy(self.p)
+        p.a_type = AnalysisType.sky_raycasting
+        p.start_date = "2019-06-01 12:00:00"
+        p.end_date = "2019-06-01 12:00:00"
 
-        self.suns = self.sunpath.create_suns(self.p)
+        solar_engine = SolarEngine(self.city_mesh)
+        sunpath = Sunpath(p, solar_engine.sunpath_radius)
+        skydome = SkyDome(solar_engine.dome_radius)
 
-        self.results = Results(self.suns, self.solar_engine.f_count)
-        self.solar_engine.sky_raycasting(self.suns, self.results, self.skydome)
+        results = Results(sunpath.suns, solar_engine.f_count)
+        solar_engine.run_analysis(p, sunpath, results, skydome)
 
-        face_in_sky = self.results.res_acum.face_in_sky
+        face_in_sky = results.res_acum.face_in_sky
         is_error = False
         if np.sum(face_in_sky) == 0.0:
             print("Test failed!")
@@ -106,16 +115,19 @@ class TestRaytracing:
         assert not is_error
 
     def test_raytracing_sky_iterative(self):
-        self.p.a_type = AnalysisType.sun_raycasting
-        self.p.start_date = "2019-06-01 11:00:00"
-        self.p.end_date = "2019-06-01 15:00:00"
+        p = copy.deepcopy(self.p)
+        p.a_type = AnalysisType.sky_raycasting
+        p.start_date = "2019-06-01 11:00:00"
+        p.end_date = "2019-06-01 15:00:00"
 
-        self.suns = self.sunpath.create_suns(self.p)
+        solar_engine = SolarEngine(self.city_mesh)
+        sunpath = Sunpath(p, solar_engine.sunpath_radius)
+        skydome = SkyDome(solar_engine.dome_radius)
 
-        self.results = Results(self.suns, self.solar_engine.f_count)
-        self.solar_engine.sky_raycasting(self.suns, self.results, self.skydome)
+        results = Results(sunpath.suns, solar_engine.f_count)
+        solar_engine.run_analysis(p, sunpath, results, skydome)
 
-        res_list = self.results.res_list
+        res_list = results.res_list
         is_error = False
 
         di_sum = 0

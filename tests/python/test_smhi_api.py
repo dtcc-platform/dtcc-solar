@@ -24,8 +24,6 @@ class TestSmhiApi:
     def test_weather_data(self):
         start_date = "2019-01-01 00:00:00"
         end_date = "2019-12-31 00:00:00"
-        sunpath = Sunpath(self.lat, self.lon, 1.0)
-        a_type = AnalysisType.sun_raycasting
 
         p = SolarParameters(
             file_name=self.file_name,
@@ -33,7 +31,6 @@ class TestSmhiApi:
             a_type=AnalysisType.sun_raycasting,
             latitude=self.lat,
             longitude=self.lon,
-            prepare_display=False,
             display=False,
             data_source=DataSource.smhi,
             color_by=ColorBy.face_sun_angle,
@@ -42,9 +39,9 @@ class TestSmhiApi:
             end_date=end_date,
         )
 
-        suns = sunpath.create_suns(p)
+        sunpath = Sunpath(p, 1.0)
 
-        assert suns
+        assert sunpath.suns
 
     def test_summer_time(self):
         assert self.assert_no_summer_time_in_data()
@@ -64,8 +61,6 @@ class TestSmhiApi:
 
         start_date = "2019-01-01 00:00:00"
         end_date = "2019-12-31 00:00:00"
-        sunpath = Sunpath(self.lat, self.lon, 1.0)
-        a_type = AnalysisType.sun_raycasting
 
         p = SolarParameters(
             file_name=self.file_name,
@@ -78,6 +73,8 @@ class TestSmhiApi:
             start_date=start_date,
             end_date=end_date,
         )
+
+        sunpath = Sunpath(p, 1.0)
 
         # Checking that 02:00:00 existing in the transion from winter to summer.
         dst_test_from = [
@@ -110,7 +107,7 @@ class TestSmhiApi:
         for i in range(0, len(dst_test_from)):
             p.start_date = dst_test_from[i]
             p.end_date = dst_test_to[i]
-            suns = sunpath.create_suns(p)
+            suns = sunpath.suns
             for sun in suns:
                 hour = sun.datetime_ts.hour
                 if hour == 2:

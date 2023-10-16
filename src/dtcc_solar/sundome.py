@@ -15,6 +15,7 @@ class SunDome:
     div_height: int
     center: np.ndarray
     mesh: Mesh
+    submesh: Mesh
     pc: PointCloud
     quads: list[SunQuad]
     quad_mid_pts: np.ndarray  # [n_quads * 3] mid points for all quads
@@ -167,7 +168,7 @@ class SunDome:
 
             sun_quad.area = area_a + area_b
 
-    def get_sub_sundome_mesh(self, tolerance: float):
+    def calc_sub_sundome_mesh(self, tolerance: float):
         """Returns a sub sundome with the quads that have suns"""
         new_faces = []
         new_vertices = []
@@ -208,7 +209,7 @@ class SunDome:
         new_faces = np.array(new_faces)
         mesh = Mesh(vertices=new_vertices, faces=new_faces)
 
-        return mesh
+        self.submesh = mesh
 
     def vertex_exists(self, vertices, vertex, tolerance):
         for i, v in enumerate(vertices):

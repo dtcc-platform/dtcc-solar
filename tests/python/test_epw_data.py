@@ -25,7 +25,6 @@ class TestEpwData:
     def test_weather_data(self):
         start_date = "2019-01-01 00:00:00"
         end_date = "2019-12-31 00:00:00"
-        sunpath = Sunpath(self.lat, self.lon, 1.0)
 
         p = SolarParameters(
             file_name=self.file_name,
@@ -39,9 +38,9 @@ class TestEpwData:
             end_date=end_date,
         )
 
-        suns = sunpath.create_suns(p)
+        sunpath = Sunpath(p, 1.0)
 
-        assert suns
+        assert sunpath.suns
 
 
 if __name__ == "__main__":
