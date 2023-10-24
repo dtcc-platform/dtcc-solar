@@ -33,7 +33,7 @@ def run_script(solar_parameters: SolarParameters):
 
     if p.display:
         viewer = Viewer()
-        viewer.build_sunpath_diagram(sunpath.suns, sunpath, sundome)
+        viewer.build_sunpath_diagram(sunpath, sundome)
         colors = color_city_mesh(results.res_acum, p.color_by)
         viewer.add_mesh("City mesh", mesh=solar_engine.mesh, colors=colors)
         viewer.show()
@@ -115,4 +115,4 @@ if __name__ == "__main__":
         color_by=ColorBy.face_irradiance_tot,
     )
 
-    run_script(p_3)
+    run_script(p_1)
