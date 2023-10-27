@@ -1,28 +1,20 @@
-## Copyright 2009-2021 Intel Corporation
-## SPDX-License-Identifier: Apache-2.0
+cmake_minimum_required(VERSION 3.4)
 
-CMAKE_MINIMUM_REQUIRED(VERSION 3.2.0)
+set(BINDINGS py_embree_solar)
 
-PROJECT(solar)
+project(embree_solar)
 
+FIND_PACKAGE(embree REQUIRED)
 
-SET(CMAKE_CXX_STANDARD 11)
-IF (NOT EMBREE_PROJECT_COMPILATION)
-  FIND_PACKAGE(embree REQUIRED)
-ENDIF()
+execute_process(COMMAND python -c "import site; print([s for s in site.getsitepackages() if 'site-packages' in s][0])" OUTPUT_VARIABLE PYTHON_SITE_PACKAGES OUTPUT_STRIP_TRAILING_WHITESPACE)
+set(pybind11_DIR ${PYTHON_SITE_PACKAGES}/pybind11/share/cmake/pybind11)
 
-IF (EMBREE_SYCL_SUPPORT)
-  SET(CMAKE_CXX_STANDARD 17)
-ENDIF()
+message("Pybind11 DIR " ${pybind11_DIR})
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${pybind11_DIR})
+message("CMAKE_MODULE_PATH " ${CMAKE_MODULE_PATH})
+find_package(pybind11 REQUIRED)
 
+pybind11_add_module(${BINDINGS} embree_solar.cpp)
+target_link_libraries(${BINDINGS} PRIVATE embree)
 
-ADD_EXECUTABLE(embree_solar main.cpp embree_solar.cpp)
-TARGET_LINK_LIBRARIES(embree_solar embree)
-
-SET_PROPERTY(TARGET embree_solar PROPERTY FOLDER tutorials/single)
-INSTALL(TARGETS embree_solar DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT examples)
-INSTALL(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" DESTINATION "src" COMPONENT examples)
-IF (COMMAND SIGN_TARGET)
-  SIGN_TARGET(embree_solar)
-ENDIF()
-
+install(TARGETS ${BINDINGS} DESTINATION embree-solar)

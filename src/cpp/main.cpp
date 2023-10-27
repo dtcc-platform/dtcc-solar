@@ -3,14 +3,8 @@
 
 int main()
 {
+    // Create raytracer instance
     EmbreeSolar *raytracer = new EmbreeSolar();
-
-    // Setup analysis
-    raytracer->createDevice();
-    raytracer->createScene();
-    raytracer->createGeomPlane();
-    raytracer->createGridRays();
-    raytracer->bundleRays();
 
     // Run analysis
     raytracer->raytrace_int1();
