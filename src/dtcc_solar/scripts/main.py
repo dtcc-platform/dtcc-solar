@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
+import time
 
 from dtcc_solar.utils import ColorBy, AnalysisType, SolarParameters, DataSource
 from dtcc_solar.solar_engine import SolarEngine
@@ -88,7 +89,7 @@ if __name__ == "__main__":
         weather_file=weather_file_clm,
         a_type=AnalysisType.sun_raycasting,
         start_date="2019-06-01 11:00:00",
-        end_date="2019-06-01 15:00:00",
+        end_date="2019-06-02 11:00:00",
         data_source=DataSource.clm,
         color_by=ColorBy.face_irradiance_dn,
     )
@@ -115,4 +116,4 @@ if __name__ == "__main__":
         color_by=ColorBy.face_irradiance_tot,
     )
 
-    run_script(p_1)
+    run_script(p_4)

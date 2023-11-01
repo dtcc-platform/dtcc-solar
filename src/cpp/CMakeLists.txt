@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4)
+ cmake_minimum_required(VERSION 3.4)
 
 set(BINDINGS py_embree_solar)
 
@@ -14,7 +14,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${pybind11_DIR})
 message("CMAKE_MODULE_PATH " ${CMAKE_MODULE_PATH})
 find_package(pybind11 REQUIRED)
 
-pybind11_add_module(${BINDINGS} embree_solar.cpp)
+pybind11_add_module(${BINDINGS} embree_solar.cpp skydome.cpp sunrays.cpp)
 target_link_libraries(${BINDINGS} PRIVATE embree)
-
 install(TARGETS ${BINDINGS} DESTINATION embree-solar)

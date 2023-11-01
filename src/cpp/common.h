@@ -1,4 +1,6 @@
+#pragma once
 
+#define PYTHON_MODULE
 
 /* vertex and triangle layout */
 struct Vertex
