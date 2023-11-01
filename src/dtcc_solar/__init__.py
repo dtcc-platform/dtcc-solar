@@ -3,7 +3,7 @@ from .sunpath import Sunpath
 from .sundome import SunDome
 from .skydome import SkyDome
 
-from .viewer import Viewer as SolarViewer
+# from .viewer import Viewer as SolarViewer
 from .utils import Sun, SunQuad, SolarParameters, DataSource
 
 
@@ -18,5 +18,5 @@ __all__ = [
     "SunQuad",
     "SolarParameters",
     "DataSource",
-    "SolarViewer",
+    # "SolarViewer",
 ]
