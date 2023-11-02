@@ -65,6 +65,36 @@ EmbreeSolar::~EmbreeSolar()
     printf("Destructor called.\n");
 }
 
+std::vector<std::vector<int>> EmbreeSolar::GetMeshFaces()
+{
+    auto faces = std::vector<std::vector<int>>(mFaceCount, std::vector<int>(3, 0));
+
+    for (int i = 0; i < mFaceCount; i++)
+    {
+        Face f = mFaces[i];
+        faces[i][0] = f.v0;
+        faces[i][1] = f.v1;
+        faces[i][2] = f.v2;
+    }
+
+    return faces;
+}
+
+std::vector<std::vector<float>> EmbreeSolar::GetMeshVertices()
+{
+    auto vertices = std::vector<std::vector<float>>(mVertexCount, std::vector<float>(3, 0));
+
+    for (int i = 0; i < mVertexCount; i++)
+    {
+        Vertex v = mVertices[i];
+        vertices[i][0] = v.x;
+        vertices[i][1] = v.y;
+        vertices[i][2] = v.z;
+    }
+
+    return vertices;
+}
+
 std::vector<std::vector<int>> EmbreeSolar::GetSkydomeFaces()
 {
     return mSkydome->GetFaces();
@@ -138,7 +168,7 @@ void EmbreeSolar::CreateGeom(std::vector<std::vector<float>> vertices, std::vect
     }
 
     rtcCommitGeometry(mGeometry);
-    unsigned int geomID = rtcAttachGeometry(mScene, mGeometry);
+    rtcAttachGeometry(mScene, mGeometry);
     rtcReleaseGeometry(mGeometry);
     rtcCommitScene(mScene);
 
@@ -192,7 +222,7 @@ void EmbreeSolar::CreateGeomPlane()
     }
 
     rtcCommitGeometry(mGeometry);
-    unsigned int geomID = rtcAttachGeometry(mScene, mGeometry);
+    rtcAttachGeometry(mScene, mGeometry);
     rtcReleaseGeometry(mGeometry);
     rtcCommitScene(mScene);
 }
@@ -430,7 +460,8 @@ std::vector<float> EmbreeSolar::SkyRaytrace_Occ1()
             }
         }
         all_results[i] = hitPortion;
-        printf("Hit portion for face %d is: %f.\n", i, hitPortion);
+        if (i % 10000 == 0)
+            printf("Sky raytracing for %d faces completed.\n", i);
     }
 
     printf("Found %d intersections.\n", hitCounter);
@@ -472,7 +503,8 @@ std::vector<float> EmbreeSolar::SkyRaytrace_Occ4()
             }
         }
         all_results[i] = hitPortion;
-        printf("Hit portion for face %d is: %f.\n", i, hitPortion);
+        if (i % 10000 == 0)
+            printf("Sky raytracing for %d faces completed.\n", i);
     }
 
     printf("Found %d intersections in %d attempts.\n", hitCounter, intAttempts);
@@ -514,7 +546,8 @@ std::vector<float> EmbreeSolar::SkyRaytrace_Occ8()
             }
         }
         all_results[i] = hitPortion;
-        printf("Hit portion for face %d is: %f.\n", i, hitPortion);
+        if (i % 10000 == 0)
+            printf("Sky raytracing for %d faces completed.\n", i);
     }
 
     printf("Found %d intersections in %d attempts.\n", hitCounter, intAttempts);
@@ -556,7 +589,8 @@ std::vector<float> EmbreeSolar::SkyRaytrace_Occ16()
             }
         }
         all_results[i] = hitPortion;
-        printf("Hit portion for face %d is: %f.\n", i, hitPortion);
+        if (i % 10000 == 0)
+            printf("Sky raytracing for %d faces completed.\n", i);
     }
 
     printf("Found %d intersections in %d attempts.\n", hitCounter, intAttempts);
@@ -576,6 +610,10 @@ PYBIND11_MODULE(py_embree_solar, m)
     py::class_<EmbreeSolar>(m, "PyEmbreeSolar")
         .def(py::init<>())
         .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>>())
+        .def("getMeshFaces", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetMeshFaces()); return out; })
+        .def("getMeshVertices", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetMeshVertices()); return out; })
         .def("getSkydomeFaces", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetSkydomeFaces()); return out; })
         .def("getSkydomeVertices", [](EmbreeSolar &self)

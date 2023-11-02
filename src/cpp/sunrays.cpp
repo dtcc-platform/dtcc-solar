@@ -11,8 +11,8 @@ Sunrays::Sunrays()
     mRp.yMax = 10.0f;
     mRp.xPadding = 0.1f;
     mRp.yPadding = 0.1f;
-    mRp.xCount = 280;
-    mRp.yCount = 280;
+    mRp.xCount = 201;
+    mRp.yCount = 201;
 
     mRayCount = mRp.xCount * mRp.yCount;
 

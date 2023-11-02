@@ -1,8 +1,26 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "pybind11==2.10.*", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core", "pybind11==2.10.*", "wheel"]
+build-backend = "scikit_build_core.build"
 
 [project]
+version = "0.1.0"
+name = "dtcc-solar"
+description = "DTCC SOLAR"
+readme = "README.md"
+authors = [
+  { name = "Jens Olsson", email = "jens.olsson@chalmersindustriteknik.se" },  
+  { name = "Dag Wästberg", email = "dwastberg@gmail.com" },
+  { name = "Vasilis Naserentin", email = "vasilis.naserentin@chalmers.se" },
+  { name = "Anders Logg", email = "logg@chalmers.se" },
+]
+requires-python = ">=3.10"
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: C++",
+  "License :: OSI Approved :: MIT License",
+]
+
 dependencies = [
   "trimesh >= 3.18.0",
   "ncollpyde >= 0.19.0",
@@ -16,33 +34,19 @@ dependencies = [
   "timezonefinder >= 6.1.10",
   "requests >= 2.28.2",
   "matplotlib >= 3.6.2",
-  "dataclasses >= 0.6",  
+  "dataclasses >= 0.6",
+  "pybind11 >= 2.10.0, < 2.11.0",  
   "dtcc-model@git+https://github.com/dtcc-platform/dtcc-model.git@develop",
   "dtcc-io@git+https://github.com/dtcc-platform/dtcc-io.git@develop",
   "dtcc-viewer@git+https://github.com/dtcc-platform/dtcc-viewer.git@develop",  
 ]
 
-
-name = "dtcc-solar"
-version = "0.1.0"
-description = "DTCC SOLAR"
-readme = "README.md"
-authors = [
-  { name = "Jens Olsson", email = "jens.olsson@chalmersindustriteknik.se" },  
-  { name = "Dag Wästberg", email = "dwastberg@gmail.com" },
-  { name = "Vasilis Naserentin", email = "vasilis.naserentin@chalmers.se" },
-  { name = "Anders Logg", email = "logg@chalmers.se" },
-]
-requires-python = ">=3.8"
-classifiers = [
-  "Intended Audience :: Science/Research",
-  "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: MIT License",
-]
-
 [project.optional-dependencies]
 test = ["pytest"]
 
-[tool.cibuildwheel]
-test-command = "pytest {project}/tests"
-build-verbosity = 1
+[project.scripts]
+dtcc-build = "dtcc_solar.scripts:main.main"
+
+[tool.scikit-build]
+wheel.expand-macos-universal-tags = true
+

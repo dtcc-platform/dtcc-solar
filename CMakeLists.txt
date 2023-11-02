@@ -41,8 +41,7 @@ message("Pybind11 DIR " ${pybind11_DIR})
 find_package(pybind11 REQUIRED)
 
 # Set include directories
-include_directories(${CMAKE_SOURCE_DIR}/src/cpp/)
-include_directories(${CMAKE_SOURCE_DIR}/src/cpp/)
+include_directories(${CMAKE_SOURCE_DIR}/src/cpp)
 
 # Set installation directory
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/src)

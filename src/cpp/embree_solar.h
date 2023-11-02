@@ -22,17 +22,16 @@ class EmbreeSolar
 public:
     EmbreeSolar();
     EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces);
-    ~EmbreeSolar();
+    virtual ~EmbreeSolar();
 
-    void initRays(int rayCount);
     void CreateDevice();
     void CreateScene();
     void CreateGeom(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces);
     void CreateGeomPlane();
-    void createGridRays();
-    void createRaysFromFaces();
-    void bundleRays();
     void CalcFaceMidPoints();
+
+    std::vector<std::vector<int>> GetMeshFaces();
+    std::vector<std::vector<float>> GetMeshVertices();
 
     std::vector<std::vector<int>> GetSkydomeFaces();
     std::vector<std::vector<float>> GetSkydomeVertices();
