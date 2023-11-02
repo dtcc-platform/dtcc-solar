@@ -48,7 +48,6 @@ set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/src)
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
 
 # Add subdirectories
-# add_subdirectory(src/cpp/external/triangle)
 add_subdirectory(src)
 
 if(NOT WIN32)
