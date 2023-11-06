@@ -116,4 +116,4 @@ if __name__ == "__main__":
         color_by=ColorBy.face_irradiance_tot,
     )
 
-    run_script(p_4)
+    run_script(p_1)

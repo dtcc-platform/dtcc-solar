@@ -28,7 +28,9 @@ Sunrays::Sunrays(Vertex *faceMidPoints, int faceCount)
     mRayCount = faceCount;
     InitRays(faceCount);
     CreateRays(faceMidPoints, faceCount);
+    CreateRayHit(faceMidPoints, faceCount);
     BundleRays();
+    BundleRayHit();
 
     printf("Sunrays instance created, ready for raytracing.\n");
 }
@@ -39,6 +41,11 @@ Sunrays::~Sunrays()
     delete[] mRays4;
     delete[] mRays8;
     delete[] mRays16;
+
+    delete[] mRayHit;
+    delete[] mRayHit4;
+    delete[] mRayHit8;
+    delete[] mRayHit16;
 
     // Delete the 2d arrays
     for (int i = 0; i < mBundle4Count; i++)
@@ -72,6 +79,11 @@ void Sunrays::InitRays(int rayCount)
     mRays4 = new RTCRay4[mBundle4Count];
     mRays8 = new RTCRay8[mBundle8Count];
     mRays16 = new RTCRay16[mBundle16Count];
+
+    mRayHit = new RTCRayHit[mRayCount];
+    mRayHit4 = new RTCRayHit4[mBundle4Count];
+    mRayHit8 = new RTCRayHit8[mBundle8Count];
+    mRayHit16 = new RTCRayHit16[mBundle16Count];
 
     // Defining a 2d array for the vadility of each ray in the 4 group bundles.
     mRays4Valid = new int *[mBundle4Count];
@@ -141,6 +153,26 @@ RTCRay16 *Sunrays::GetRays16()
     return mRays16;
 }
 
+RTCRayHit *Sunrays::GetRayHit()
+{
+    return mRayHit;
+}
+
+RTCRayHit4 *Sunrays::GetRayHit4()
+{
+    return mRayHit4;
+}
+
+RTCRayHit8 *Sunrays::GetRayHit8()
+{
+    return mRayHit8;
+}
+
+RTCRayHit16 *Sunrays::GetRayHit16()
+{
+    return mRayHit16;
+}
+
 int **Sunrays::GetValid4()
 {
     return mRays4Valid;
@@ -208,6 +240,27 @@ void Sunrays::CreateRays(Vertex *faceMidPts, int faceCount)
         mRays[i].tfar = std::numeric_limits<float>::infinity();
         mRays[i].mask = -1;
         mRays[i].flags = 0;
+    }
+}
+
+void Sunrays::CreateRayHit(Vertex *faceMidPts, int faceCount)
+{
+    // Create rays from face mid pts and sun vector
+
+    for (int i = 0; i < faceCount; i++)
+    {
+        mRayHit[i].ray.org_x = faceMidPts[i].x;
+        mRayHit[i].ray.org_y = faceMidPts[i].y;
+        mRayHit[i].ray.org_z = faceMidPts[i].z;
+
+        mRayHit[i].ray.dir_x = 0.0f;
+        mRayHit[i].ray.dir_y = 0.0f;
+        mRayHit[i].ray.dir_z = 0.0f;
+
+        mRayHit[i].ray.tnear = 0.05; // 5 cm
+        mRayHit[i].ray.tfar = std::numeric_limits<float>::infinity();
+        mRayHit[i].ray.mask = -1;
+        mRayHit[i].ray.flags = 0;
     }
 }
 
@@ -304,6 +357,51 @@ void Sunrays::BundleRays()
     }
 }
 
+void Sunrays::BundleRayHit()
+{
+    int bundleIndex8 = -1;
+    int rayIndex8 = 0;
+
+    /* Sort the rays in groups of 4, 8 and 16 */
+    for (int i = 0; i < mRayCount; i++)
+    {
+        float x = mRays[i].org_x;
+        float y = mRays[i].org_y;
+        float z = mRays[i].org_z;
+
+        float dir_x = mRays[i].dir_x;
+        float dir_y = mRays[i].dir_y;
+        float dir_z = mRays[i].dir_z;
+
+        float tNear = mRays[i].tnear;
+        float tFar = mRays[i].tfar;
+        unsigned int mask = mRays[i].mask;
+        unsigned int flag = mRays[i].flags;
+
+        rayIndex8 = i % 8;
+
+        if (rayIndex8 == 0)
+            bundleIndex8++;
+
+        // Collect rays in bundles of 16
+        mRayHit8[bundleIndex8].ray.org_x[rayIndex8] = x;
+        mRayHit8[bundleIndex8].ray.org_y[rayIndex8] = y;
+        mRayHit8[bundleIndex8].ray.org_z[rayIndex8] = z;
+
+        mRayHit8[bundleIndex8].ray.dir_x[rayIndex8] = dir_x;
+        mRayHit8[bundleIndex8].ray.dir_y[rayIndex8] = dir_y;
+        mRayHit8[bundleIndex8].ray.dir_z[rayIndex8] = dir_z;
+
+        mRayHit8[bundleIndex8].ray.tnear[rayIndex8] = tNear;
+        mRayHit8[bundleIndex8].ray.tfar[rayIndex8] = tFar;
+        mRayHit8[bundleIndex8].ray.mask[rayIndex8] = mask;
+        mRayHit8[bundleIndex8].ray.flags[rayIndex8] = flag;
+
+        // Set the validity of the ray in the bundle, -1 = Valied, 0 = Invalid
+        mRays8Valid[bundleIndex8][rayIndex8] = -1;
+    }
+}
+
 void Sunrays::UpdateRay1Directions(std::vector<float> new_sun_vec)
 {
     for (int i = 0; i < mRayCount; i++)
@@ -357,6 +455,22 @@ void Sunrays::UpdateRay16Directions(std::vector<float> new_sun_vec)
                 mRays16[i].dir_x[j] = new_sun_vec[0];
                 mRays16[i].dir_y[j] = new_sun_vec[1];
                 mRays16[i].dir_z[j] = new_sun_vec[2];
+            }
+        }
+    }
+}
+
+void Sunrays::UpdateRayHit8Directions(std::vector<float> new_sun_vec)
+{
+    for (int i = 0; i < mBundle8Count; i++)
+    {
+        for (int j = 0; j < 8; j++)
+        {
+            if (mRays8Valid[i][j] == -1)
+            {
+                mRayHit8[i].ray.dir_x[j] = new_sun_vec[0];
+                mRayHit8[i].ray.dir_y[j] = new_sun_vec[1];
+                mRayHit8[i].ray.dir_z[j] = new_sun_vec[2];
             }
         }
     }

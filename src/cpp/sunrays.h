@@ -20,13 +20,17 @@ public:
 
     void CreateRays();
     void CreateRays(Vertex *faceMidPts, int faceCount);
+    void CreateRayHit(Vertex *faceMidPts, int faceCount);
 
     void BundleRays();
+    void BundleRayHit();
 
-    void UpdateRay1Directions(std::vector<float> new_origin);
-    void UpdateRay4Directions(std::vector<float> new_origin);
-    void UpdateRay8Directions(std::vector<float> new_origin);
-    void UpdateRay16Directions(std::vector<float> new_origin);
+    void UpdateRay1Directions(std::vector<float> new_sun_vec);
+    void UpdateRay4Directions(std::vector<float> new_sun_vec);
+    void UpdateRay8Directions(std::vector<float> new_sun_vec);
+    void UpdateRay16Directions(std::vector<float> new_sun_vec);
+
+    void UpdateRayHit8Directions(std::vector<float> new_sun_vec);
 
     int GetRayCount();
     int GetBundle4Count();
@@ -37,6 +41,11 @@ public:
     RTCRay4 *GetRays4();
     RTCRay8 *GetRays8();
     RTCRay16 *GetRays16();
+
+    RTCRayHit *GetRayHit();
+    RTCRayHit4 *GetRayHit4();
+    RTCRayHit8 *GetRayHit8();
+    RTCRayHit16 *GetRayHit16();
 
     int **GetValid4();
     int **GetValid8();
@@ -59,6 +68,11 @@ private:
     RTCRay4 *mRays4;
     RTCRay8 *mRays8;
     RTCRay16 *mRays16;
+
+    RTCRayHit *mRayHit;
+    RTCRayHit4 *mRayHit4;
+    RTCRayHit8 *mRayHit8;
+    RTCRayHit16 *mRayHit16;
 
     int **mRays4Valid;
     int **mRays8Valid;

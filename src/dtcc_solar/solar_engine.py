@@ -11,6 +11,8 @@ from dtcc_solar.skydome import SkyDome
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import distance, vec_2_ndarray, AnalysisType, SolarParameters
 
+from dtcc_solar import py_embree_solar
+
 from dtcc_solar.sundome import SunDome
 from typing import List, Any
 from dtcc_solar.utils import Sun
@@ -60,6 +62,9 @@ class SolarEngine:
         self.city_mesh_faces = np.array(self.volume.faces)
         self.city_mesh_points = np.array(self.volume.points)
         self.city_mesh_face_mid_points = 0
+
+        # Creating instance of embree solar
+        self.embree = py_embree_solar.PyEmbreeSolar(mesh.vertices, mesh.faces)
 
         info("Solar engine created")
 
@@ -140,7 +145,9 @@ class SolarEngine:
         sundome: SunDome = None,
     ):
         if p.a_type == AnalysisType.sun_raycasting:
-            self._sun_raycasting(sunpath.suns, results)
+            # self._sun_raycasting(sunpath.suns, results)
+            print("EMBREE")
+            self._sun_raycasting_embree(sunpath.suns, results)
         elif p.a_type == AnalysisType.sky_raycasting:
             self._sky_raycasting(sunpath.suns, results, skydome)
         elif p.a_type == AnalysisType.com_raycasting:
@@ -182,6 +189,18 @@ class SolarEngine:
                 info(
                     f"Sun raycasting iteration {counter} done, {n_int} intersections were found"
                 )
+
+    def _sun_raycasting_embree(self, suns: list[Sun], results: Results):
+        sun_pos = []
+        for sun in suns:
+            if sun.over_horizon:
+                pos = vec_2_ndarray(sun.position)
+                sun_pos.append(pos)
+
+        sun_pos = np.array(sun_pos)
+
+        output1 = self.embree.sun_raytrace_occ8(sun_pos)
+        output2 = self.embree.sun_raytrace_int8(sun_pos)
 
     def _sky_raycasting(
         self, suns: list[Sun], results: Results, skydome: SkyDome = None

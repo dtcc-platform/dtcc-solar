@@ -19,6 +19,13 @@ class DataSource(IntEnum):
     epw = 4
 
 
+class RayBundles(IntEnum):
+    one = 1
+    four = 2
+    eight = 3
+    sixteen = 4
+
+
 class ColorBy(IntEnum):
     face_sun_angle = 1
     face_sun_angle_shadows = 2

@@ -16,6 +16,8 @@
 namespace py = pybind11;
 #endif
 
+// using namespace std;
+
 class EmbreeSolar
 {
 
@@ -33,6 +35,8 @@ public:
     std::vector<std::vector<int>> GetMeshFaces();
     std::vector<std::vector<float>> GetMeshVertices();
 
+    std::vector<std::vector<float>> GetAngleResults();
+
     std::vector<std::vector<int>> GetSkydomeFaces();
     std::vector<std::vector<float>> GetSkydomeVertices();
     std::vector<std::vector<float>> GetSkydomeRayDirections();
@@ -42,20 +46,29 @@ public:
     void updateRay8Directions(std::vector<float> new_sun_vec);
     void updateRay16Directions(std::vector<float> new_sun_vec);
 
-    void Raytrace_occ1(std::vector<int> &results, int &hitCounter);
-    void Raytrace_occ4(std::vector<int> &results, int &hitCounter);
-    void Raytrace_occ8(std::vector<int> &results, int &hitCounter);
-    void Raytrace_occ16(std::vector<int> &results, int &hitCounter);
+    void Raytrace_occ1(std::vector<float> &results, int &hitCounter, bool resAngel);
+    void Raytrace_occ4(std::vector<float> &results, int &hitCounter, bool resAngel);
+    void Raytrace_occ8(std::vector<float> &results, int &hitCounter, bool resAngel);
+    void Raytrace_occ16(std::vector<float> &results, int &hitCounter, bool resAngel);
 
-    std::vector<std::vector<int>> SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs);
-    std::vector<std::vector<int>> SunRaytrace_Occ4(std::vector<std::vector<float>> sun_vecs);
-    std::vector<std::vector<int>> SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs);
-    std::vector<std::vector<int>> SunRaytrace_Occ16(std::vector<std::vector<float>> sun_vecs);
+    void Raytrace_int8(std::vector<int> &results, int &hitCounter1);
+
+    std::vector<std::vector<float>> SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs, bool resType);
+    std::vector<std::vector<float>> SunRaytrace_Occ4(std::vector<std::vector<float>> sun_vecs, bool resAngel);
+    std::vector<std::vector<float>> SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs, bool resAngel);
+    std::vector<std::vector<float>> SunRaytrace_Occ16(std::vector<std::vector<float>> sun_vecs, bool resAngel);
+
+    std::vector<std::vector<int>> SunRaytrace_Int8(std::vector<std::vector<float>> sun_vecs);
 
     std::vector<float> SkyRaytrace_Occ1();
     std::vector<float> SkyRaytrace_Occ4();
     std::vector<float> SkyRaytrace_Occ8();
     std::vector<float> SkyRaytrace_Occ16();
+
+    float CalcAngle(Vector v1, Vector v2);
+    float CalcAngle2(Vector v1, Vector v2);
+
+    void CalcFaceNormals();
 
     void ErrorFunction(void *userPtr, enum RTCError error, const char *str);
 
@@ -77,4 +90,5 @@ private:
     Face *mFaces;
     Vertex *mVertices;
     Vertex *mFaceMidPts;
+    Vector *mFaceNormals;
 };
