@@ -4,14 +4,14 @@ import numpy as np
 from pandas import Timestamp
 from pprint import pp
 from dtcc_solar import utils
-from dtcc_solar.utils import Sun
+from dtcc_solar.utils import SunCollection
 from dtcc_solar.logging import info, debug, warning, error
 
 
 # This function reads a *.epw weather file, which contains recorde data for a full year which has been
 # compiled by combining data from different months for the years inbetween 2007 and 2021. The time span
 # defined in by arguments if then used to obain a sub set of the data for analysis.
-def import_data(suns: list[Sun], weather_file: str):
+def import_data(sunc: SunCollection, weather_file: str):
     name_parts = weather_file.split(".")
     if name_parts[-1] != "epw":
         error(
@@ -23,7 +23,7 @@ def import_data(suns: list[Sun], weather_file: str):
 
     # The year is not taken from the *.epw file since it contains a collection of data from
     # different years typically ranging from 2007 and 2021. Hence the year doesn't really matter.
-    year_str = str(get_year_from_dict_key(suns[0].datetime_str))
+    year_str = str(get_year_from_dict_key(sunc.datetime_strs[0]))
     year_dates = []
     direct_normal_radiation = []
     diffuse_horisontal_radiation = []
@@ -54,17 +54,17 @@ def import_data(suns: list[Sun], weather_file: str):
     sun_index = 0
     epw_index = 0
     for epw_date in year_dates:
-        if sun_index < len(suns):
-            sun_date = suns[sun_index].datetime_str
+        if sun_index < sunc.count:  # len(suns):
+            sun_date = sunc.datetime_strs[sun_index]
             if date_match(epw_date, sun_date):
-                suns[sun_index].irradiance_dn = direct_normal_radiation[epw_index]
-                suns[sun_index].irradiance_di = diffuse_horisontal_radiation[epw_index]
+                sunc.irradiance_dn[sun_index] = direct_normal_radiation[epw_index]
+                sunc.irradiance_di[sun_index] = diffuse_horisontal_radiation[epw_index]
                 sun_index += 1
         epw_index += 1
 
     info(f"Wheter data successfully collected from: {weather_file}")
 
-    return suns
+    return sunc
 
 
 def date_match(api_date: str, sun_date: str):

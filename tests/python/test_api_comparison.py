@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, SolarParameters, Sun, DataSource, ColorBy
+from dtcc_solar.utils import SolarParameters, SunCollection, DataSource, ColorBy
 from typing import List, Dict, Any
 import copy
 
@@ -26,12 +26,10 @@ class TestWeatherDataComparison:
 
         start_date = "2019-01-01 00:00:00"
         end_date = "2019-12-31 00:00:00"
-        a_type = AnalysisType.sun_raycasting
 
         self.p_smhi = SolarParameters(
             file_name=self.file_name,
             weather_file=self.w_file_clm,
-            a_type=a_type,
             latitude=self.lat,
             longitude=self.lon,
             data_source=DataSource.smhi,
@@ -39,6 +37,8 @@ class TestWeatherDataComparison:
             start_date=start_date,
             end_date=end_date,
             display=False,
+            sun_analysis=True,
+            sky_analysis=False,
         )
 
         self.p_meteo = copy.deepcopy(self.p_smhi)
@@ -64,24 +64,27 @@ class TestWeatherDataComparison:
         self.p_epw.start_date = start_date
         self.p_epw.end_date = end_date
 
-        sunpath_smhi = Sunpath(self.p_smhi, 1.0)
-        sunpath_meteo = Sunpath(self.p_meteo, 1.0)
-        sunpath_clm = Sunpath(self.p_clm, 1.0)
-        sunpath_epw = Sunpath(self.p_epw, 1.0)
+        sunpath_smhi = Sunpath(self.p_smhi, 1.0, True)
+        sunpath_meteo = Sunpath(self.p_meteo, 1.0, True)
+        sunpath_clm = Sunpath(self.p_clm, 1.0, True)
+        sunpath_epw = Sunpath(self.p_epw, 1.0, True)
 
         if (
-            len(sunpath_smhi.suns) != len(sunpath_meteo.suns)
-            or len(sunpath_smhi.suns) != len(sunpath_clm.suns)
-            or len(sunpath_smhi.suns) != len(sunpath_epw.suns)
+            sunpath_smhi.sunc.count != sunpath_meteo.sunc.count
+            or sunpath_smhi.sunc.count != sunpath_clm.sunc.count
+            or sunpath_smhi.sunc.count != sunpath_epw.sunc.count
         ):
             print("Keys missmatch")
             return False
 
-        for i in range(len(sunpath_smhi.suns)):
+        for i in range(sunpath_smhi.sunc.count):
             if (
-                sunpath_smhi.suns[i].datetime_str != sunpath_meteo.suns[i].datetime_str
-                or sunpath_smhi.suns[i].datetime_str != sunpath_clm.suns[i].datetime_str
-                or sunpath_smhi.suns[i].datetime_str != sunpath_epw.suns[i].datetime_str
+                sunpath_smhi.sunc.datetime_strs[i]
+                != sunpath_meteo.sunc.datetime_strs[i]
+                or sunpath_smhi.sunc.datetime_strs[i]
+                != sunpath_clm.sunc.datetime_strs[i]
+                or sunpath_smhi.sunc.datetime_strs[i]
+                != sunpath_epw.sunc.datetime_strs[i]
             ):
                 print("Keys missmatch")
                 return False
@@ -102,34 +105,37 @@ class TestWeatherDataComparison:
         self.p_epw.start_date = start_date
         self.p_epw.end_date = end_date
 
-        sunpath_smhi = Sunpath(self.p_smhi, 1.0)
-        sunpath_meteo = Sunpath(self.p_meteo, 1.0)
-        sunpath_clm = Sunpath(self.p_clm, 1.0)
-        sunpath_epw = Sunpath(self.p_epw, 1.0)
+        sunpath_smhi = Sunpath(self.p_smhi, 1.0, True)
+        sunpath_meteo = Sunpath(self.p_meteo, 1.0, True)
+        sunpath_clm = Sunpath(self.p_clm, 1.0, True)
+        sunpath_epw = Sunpath(self.p_epw, 1.0, True)
+
+        # pp(sunpath_smhi.sunc.datetime_strs)
+        # pp(sunpath_smhi.sunc.time_stamps)
 
         [w_data_normal_smhi, w_data_horizontal_smhi] = format_data_per_day_suns(
-            sunpath_smhi.suns
+            sunpath_smhi.sunc
         )
 
         smhi_normal_avrg = get_monthly_average_data(w_data_normal_smhi)
         smhi_horizon_avrg = get_monthly_average_data(w_data_horizontal_smhi)
 
         [w_data_normal_meteo, w_data_horizontal_meteo] = format_data_per_day_suns(
-            sunpath_meteo.suns
+            sunpath_meteo.sunc
         )
 
         meteo_normal_avrg = get_monthly_average_data(w_data_normal_meteo)
         meteo_horizon_avrg = get_monthly_average_data(w_data_horizontal_meteo)
 
         [w_data_normal_clm, w_data_horizontal_clm] = format_data_per_day_suns(
-            sunpath_clm.suns
+            sunpath_clm.sunc
         )
 
         clm_normal_avrg = get_monthly_average_data(w_data_normal_clm)
         clm_horizon_avrg = get_monthly_average_data(w_data_horizontal_clm)
 
         [w_data_normal_epw, w_data_horizontal_epw] = format_data_per_day_suns(
-            sunpath_epw.suns
+            sunpath_epw.sunc
         )
 
         epw_normal_avrg = get_monthly_average_data(w_data_normal_epw)
@@ -199,25 +205,25 @@ class TestWeatherDataComparison:
         self.p_epw.start_date = start_date
         self.p_epw.end_date = end_date
 
-        sunpath_smhi = Sunpath(self.p_smhi, 1.0)
-        sunpath_meteo = Sunpath(self.p_meteo, 1.0)
-        sunpath_clm = Sunpath(self.p_clm, 1.0)
-        sunpath_epw = Sunpath(self.p_epw, 1.0)
+        sunpath_smhi = Sunpath(self.p_smhi, 1.0, True)
+        sunpath_meteo = Sunpath(self.p_meteo, 1.0, True)
+        sunpath_clm = Sunpath(self.p_clm, 1.0, True)
+        sunpath_epw = Sunpath(self.p_epw, 1.0, True)
 
         [w_data_normal_smhi, w_data_horizontal_smhi] = format_data_per_day_suns(
-            sunpath_smhi.suns
+            sunpath_smhi.sunc
         )
         [w_data_normal_meteo, w_data_horizontal_meteo] = format_data_per_day_suns(
-            sunpath_meteo.suns
+            sunpath_meteo.sunc
         )
         [w_data_normal_clm, w_data_horizontal_clm] = format_data_per_day_suns(
-            sunpath_clm.suns
+            sunpath_clm.sunc
         )
         [w_data_normal_epw, w_data_horizontal_epw] = format_data_per_day_suns(
-            sunpath_epw.suns
+            sunpath_epw.sunc
         )
 
-        if len(sunpath_smhi.suns) != len(sunpath_meteo.suns):
+        if sunpath_smhi.sunc.count != sunpath_meteo.sunc.count:
             print("SMHI and Open Meteo data format missmatch")
             return None
 
@@ -323,17 +329,17 @@ class TestWeatherDataComparison:
         pass
 
 
-def get_monthly_average_data(data_dict):
+def get_monthly_average_data(data_dict: Dict[str, List[float]]):
     avrg_data = np.zeros((12, 24))
     days_per_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     key_list = list(data_dict.keys())
 
-    for i, v in enumerate(key_list):
-        month = get_month_from_dict_key(key_list[i])
+    for i, key in enumerate(key_list):
+        month = get_month_from_dict_key(key)
+        month_index = month - 1
         for j in range(0, 23):
-            avrg_data[month - 1, j] += (
-                data_dict[key_list[i]][j] / days_per_month[month - 1]
-            )
+            avrg = data_dict[key][j] / days_per_month[month_index]
+            avrg_data[month_index, j] += avrg
 
     return avrg_data
 
@@ -351,8 +357,6 @@ def plot_montly_average(title, ax, data, x_label, y_label, y_min, y_max):
         y_data_normal = data[i, :]
         plt.plot(x_data, y_data_normal)
 
-    pass
-
 
 def subplot_setup(ax, x_label, y_label, x_min, x_max, y_min, y_max):
     ax.set_xlabel(x_label)
@@ -362,25 +366,23 @@ def subplot_setup(ax, x_label, y_label, x_min, x_max, y_min, y_max):
     ax.set_xticks(range(0, 23))
 
 
-def format_data_per_day_suns(suns: List[Sun]):
+def format_data_per_day_suns(sunc: SunCollection):
     date_keys = []
-    for sun in suns:
-        key = sun.datetime_str
-        date = key[0:10]
+    for datetime_str in sunc.datetime_strs:
+        date = datetime_str[0:10]
         date_keys.append(date)
 
     normal_irr = dict.fromkeys(date_keys)
     horizon_irr = dict.fromkeys(date_keys)
-
     data_ni = []
     data_hi = []
-    for i in range(len(suns)):
-        key = suns[i].datetime_str
-        date_key = key[0:10]
-        hour = suns[i].datetime_ts.hour
-        data_ni.append(suns[i].irradiance_dn)
-        data_hi.append(suns[i].irradiance_di)
 
+    for i in range(sunc.count):
+        key = sunc.datetime_strs[i]
+        date_key = key[0:10]
+        hour = sunc.time_stamps[i].hour
+        data_ni.append(sunc.irradiance_dn[i])
+        data_hi.append(sunc.irradiance_di[i])
         if hour == 23:
             normal_irr[date_key] = data_ni
             horizon_irr[date_key] = data_hi

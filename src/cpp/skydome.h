@@ -36,6 +36,7 @@ public:
 
     float CalcSphereStripArea(float elev1, float elev2);
 
+    int GetFaceCount();
     int GetRayCount();
     int GetBundle4Count();
     int GetBundle8Count();

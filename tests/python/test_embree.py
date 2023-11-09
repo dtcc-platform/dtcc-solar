@@ -20,27 +20,21 @@ class TestEmbreeSolar:
         # All sun vectors
         self.sun_vecs = np.array([sun_vec_1, sun_vec_2, sun_vec_3])
         self.embree = py_embree_solar.PyEmbreeSolar()
-        self.faces = self.embree.getMeshFaces()
+        self.faces = self.embree.get_mesh_faces()
 
     def test_sun_raytrace(self):
-        results1 = self.embree.sun_raytrace_occ1(self.sun_vecs)
-        results2 = self.embree.sun_raytrace_occ4(self.sun_vecs)
-        results3 = self.embree.sun_raytrace_occ8(self.sun_vecs)
-        results4 = self.embree.sun_raytrace_occ16(self.sun_vecs)
+        success1 = self.embree.sun_raytrace_occ1(self.sun_vecs)
+        success2 = self.embree.sun_raytrace_occ4(self.sun_vecs)
+        success3 = self.embree.sun_raytrace_occ8(self.sun_vecs)
+        success4 = self.embree.sun_raytrace_occ16(self.sun_vecs)
 
-        assert len(results1[0]) == len(self.faces)
+        assert success1 and success2 and success3 and success4
 
     def test_sky_raytrace(self):
         # run sky analysis
-        results1 = self.embree.sky_raytrace_occ1()
-        results2 = self.embree.sky_raytrace_occ4()
-        results3 = self.embree.sky_raytrace_occ8()
-        results4 = self.embree.sky_raytrace_occ16()
+        success1 = self.embree.sky_raytrace_occ1()
+        success2 = self.embree.sky_raytrace_occ4()
+        success3 = self.embree.sky_raytrace_occ8()
+        success4 = self.embree.sky_raytrace_occ16()
 
-        assert len(results1) == len(self.faces)
-
-    def test_sun_raytrace_occ_int(self):
-        results_occ = self.embree.sky_raytrace_occ8()
-        results_int = self.embree.sky_raytrace_int8()
-
-        pass
+        assert success1 and success2 and success3 and success4

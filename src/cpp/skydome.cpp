@@ -91,6 +91,11 @@ void Skydome::InitRays(int rayCount)
     }
 }
 
+int Skydome::GetFaceCount()
+{
+    return mFaces.size();
+}
+
 int Skydome::GetRayCount()
 {
     return mRayCount;

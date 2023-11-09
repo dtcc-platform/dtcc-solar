@@ -3,7 +3,7 @@ import pandas as pd
 from dtcc_solar import data_clm
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, SolarParameters, DataSource, ColorBy
+from dtcc_solar.utils import SolarParameters, DataSource, ColorBy
 
 
 class TestClmData:
@@ -28,7 +28,6 @@ class TestClmData:
         p = SolarParameters(
             file_name=self.file_name,
             weather_file=self.w_file_clm,
-            a_type=AnalysisType.sun_raycasting,
             latitude=self.lat,
             longitude=self.lon,
             data_source=DataSource.smhi,
@@ -36,11 +35,13 @@ class TestClmData:
             start_date=start_date,
             end_date=end_date,
             display=False,
+            sun_analysis=True,
+            sky_analysis=False,
         )
 
         sunpath = Sunpath(p, 1.0)
 
-        assert sunpath.suns
+        assert sunpath.sunc
 
 
 if __name__ == "__main__":

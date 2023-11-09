@@ -32,44 +32,37 @@ public:
     void CreateGeomPlane();
     void CalcFaceMidPoints();
 
+    int GetSkydomeRayCount();
+
     std::vector<std::vector<int>> GetMeshFaces();
     std::vector<std::vector<float>> GetMeshVertices();
 
+    std::vector<std::vector<int>> GetOccludedResults();
     std::vector<std::vector<float>> GetAngleResults();
+
+    std::vector<std::vector<int>> GetFaceSkyHitResults();
+    std::vector<float> GetFaceSkyPortionResults();
 
     std::vector<std::vector<int>> GetSkydomeFaces();
     std::vector<std::vector<float>> GetSkydomeVertices();
     std::vector<std::vector<float>> GetSkydomeRayDirections();
 
-    void updateRay1Directions(std::vector<float> new_sun_vec);
-    void updateRay4Directions(std::vector<float> new_sun_vec);
-    void updateRay8Directions(std::vector<float> new_sun_vec);
-    void updateRay16Directions(std::vector<float> new_sun_vec);
+    void Raytrace_occ1(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
+    void Raytrace_occ4(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
+    void Raytrace_occ8(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
+    void Raytrace_occ16(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
 
-    void Raytrace_occ1(std::vector<float> &results, int &hitCounter, bool resAngel);
-    void Raytrace_occ4(std::vector<float> &results, int &hitCounter, bool resAngel);
-    void Raytrace_occ8(std::vector<float> &results, int &hitCounter, bool resAngel);
-    void Raytrace_occ16(std::vector<float> &results, int &hitCounter, bool resAngel);
+    bool SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs);
+    bool SunRaytrace_Occ4(std::vector<std::vector<float>> sun_vecs);
+    bool SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs);
+    bool SunRaytrace_Occ16(std::vector<std::vector<float>> sun_vecs);
 
-    void Raytrace_int8(std::vector<int> &results, int &hitCounter1);
-
-    std::vector<std::vector<float>> SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs, bool resType);
-    std::vector<std::vector<float>> SunRaytrace_Occ4(std::vector<std::vector<float>> sun_vecs, bool resAngel);
-    std::vector<std::vector<float>> SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs, bool resAngel);
-    std::vector<std::vector<float>> SunRaytrace_Occ16(std::vector<std::vector<float>> sun_vecs, bool resAngel);
-
-    std::vector<std::vector<int>> SunRaytrace_Int8(std::vector<std::vector<float>> sun_vecs);
-
-    std::vector<float> SkyRaytrace_Occ1();
-    std::vector<float> SkyRaytrace_Occ4();
-    std::vector<float> SkyRaytrace_Occ8();
-    std::vector<float> SkyRaytrace_Occ16();
-
-    float CalcAngle(Vector v1, Vector v2);
-    float CalcAngle2(Vector v1, Vector v2);
+    bool SkyRaytrace_Occ1();
+    bool SkyRaytrace_Occ4();
+    bool SkyRaytrace_Occ8();
+    bool SkyRaytrace_Occ16();
 
     void CalcFaceNormals();
-
     void ErrorFunction(void *userPtr, enum RTCError error, const char *str);
 
 private:
@@ -81,8 +74,7 @@ private:
     RTCGeometry mGeometry;
 
     Parameters mPp; // plane parameters
-    Parameters mSp; // sphere parameters
-    Parameters mRp; // ray parameters
+    // Parameters mRp; // ray parameters
 
     int mVertexCount;
     int mFaceCount;
@@ -91,4 +83,11 @@ private:
     Vertex *mVertices;
     Vertex *mFaceMidPts;
     Vector *mFaceNormals;
+
+    // Results from analysis
+    std::vector<std::vector<int>> mOccluded;
+    std::vector<std::vector<float>> mAngles;
+
+    std::vector<std::vector<int>> mFaceSkyHit;
+    std::vector<float> mFaceSkyPortion;
 };

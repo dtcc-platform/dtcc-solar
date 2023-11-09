@@ -452,12 +452,12 @@ c = range(a, b, 12)
 
 print(c)
 
-a = np.array()
 b = np.array([[1, 2, 3], [4, 3, 3], [2, 3, 4], [5, 3, 43], [54, 3, 3]])
 c = np.array([[1, 2, 3], [4, 3, 3], [2, 3, 4], [5, 3, 43], [54, 3, 3]])
 
-d = np.concatenate((a, b))
 
-e = np.vstack([a, b])
+a = np.array([[1, 2, 3], [4, 3, 3], [2, 3, 4], [5, 3, 43], [54, 3, 3]])
+mask = [True, True, False, True, False]
 
-print(e)
+print(mask)
+print(a[mask, :])

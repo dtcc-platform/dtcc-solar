@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
 from dtcc_model import Mesh, PointCloud
-from dtcc_solar.utils import SunQuad
+from dtcc_solar.utils import SunQuad, SunCollection
 from dtcc_solar.sunpath import Sunpath
 from shapely import LineString
 from pprint import pp
-from dtcc_solar.utils import distance, normalise_vector
+from dtcc_solar.utils import distance, unitize
 from dtcc_solar.logging import info, debug, warning, error
 
 
@@ -17,28 +17,17 @@ class SunDome:
     mesh: Mesh
     submesh: Mesh
     pc: PointCloud
-    quads: list[SunQuad]
+    all_quads: list[SunQuad]
+    active_quads: list[SunQuad]
     quad_mid_pts: np.ndarray  # [n_quads * 3] mid points for all quads
 
-    def __init__(self, sunpath: Sunpath, horizon_z: float, div_n: int, div_m: int):
+    def __init__(self, sunpath: Sunpath, div_n: int, div_m: int):
         self.center = np.array([0, 0, 0])
-        self.create_skycylinder_mesh(sunpath, horizon_z, div_n, div_m)
-
-    def create_skycylinder_mesh(
-        self, sunpath: Sunpath, horizon_z: float, div_n: int, div_m: int
-    ):
-        """Creates a cylindrical mesh mapped to the sphere of the sunpath diagram"""
+        self.all_quads = []
+        self.active_quads = []
         day_loop1, day_loop2 = self._calc_outermost_day_loops(sunpath)
-
-        self.pc, self.mesh, self.quads = self._create_mesh(
-            sunpath.r,
-            day_loop1,
-            day_loop2,
-            div_n,
-            div_m,
-        )
-
-        self._process_quads(horizon_z)
+        self._create_mesh(sunpath.r, day_loop1, day_loop2, div_n, div_m)
+        self._process_quads()
 
     def _calc_outermost_day_loops(self, sunpath: Sunpath):
         """Returns the outermost day path loops"""
@@ -90,7 +79,6 @@ class SunDome:
         step_n = avrg_length / n
         ds_n = np.arange(0, avrg_length, step_n)
         faces = []
-        quads = []
         face_count = 0
         quad_count = 0
 
@@ -105,7 +93,7 @@ class SunDome:
 
             for j, d_m in enumerate(ds_m):
                 pt = line.interpolate(d_m)
-                pt = radius * normalise_vector(np.array([pt.x, pt.y, pt.z]))
+                pt = radius * unitize(np.array([pt.x, pt.y, pt.z]))
 
                 if i < (n - 1):
                     if j < (m - 1):
@@ -114,7 +102,8 @@ class SunDome:
                         face2 = [current + m, current + 1, current + m + 1]
                         faces.append(face1)
                         faces.append(face2)
-                        quads.append(SunQuad(face_count, face_count + 1, quad_count))
+                        sun_quad = SunQuad(face_count, face_count + 1, quad_count)
+                        self.all_quads.append(sun_quad)
                         quad_count += 1
                         face_count += 2
 
@@ -125,22 +114,21 @@ class SunDome:
                         face2 = [j, current + 1, j + 1]
                         faces.append(face1)
                         faces.append(face2)
-                        quads.append(SunQuad(face_count, face_count + 1, quad_count))
+                        sun_quad = SunQuad(face_count, face_count + 1, quad_count)
+                        self.all_quads.append(sun_quad)
                         quad_count += 1
                         face_count += 2
 
                 points.append(pt)
 
         points = np.array(points)
-        pc = PointCloud(points=points)
+        self.pc = PointCloud(points=points)
         faces = np.array(faces)
-        mesh = Mesh(vertices=points, faces=faces)
+        self.mesh = Mesh(vertices=points, faces=faces)
 
-        return pc, mesh, quads
-
-    def _process_quads(self, horizon_z: float):
+    def _process_quads(self):
         """Calculates the center and area of each quad"""
-        for sun_quad in self.quads:
+        for sun_quad in self.all_quads:
             face_a = self.mesh.faces[sun_quad.face_index_a]
             face_b = self.mesh.faces[sun_quad.face_index_b]
 
@@ -152,11 +140,10 @@ class SunDome:
             v5 = self.mesh.vertices[face_b[1]]
             v6 = self.mesh.vertices[face_b[2]]
 
+            sun_quad.mesh = self._create_sun_quad_mesh(face_a, face_b)
+
             # Picking perimeter verices without duplicates
             sun_quad.center = (v1 + v2 + v4 + v6) / 4.0
-
-            if sun_quad.center[2] > horizon_z:
-                sun_quad.over_horizon = True
 
             vec1 = v2 - v1
             vec2 = v3 - v1
@@ -173,7 +160,7 @@ class SunDome:
         new_faces = []
         new_vertices = []
         v_index = 0
-        for quad in self.quads:
+        for quad in self.all_quads:
             if quad.has_sun:
                 face1 = self.mesh.faces[quad.face_index_a, :]
                 face2 = self.mesh.faces[quad.face_index_b, :]
@@ -182,7 +169,7 @@ class SunDome:
                 vertices2 = self.mesh.vertices[face2, :]
                 new_face1 = []
                 for v in vertices1:
-                    existing_v_index = self.vertex_exists(new_vertices, v, tolerance)
+                    existing_v_index = self._vertex_exists(new_vertices, v, tolerance)
                     if existing_v_index == -1:
                         # Vertex did not exist so a new one is created
                         new_vertices.append(v)
@@ -193,7 +180,7 @@ class SunDome:
 
                 new_face2 = []
                 for v in vertices2:
-                    existing_v_index = self.vertex_exists(new_vertices, v, tolerance)
+                    existing_v_index = self._vertex_exists(new_vertices, v, tolerance)
                     if existing_v_index == -1:
                         # Vertex did not exist so a new one is created
                         new_vertices.append(v)
@@ -211,10 +198,65 @@ class SunDome:
 
         self.submesh = mesh
 
-    def vertex_exists(self, vertices, vertex, tolerance):
+    def _vertex_exists(self, vertices, vertex, tolerance):
         for i, v in enumerate(vertices):
             d = distance(v, vertex)
             if d < tolerance:
                 return i
 
         return -1
+
+    def _create_sun_quad_mesh(self, face1, face2):
+        v1 = self.mesh.vertices[face1[0]]
+        v2 = self.mesh.vertices[face1[1]]
+        v3 = self.mesh.vertices[face1[2]]
+
+        v4 = self.mesh.vertices[face2[0]]
+        v5 = self.mesh.vertices[face2[1]]
+        v6 = self.mesh.vertices[face2[2]]
+
+        quad_vertices = np.array([v1, v2, v3, v4, v5, v6])
+        quad_faces = np.array([[0, 1, 2], [3, 4, 5]])
+
+        quad_mesh = Mesh(vertices=quad_vertices, faces=quad_faces)
+
+        return quad_mesh
+
+    def match_suns_and_quads(self, sunc: SunCollection):
+        for i, sun_pos in enumerate(sunc.positions):
+            dmin = 1000000000
+            quad_index = None
+            for j, quad in enumerate(self.all_quads):
+                d = distance(quad.center, sun_pos)
+                if d < dmin:
+                    dmin = d
+                    quad_index = j
+
+            # Add sun to the closest quad
+            if quad_index is not None:
+                self.all_quads[quad_index].sun_indices.append(i)
+                self.all_quads[quad_index].has_sun = True
+
+        for quad in self.all_quads:
+            if quad.has_sun:
+                self.active_quads.append(quad)
+
+    def active_quad_exists(self, quad_index):
+        for q in self.active_quads:
+            if q.id == quad_index:
+                return True
+        return False
+
+    def get_active_quad_centers(self):
+        centers = []
+        for quad in self.active_quads:
+            centers.append(quad.center)
+
+        return np.array(centers)
+
+    def get_active_quad_meshes(self):
+        meshes = []
+        for quad in self.active_quads:
+            meshes.append(quad.mesh)
+
+        return meshes

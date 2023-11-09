@@ -3,14 +3,14 @@ import pandas as pd
 import numpy as np
 from pprint import pp
 from dtcc_solar import utils
-from dtcc_solar.utils import Sun
+from dtcc_solar.utils import SunCollection
 from dtcc_solar.logging import info, debug, warning, error
 
 
 # This function reads a *.clm weather file, which contains recorde data for a full year which has been
 # compiled by combining data from different months for the years inbetween 2007 and 2021. The time span
 # defined in by arguments if then used to obain a sub set of the data for analysis.
-def import_data(suns: list[Sun], weather_file: str):
+def import_data(sunc: SunCollection, weather_file: str):
     name_parts = weather_file.split(".")
     if name_parts[-1] != "clm":
         error(
@@ -22,7 +22,7 @@ def import_data(suns: list[Sun], weather_file: str):
 
     line_index = 0
     data_counter = 0
-    year = suns[0].datetime_ts.year
+    year = sunc.time_stamps[0].year
     full_year_start_date = str(year) + "-01-01 00:00:00"
     full_year_end_date = str(year) + "-12-31 23:59:00"
 
@@ -31,35 +31,33 @@ def import_data(suns: list[Sun], weather_file: str):
         start=full_year_start_date, end=full_year_end_date, freq="1H"
     )
     year_dict_keys = np.array([str(d) for d in year_dates])
-    year_normal_irradiance = dict.fromkeys(year_dict_keys)
-    year_diffuse_irradiance = dict.fromkeys(year_dict_keys)
+    year_normal_irr = dict.fromkeys(year_dict_keys)
+    year_diffuse_irr = dict.fromkeys(year_dict_keys)
 
     with open(weather_file, "r") as f:
         for line in f:
             # The first 12 lines contains information of the data structure
             if line_index > 12 and line[0] != "*":
-                [normal_irradiance, diffuse_irradiance] = line2numbers(line)
-                year_normal_irradiance[year_dict_keys[data_counter]] = normal_irradiance
-                year_diffuse_irradiance[
-                    year_dict_keys[data_counter]
-                ] = diffuse_irradiance
+                [normal_irr, diffuse_irr] = line2numbers(line)
+                year_normal_irr[year_dict_keys[data_counter]] = normal_irr
+                year_diffuse_irr[year_dict_keys[data_counter]] = diffuse_irr
                 data_counter += 1
             line_index += 1
 
-    all_dates = list(year_normal_irradiance.keys())
+    all_dates = list(year_normal_irr.keys())
     sun_index = 0
 
     for clm_date in all_dates:
-        if sun_index < len(suns):
-            sun_date = suns[sun_index].datetime_str
+        if sun_index < sunc.count:
+            sun_date = sunc.datetime_strs[sun_index]
             if date_match(clm_date, sun_date):
-                suns[sun_index].irradiance_dn = year_normal_irradiance[clm_date]
-                suns[sun_index].irradiance_di = year_diffuse_irradiance[clm_date]
+                sunc.irradiance_dn[sun_index] = year_normal_irr[clm_date]
+                sunc.irradiance_di[sun_index] = year_diffuse_irr[clm_date]
                 sun_index += 1
 
-    info(f"Wheter data successfully collected from: {weather_file}")
+    info(f"Weather data successfully collected from: {weather_file}")
 
-    return suns
+    return sunc
 
 
 def date_match(api_date: str, sun_date: str):

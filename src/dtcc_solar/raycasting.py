@@ -87,18 +87,3 @@ def raytrace_skydome(volume: Volume, ray_targets, ray_areas):
             )
 
     return sky_portion
-
-
-def raytrace_sundome(volume: Volume, sun_quads: list[SunQuad]):
-    faces = volume.faces
-    vertices = volume.points
-    fCount = len(faces)
-
-    # Dictionary for storing the results
-    res = dict.fromkeys([sun_quad.id for sun_quad in sun_quads])
-
-    for sun_quad in sun_quads:
-        if sun_quad.over_horizon:
-            sun_vec_rev = np.array(sun_quad.center)
-
-            pass

@@ -2,14 +2,13 @@ import numpy as np
 import math
 import pandas as pd
 import csv
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 from enum import Enum, IntEnum
 from dataclasses import dataclass, field
 from typing import List, Dict
 from dtcc_model import Mesh
 from dtcc_io import save_mesh
 from csv import reader
+from pandas import Timestamp, DatetimeIndex
 
 
 class DataSource(IntEnum):
@@ -19,42 +18,18 @@ class DataSource(IntEnum):
     epw = 4
 
 
-class RayBundles(IntEnum):
-    one = 1
-    four = 2
-    eight = 3
-    sixteen = 4
-
-
 class ColorBy(IntEnum):
     face_sun_angle = 1
-    face_sun_angle_shadows = 2
-    face_shadows = 3
-    face_irradiance_dn = 4
-    face_irradiance_dh = 5
-    face_irradiance_di = 6
-    face_irradiance_tot = 7
+    occlusion = 2
+    irradiance_dn = 3
+    irradiance_dh = 4
+    irradiance_di = 5
+    irradiance_tot = 6
 
 
 class Mode(IntEnum):
     single_sun = 1
     multiple_sun = 2
-
-
-class AnalysisType(IntEnum):
-    sun_raycasting = 1
-    sky_raycasting = 2
-    com_raycasting = 3
-    sun_precasting = 4
-    com_precasting = 5
-
-
-class AnalysisTypeDev(IntEnum):
-    vertex_raycasting = 1
-    subdee_shading = 2
-    diffuse_dome = 3
-    diffuse_some = 4
-    diffuse_all = 5
 
 
 class Analyse(Enum):
@@ -64,10 +39,11 @@ class Analyse(Enum):
     Times = 4
 
 
-class Shading(Enum):
-    Sun = 1
-    Boarder = 2
-    Shade = 3
+@dataclass
+class Vec3:
+    x: float
+    y: float
+    z: float
 
 
 @dataclass
@@ -79,93 +55,71 @@ class SunQuad:
     has_sun: bool = False
     over_horizon = False
     center: np.ndarray = field(default_factory=lambda: np.empty(0))
-    sun_indices: np.ndarray = field(default_factory=lambda: np.empty(0))
+    sun_indices: List[int] = field(default_factory=list)
+    mesh: Mesh = None
 
 
 @dataclass
-class Vec3:
-    x: float
-    y: float
-    z: float
-
-
-@dataclass
-class Sun:
+class SunCollection:
+    # Number of suns
+    count: int = 0
+    # Sun positions
+    positions: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Time stamps
+    time_stamps: List[Timestamp] = field(default_factory=list)
+    # Date time indices
+    date_times: DatetimeIndex = None
     # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
-    datetime_str: str
-    # TimeStamp object with the same date and time
-    datetime_ts: pd.Timestamp
-    index: int
+    datetime_strs: List[str] = field(default_factory=list)
+    # Normalised sun vectors
+    sun_vecs: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    irradiance_dn: float = 0.0
+    irradiance_dn: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    irradiance_dh: float = 0.0
+    irradiance_dh: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
-    irradiance_di: float = 0.0
-    # True if the possition of over the horizon, otherwise false.
-    over_horizon: bool = False
-    # Angle between earth surface normal and the reversed solar vector (both pointing away for the earth surface)
-    zenith: float = 0.0
-    # Position of the  sun in cartesian coordinates based on the size of the model
-    position: Vec3 = field(default_factory=lambda: Vec3(0, 0, 0))
-    # Normalised solar vector for calculations
-    sun_vec: Vec3 = field(default_factory=lambda: Vec3(0, 0, 0))
+    irradiance_di: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # List zenith values
+    zeniths: np.ndarray = field(default_factory=lambda: np.empty(0))
 
 
 @dataclass
-class Output:
-    datetime_str: str  # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
-    datetime_ts: pd.Timestamp  # TimeStamp object with the same date and time
-    index: int
-    face_sun_angles: List[float]
-    face_in_sun: List[bool]
-    face_in_sky: List[bool]
-    face_irradiance_dn: List[float]
-    face_irradiance_dh: List[float]
-    face_irradiance_di: List[float]
-    face_irradiance_tot: List[float]
-
-
-@dataclass
-class OutputAcum:
-    start_datetime_str: str  # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
-    start_datetime_ts: pd.Timestamp
-    end_datetime_str: str  # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
-    end_datetime_ts: pd.Timestamp
-    face_sun_angles: List[float]
-    face_in_sun: List[bool]
-    face_in_sky: List[bool]
-    face_irradiance_dn: List[float]
-    face_irradiance_dh: List[float]
-    face_irradiance_di: List[float]
-    face_irradiance_tot: List[float]
+class OutputCollection:
+    # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
+    datetime_strs: List[str] = field(default_factory=list)
+    # TimeStamp object with the same date and time
+    time_stamps: List[Timestamp] = field(default_factory=list)
+    # Angle between face normal an sun vector
+    face_sun_angles: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Angle between face normal an sun vector
+    occlusion: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
+    irradiance_dn: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
+    irradiance_dh: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
+    irradiance_di: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Percentage of the sky dome that is visible from the face
+    visible_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Results for face and each sky raytracing intersection
+    facehit_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
 
 
 @dataclass
 class SolarParameters:
     file_name: str = "Undefined model input file"
     weather_file: str = "Undefined weather data file"
-    a_type: AnalysisType = AnalysisType.sky_raycasting
     latitude: float = 51.5
     longitude: float = -0.12
     display: bool = True
     data_source: DataSource = DataSource.clm
-    color_by: ColorBy = ColorBy.face_sun_angle_shadows
+    color_by: ColorBy = ColorBy.face_sun_angle
     export: bool = False
     start_date: str = "2019-06-03 07:00:00"
     end_date: str = "2019-06-03 21:00:00"
-
-
-def vec_2_ndarray(vec: Vec3):
-    return np.array([vec.x, vec.y, vec.z])
-
-
-def create_list_of_vec3(x_list, y_list, z_list) -> List[Vec3]:
-    vec_list = []
-    for i in range(0, len(x_list)):
-        vec = Vec3(x=x_list[i], y=y_list[i], z=z_list[i])
-        vec_list.append(vec)
-    return vec_list
+    use_quads: bool = False
+    sun_analysis: bool = True
+    sky_analysis: bool = False
 
 
 def dict_2_np_array(sun_pos_dict):
@@ -208,50 +162,59 @@ def calc_rotation_matrix(vec_from: np.ndarray, vec_to: np.ndarray):
     return R
 
 
-"""
-def find_distributed_face_mid_points(nx, ny, mesh:trimesh):
-
-    bb = trimesh.bounds.corners(mesh.bounding_box.bounds)
-    bbx = np.array([np.min(bb[:,0]), np.max(bb[:,0])])
-    bby = np.array([np.min(bb[:,1]), np.max(bb[:,1])])
-    bbz = np.array([np.min(bb[:,2]), np.max(bb[:,2])])
-
-    dx = (bbx[1] - bbx[0])/(nx-1)
-    dy = (bby[1] - bby[0])/(ny-1)
-
-    x = bbx[0]
-    y = bby[0]
-    z = np.average([bbz])
-
-    face_mid_points = calc_face_mid_points(mesh)
-    face_mid_points[:,2] = z 
-    face_indices = []
-
-    for i in range(0,nx):
-        y = bby[0]
-        for j in range(0,ny):
-            point = np.array([x,y,z])
-            index = get_index_of_closest_point(point, face_mid_points)
-            face_indices.append(index)
-            y += dy
-        x += dx
-
-    return face_indices        
-
-def calc_face_mid_points(mesh:trimesh):
-
-    faceVertexIndex1 = mesh.faces[:,0]
-    faceVertexIndex2 = mesh.faces[:,1]
-    faceVertexIndex3 = mesh.faces[:,2] 
+def calc_face_mid_points(mesh: Mesh):
+    faceVertexIndex1 = mesh.faces[:, 0]
+    faceVertexIndex2 = mesh.faces[:, 1]
+    faceVertexIndex3 = mesh.faces[:, 2]
 
     vertex1 = mesh.vertices[faceVertexIndex1]
     vertex2 = mesh.vertices[faceVertexIndex2]
     vertex3 = mesh.vertices[faceVertexIndex3]
 
-    face_mid_points = (vertex1 + vertex2 + vertex3)/3.0
+    face_mid_points = (vertex1 + vertex2 + vertex3) / 3.0
 
     return face_mid_points
-"""
+
+
+def calc_face_incircle(mesh: Mesh):
+    center = []
+    radius = []
+    for i, face in enumerate(mesh.faces):
+        fv1 = face[0]
+        fv2 = face[1]
+        fv3 = face[2]
+
+        A = mesh.vertices[fv1]
+        B = mesh.vertices[fv2]
+        C = mesh.vertices[fv3]
+
+        vec_c = B - A
+        vec_b = C - A
+        vec_a = C - B
+
+        c = np.linalg.norm(vec_c)
+        b = np.linalg.norm(vec_b)
+        a = np.linalg.norm(vec_a)
+
+        s = (c + b + a) / 2.0
+        f_area = 0.5 * np.linalg.norm(np.cross(vec_c, vec_b))
+
+        c_x = (a * A[0] + b * B[0] + c * C[0]) / (2.0 * s)
+        c_y = (a * A[1] + b * B[1] + c * C[1]) / (2.0 * s)
+        c_z = (A[2] + B[2] + C[2]) / 3.0
+
+        center.append([c_x, c_y, c_z])
+        radius.append(f_area / s)
+
+    return np.array(center), np.array(radius)
+
+
+def create_list_of_vec3(x_list, y_list, z_list) -> List[Vec3]:
+    vec_list = []
+    for i in range(0, len(x_list)):
+        vec = Vec3(x=x_list[i], y=y_list[i], z=z_list[i])
+        vec_list.append(vec)
+    return vec_list
 
 
 def get_sun_vecs_from_sun_pos(sunPosList, origin):
@@ -259,21 +222,14 @@ def get_sun_vecs_from_sun_pos(sunPosList, origin):
     for i in range(0, len(sunPosList)):
         sunPos = sunPosList[i]
         sunVec = origin - sunPos
-        sunVecNorm = normalise_vector(sunVec)
+        sunVecNorm = unitize(sunVec)
         sunVecs.append(sunVecNorm)
     return sunVecs
 
 
-def normalise_vector(vec):
+def unitize(vec: np.ndarray):
     length = calc_vector_length(vec)
-    vecNorm = np.zeros(3)
     vecNorm = vec / length
-    return vecNorm
-
-
-def normalise_vector3(vec: Vec3):
-    length = calc_vector_length3(vec)
-    vecNorm = Vec3(x=(vec.x / length), y=(vec.y / length), z=(vec.z / length))
     return vecNorm
 
 
@@ -282,19 +238,9 @@ def reverse_vector(vec):
     return vecRev
 
 
-def calc_vector_length(vec):
+def calc_vector_length(vec: np.ndarray):
     length = math.sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2])
     return length
-
-
-def calc_vector_length3(vec: Vec3):
-    length = math.sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z)
-    return length
-
-
-def scale_vector3(vec: Vec3, sf: float):
-    scaled_vec = Vec3(x=sf * vec.x, y=sf * vec.y, z=sf * vec.z)
-    return scaled_vec
 
 
 def vector_angle(vec1, vec2):
@@ -310,7 +256,7 @@ def vector_angle(vec1, vec2):
 
 def calculate_normal(v1, v2):
     v3 = cross_product(v1, v2)
-    normal = normalise_vector(v3)
+    normal = unitize(v3)
     return normal
 
 
@@ -427,15 +373,13 @@ def read_sunpath_diagram_from_csv_file(filename):
             # Iterate over each row after the header in the csv
             for row in csv_reader:
                 # row variable is a list that represents a row in csv
-                pt = Vec3(x=float(row[0]), y=float(row[1]), z=float(row[2]))
+                pt = np.array([float(row[0]), float(row[1]), float(row[2])])
                 pts.append(pt)
 
     return pts
 
 
-def match_sunpath_scale(
-    loop_pts: Dict[int, List[Vec3]], radius: float
-) -> Dict[int, List[Vec3]]:
+def match_sunpath_scale(loop_pts, radius: float):
     # Calculate the correct scale factor for the imported sunpath diagram
     pt = loop_pts[0][0]
     current_raduis = math.sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z)

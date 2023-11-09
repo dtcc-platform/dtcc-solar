@@ -3,13 +3,13 @@ import pandas as pd
 import numpy as np
 from pandas import Timestamp
 from pprint import pp
-from dtcc_solar.utils import Sun
+from dtcc_solar.utils import SunCollection
 from dtcc_solar.logging import info, debug, warning, error
 
 
-def get_data(lon: float, lat: float, suns: list[Sun]):
-    date_from_str = timestamp_str(suns[0].datetime_ts)
-    date_to_str = timestamp_str(suns[-1].datetime_ts)
+def get_data(lon: float, lat: float, sunc: SunCollection):
+    date_from_str = timestamp_str(sunc.time_stamps[0])
+    date_to_str = timestamp_str(sunc.time_stamps[-1])
 
     # API call cannot handle time as part of the date variable. So the data is first
     # collected based on the date and then a subset is retriwed which also considers
@@ -54,18 +54,18 @@ def get_data(lon: float, lat: float, suns: list[Sun]):
         ]
 
         for i in range(len(api_dates)):
-            if sun_counter < len(suns):
-                sun_date = suns[sun_counter].datetime_str
+            if sun_counter < sunc.count:
+                sun_date = sunc.datetime_strs[sun_counter]
                 if date_match(api_dates[i], sun_date):
-                    suns[sun_counter].irradiance_dn = normal_irradiance_hourly[i]
-                    suns[sun_counter].irradiance_dh = direct_radiation_hourly[i]
-                    suns[sun_counter].irradiance_di = diffuse_radiation_hourly[i]
+                    sunc.irradiance_dn[sun_counter] = normal_irradiance_hourly[i]
+                    sunc.irradiance_dh[sun_counter] = direct_radiation_hourly[i]
+                    sunc.irradiance_di[sun_counter] = diffuse_radiation_hourly[i]
                     sun_counter += 1
 
         info("Wheter data successfully collected from Open Meteo API")
         info(f"Source: {url_1}")
 
-        return suns
+        return sunc
 
     elif status_ni == 400 or status_dr == 400:
         error("Open Meteo HTTP status code 400:")

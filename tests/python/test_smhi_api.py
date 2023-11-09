@@ -3,7 +3,7 @@ import pandas as pd
 from pprint import pp
 from dtcc_solar import data_smhi
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import AnalysisType, SolarParameters, DataSource, ColorBy
+from dtcc_solar.utils import SimType, SolarParameters, DataSource, ColorBy
 
 
 class TestSmhiApi:
@@ -28,7 +28,6 @@ class TestSmhiApi:
         p = SolarParameters(
             file_name=self.file_name,
             weather_file=self.w_file_clm,
-            a_type=AnalysisType.sun_raycasting,
             latitude=self.lat,
             longitude=self.lon,
             display=False,
@@ -37,11 +36,13 @@ class TestSmhiApi:
             export=False,
             start_date=start_date,
             end_date=end_date,
+            sun_analysis=True,
+            sky_analysis=False,
         )
 
         sunpath = Sunpath(p, 1.0)
 
-        assert sunpath.suns
+        assert sunpath.sunc
 
     def test_summer_time(self):
         assert self.assert_no_summer_time_in_data()
@@ -65,7 +66,6 @@ class TestSmhiApi:
         p = SolarParameters(
             file_name=self.file_name,
             weather_file=self.w_file_clm,
-            a_type=AnalysisType.sun_raycasting,
             latitude=self.lat,
             longitude=self.lon,
             data_source=DataSource.smhi,
@@ -73,8 +73,6 @@ class TestSmhiApi:
             start_date=start_date,
             end_date=end_date,
         )
-
-        sunpath = Sunpath(p, 1.0)
 
         # Checking that 02:00:00 existing in the transion from winter to summer.
         dst_test_from = [
@@ -107,9 +105,9 @@ class TestSmhiApi:
         for i in range(0, len(dst_test_from)):
             p.start_date = dst_test_from[i]
             p.end_date = dst_test_to[i]
-            suns = sunpath.suns
-            for sun in suns:
-                hour = sun.datetime_ts.hour
+            sunpath = Sunpath(p, 1.0)
+            for ts in sunpath.sunc.time_stamps:
+                hour = ts.hour
                 if hour == 2:
                     results.append(True)
                     break

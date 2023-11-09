@@ -39,12 +39,7 @@ class TestSunDome:
         self.sunpath = Sunpath(self.p, self.radius)
 
     def test_sundome_day_loops(self):
-        self.sundome = SunDome(
-            self.sunpath,
-            self.solar_engine.horizon_z,
-            150,
-            20,
-        )
+        self.sundome = SunDome(self.sunpath, 150, 20)
 
         mesh = self.sundome.mesh
         pc_quad_mid_pts = self.sundome.pc

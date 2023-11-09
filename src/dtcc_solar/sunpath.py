@@ -5,7 +5,7 @@ import datetime
 import numpy as np
 import pandas as pd
 from dtcc_solar import utils
-from dtcc_solar.utils import Vec3, Sun, DataSource
+from dtcc_solar.utils import SunCollection, DataSource, unitize
 from dtcc_solar.utils import SolarParameters
 from pvlib import solarposition
 from dtcc_solar import data_clm, data_epw, data_meteo, data_smhi
@@ -25,7 +25,7 @@ class Sunpath:
     r: float  # Radius of sunpath diagram
     w: float  # Width of paths in sunpath diagram
 
-    suns: list[Sun]
+    sunc: SunCollection
     origin: np.ndarray
     sun_pc: list[PointCloud]
     all_suns_pc: PointCloud
@@ -34,12 +34,12 @@ class Sunpath:
     daypath_meshes: list[Mesh]  # Day paths for three dates in a year
     analemmas_pc: PointCloud  # Analemmas for each hour in a year as a point cloud
 
-    def __init__(self, p: SolarParameters, radius: float):
+    def __init__(self, p: SolarParameters, radius: float, include_night: bool = False):
         self.lat = p.latitude
         self.lon = p.longitude
         self.r = radius
         self.origin = np.array([0, 0, 0])
-        self.create_suns(p)
+        self.create_suns(p, include_night)
         if p.display:
             self._build_sunpath_mesh()
 
@@ -119,27 +119,30 @@ class Sunpath:
 
         return days_dict
 
-    def create_suns(self, p: SolarParameters):
-        self.suns = []
+    def create_suns(self, p: SolarParameters, include_night: bool = False):
+        over_horizon = []
+        self.sunc = SunCollection()
         self._create_sun_timestamps(p.start_date, p.end_date)
-        self._get_suns_positions()
+        self._get_suns_positions(over_horizon)
         self._append_weather_data(p)
+        if not include_night:
+            self._remove_suns_below_horizon(over_horizon)
 
     def _create_sun_timestamps(self, start_date: str, end_date: str):
         time_from = pd.to_datetime(start_date)
         time_to = pd.to_datetime(end_date)
-        index = 0
         times = pd.date_range(start=time_from, end=time_to, freq="H")
-        for time in times:
-            sun = Sun(str(time), time, index)
-            self.suns.append(sun)
-            index += 1
+        self.sunc.count = len(times)
+        for i, time in enumerate(times):
+            time_stamp = pd.Timestamp(time)
+            self.sunc.time_stamps.append(time_stamp)
+            self.sunc.datetime_strs.append(str(time_stamp))
 
-    def _get_suns_positions(self):
-        date_from_str = self.suns[0].datetime_str
-        date_to_str = self.suns[-1].datetime_str
+    def _get_suns_positions(self, over_horizon: list[bool]):
+        date_from_str = self.sunc.datetime_strs[0]
+        date_to_str = self.sunc.datetime_strs[-1]
         dates = pd.date_range(start=date_from_str, end=date_to_str, freq="1H")
-
+        self.sunc.date_times = dates
         solpos = solarposition.get_solarposition(dates, self.lat, self.lon)
         elev = np.radians(solpos.elevation.to_list())
         azim = np.radians(solpos.azimuth.to_list())
@@ -147,31 +150,52 @@ class Sunpath:
         x_sun = self.r * np.cos(elev) * np.cos(-azim) + self.origin[0]
         y_sun = self.r * np.cos(elev) * np.sin(-azim) + self.origin[1]
         z_sun = self.r * np.sin(elev) + self.origin[2]
+        sun_vecs = []
+        positions = []
+        zeniths = []
+        for i in range(self.sunc.count):
+            sun_vec = unitize(np.array([x_sun[i], y_sun[i], z_sun[i]]))
+            sun_vecs.append(sun_vec)
+            positions.append(np.array([x_sun[i], y_sun[i], z_sun[i]]))
+            zeniths.append(zeni[i])
+            over_horizon.append(zeni[i] < math.pi / 2)
 
-        if len(self.suns) == len(dates):
-            for i in range(len(self.suns)):
-                self.suns[i].position = Vec3(x=x_sun[i], y=y_sun[i], z=z_sun[i])
-                self.suns[i].zenith = zeni[i]
-                self.suns[i].over_horizon = zeni[i] < math.pi / 2
-                self.suns[i].sun_vec = utils.normalise_vector3(
-                    Vec3(
-                        x=self.origin[0] - x_sun[i],
-                        y=self.origin[1] - y_sun[i],
-                        z=self.origin[2] - z_sun[i],
-                    )
-                )
-        else:
-            print("Something went wrong in when retrieving solar positions!")
+        self.sunc.sun_vecs = np.array(sun_vecs)
+        self.sunc.positions = np.array(positions)
+        self.sunc.zeniths = np.array(zeniths)
+        self.sunc.irradiance_dh = np.zeros(self.sunc.count)
+        self.sunc.irradiance_di = np.zeros(self.sunc.count)
+        self.sunc.irradiance_dn = np.zeros(self.sunc.count)
+
+    def _remove_suns_below_horizon(self, over_horizon: list[bool]):
+        # Remove data where the sun is below the horizon
+        self.sunc.sun_vecs = self.sunc.sun_vecs[over_horizon, :]
+        self.sunc.positions = self.sunc.positions[over_horizon, :]
+        self.sunc.date_times = self.sunc.date_times[over_horizon]
+        self.sunc.irradiance_dh = self.sunc.irradiance_dh[over_horizon]
+        self.sunc.irradiance_di = self.sunc.irradiance_di[over_horizon]
+        self.sunc.irradiance_dn = self.sunc.irradiance_dn[over_horizon]
+        self.sunc.count = len(self.sunc.positions)
+
+        timestamps = []
+        datestrings = []
+        for i, ts in enumerate(self.sunc.time_stamps):
+            if over_horizon[i]:
+                timestamps.append(ts)
+                datestrings.append(self.sunc.datetime_strs[i])
+
+        self.sunc.time_stamps = timestamps
+        self.sunc.datetime_strs = datestrings
 
     def _append_weather_data(self, p: SolarParameters):
         if p.data_source == DataSource.smhi:
-            self.suns = data_smhi.get_data(p.longitude, p.latitude, self.suns)
+            self.sunc = data_smhi.get_data(p.longitude, p.latitude, self.sunc)
         if p.data_source == DataSource.meteo:
-            self.suns = data_meteo.get_data(p.longitude, p.latitude, self.suns)
+            self.sunc = data_meteo.get_data(p.longitude, p.latitude, self.sunc)
         elif p.data_source == DataSource.clm:
-            self.suns = data_clm.import_data(self.suns, p.weather_file)
+            self.sunc = data_clm.import_data(self.sunc, p.weather_file)
         elif p.data_source == DataSource.epw:
-            self.suns = data_epw.import_data(self.suns, p.weather_file)
+            self.sunc = data_epw.import_data(self.sunc, p.weather_file)
 
     def _build_sunpath_mesh(self):
         self.w = self.r / 300
@@ -202,10 +226,7 @@ class Sunpath:
 
     def _create_sun_spheres(self):
         points = []
-        for i in range(0, len(self.suns)):
-            if self.suns[i].over_horizon:
-                points.append(utils.vec_2_ndarray(self.suns[i].position))
-
+        points = self.sunc.positions
         points = np.array(points)
         pc = PointCloud(points=points)
         return pc
@@ -232,8 +253,8 @@ class Sunpath:
                 sun_pos_1 = np.array([pos[i].x, pos[i].y, pos[i].z])
                 sun_pos_2 = np.array([pos[i_next].x, pos[i_next].y, pos[i_next].z])
 
-                vec_1 = utils.normalise_vector(0.5 * (sun_pos_1 + sun_pos_2))
-                vec_2 = utils.normalise_vector(sun_pos_2 - sun_pos_1)
+                vec_1 = utils.unitize(0.5 * (sun_pos_1 + sun_pos_2))
+                vec_2 = utils.unitize(sun_pos_2 - sun_pos_1)
                 vec_3 = np.cross(vec_1, vec_2)
 
                 # Offset vertices to create a width for path

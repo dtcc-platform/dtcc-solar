@@ -5,11 +5,11 @@ from pandas import Timestamp
 from pprint import pp
 from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
-from dtcc_solar.utils import Sun
+from dtcc_solar.utils import SunCollection
 from dtcc_solar.logging import info, debug, warning, error
 
 
-def get_data(lon: float, lat: float, suns: list[Sun]):
+def get_data(lon: float, lat: float, sunc: SunCollection):
     [lon, lat] = check_geo_data(lon, lat)
     strong_data_path = "https://opendata-download-metanalys.smhi.se/api/category/strang1g/version/1/geotype/point/"
     point_data_path_ni = (
@@ -19,8 +19,8 @@ def get_data(lon: float, lat: float, suns: list[Sun]):
         "lon/" + str(lon) + "/lat/" + str(lat) + "/parameter/121/data.json"
     )
 
-    date_from_str = timestamp_str(suns[0].datetime_ts)
-    date_to_str = timestamp_str(suns[-1].datetime_ts)
+    date_from_str = timestamp_str(sunc.time_stamps[0])
+    date_to_str = timestamp_str(sunc.time_stamps[-1])
 
     date_from_to_str = "?from=" + str(date_from_str) + "&to=" + str(date_to_str)
 
@@ -40,21 +40,21 @@ def get_data(lon: float, lat: float, suns: list[Sun]):
         ni_json = normal_irradiance.json()
         hi_json = horizon_irradiance.json()
 
-        if len(ni_json) != len(suns):
+        if len(ni_json) != sunc.count:
             print("Missmatch between suns and API data")
             return None
 
-        for i in range(len(suns)):
+        for i in range(sunc.count):
             api_date = ni_json[i]["date_time"]
-            sun_date = suns[i].datetime_str
+            sun_date = sunc.datetime_strs[i]
             if date_match(api_date, sun_date):
-                suns[i].irradiance_dn = ni_json[i]["value"]
-                suns[i].irradiance_di = hi_json[i]["value"]
+                sunc.irradiance_dn[i] = ni_json[i]["value"]
+                sunc.irradiance_di[i] = hi_json[i]["value"]
 
         info("Wheter data successfully collected from the API of SMHI")
         info(f"Source: {strong_data_path}")
 
-        return suns
+        return sunc
 
     elif status_ni == 404 or status_hi == 404:
         error("SMHI Open Data API Docs HTTP code 404:")

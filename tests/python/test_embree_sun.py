@@ -13,7 +13,7 @@ class TestEmbreeSolar:
     lon: float
 
     def setup_method(self):
-        self.file_name = "../data/models/CitySurfaceL.stl"
+        self.file_name = "../data/models/CitySurfaceS.stl"
         self.mesh = meshes.load_mesh(self.file_name)
 
         n_suns = 1000
@@ -26,40 +26,31 @@ class TestEmbreeSolar:
 
         self.embree = py_embree_solar.PyEmbreeSolar(self.mesh.vertices, self.mesh.faces)
 
-    def test_skydome(self):
-        faces = self.embree.getSkydomeFaces()
-        vertices = self.embree.getSkydomeVertices()
-        skydome_rays = self.embree.getSkydomeRays()
-
-        pc = PointCloud(points=skydome_rays)
-        mesh = Mesh(vertices=vertices, faces=faces)
-
-        window = Window(1200, 800)
-        scene = Scene()
-        scene.add_pointcloud("Skydome rays", pc, size=0.01)
-        scene.add_mesh("Skydome", mesh)
-        window.render(scene)
-
     def test_skydome_raytrace(self):
         bundles = RayBundles.four
 
         if bundles == RayBundles.one:
-            results = self.embree.sun_raytrace_occ1(self.sun_vecs, True)
+            results = self.embree.sun_raytrace_occ1(self.sun_vecs)
         elif bundles == RayBundles.four:
-            results = self.embree.sun_raytrace_occ4(self.sun_vecs, True)
+            results = self.embree.sun_raytrace_occ4(self.sun_vecs)
         elif bundles == RayBundles.eight:
-            results = self.embree.sun_raytrace_occ8(self.sun_vecs, True)
+            results = self.embree.sun_raytrace_occ8(self.sun_vecs)
         elif bundles == RayBundles.sixteen:
-            results = self.embree.sun_raytrace_occ16(self.sun_vecs, True)
+            results = self.embree.sun_raytrace_occ16(self.sun_vecs)
 
-        results = np.sum(-1 * results, axis=0)
+        angles = self.embree.get_angle_results()
+        occlusion = self.embree.get_occluded_results()
+
+        angles = np.sum(-1 * angles, axis=0)
+        occlusion = np.sum(-1 * occlusion, axis=0)
 
         pc = PointCloud(points=self.sun_vecs)
 
         window = Window(1200, 800)
         scene = Scene()
         scene.add_pointcloud("pc", pc, size=1)
-        scene.add_mesh("Skydome", self.mesh, data=results)
+        scene.add_mesh("Mesh anlges", self.mesh, data=angles)
+        scene.add_mesh("Mesh occlusion", self.mesh, data=occlusion)
         window.render(scene)
 
 

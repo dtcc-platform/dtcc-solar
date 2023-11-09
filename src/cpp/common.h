@@ -72,3 +72,23 @@ static inline float VectorAngle(std::vector<float> v1, std::vector<float> v2)
     float angle = std::acos(dot);
     return angle;
 };
+
+static inline float CalcAngle(Vector ray, Vector nml)
+{
+    // With unit vectors
+    float dot = ray.x * nml.x + ray.y * nml.y + ray.z * nml.z;
+    float angleInRadians = std::acos(dot);
+    return angleInRadians;
+}
+
+static inline float CalcAngle2(Vector ray, Vector nml)
+{
+    // If vectors are not unitized
+    float dot = ray.x * nml.x + ray.y * nml.y + ray.z * nml.z;
+    float magN = std::sqrt(nml.x * nml.x + nml.y * nml.y + nml.z * nml.z);
+    float magR = std::sqrt(ray.x * ray.x + ray.y * ray.y + ray.z * ray.z);
+    float cosTheta = dot / (magN * magR);
+    float angleInRadians = std::acos(cosTheta);
+
+    return angleInRadians;
+}

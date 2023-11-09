@@ -1,31 +1,21 @@
 import math
 import numpy as np
-import dtcc_solar.raycasting as ray
-import trimesh
-import copy
-import dtcc_solar.mesh_compute as mc
-import dtcc_solar.utils as utils
-from ncollpyde import Volume
-from dtcc_solar.results import Results
 from dtcc_solar.skydome import SkyDome
-from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import distance, vec_2_ndarray, AnalysisType, SolarParameters
+from dtcc_solar.utils import distance, SolarParameters, concatenate_meshes
 
 from dtcc_solar import py_embree_solar
 
 from dtcc_solar.sundome import SunDome
-from typing import List, Any
-from dtcc_solar.utils import Sun
-from trimesh import Trimesh
+from dtcc_solar.utils import SunCollection, OutputCollection
 
-from dtcc_model import Mesh
+from dtcc_model import Mesh, PointCloud
 from dtcc_model.geometry import Bounds
 from dtcc_solar.logging import info, debug, warning, error
+from dtcc_viewer import Window, Scene, MeshShading
 
 
 class SolarEngine:
     mesh: Mesh  # Dtcc mesh
-    tmesh: Trimesh  # Trimesh
     origin: np.ndarray
     f_count: int
     v_count: int
@@ -37,7 +27,6 @@ class SolarEngine:
     bbx: np.ndarray
     bby: np.ndarray
     bbz: np.ndarray
-    volume: Volume
     city_mesh_faces: np.ndarray
     city_mesh_points: np.ndarray
     city_mesh_face_mid_points: np.ndarray
@@ -45,7 +34,6 @@ class SolarEngine:
 
     def __init__(self, mesh: Mesh) -> None:
         self.mesh = mesh
-        self.tmesh = trimesh.Trimesh(vertices=mesh.vertices, faces=mesh.faces)
         self.origin = np.array([0, 0, 0])
         self.f_count = len(self.mesh.faces)
         self.v_count = len(self.mesh.vertices)
@@ -56,12 +44,6 @@ class SolarEngine:
         self.dome_radius = 0
         self.path_width = 0
         self._preprocess_mesh(True)
-
-        # Create volume object for ray caster with NcollPyDe
-        self.volume = Volume(self.mesh.vertices, self.mesh.faces)
-        self.city_mesh_faces = np.array(self.volume.faces)
-        self.city_mesh_points = np.array(self.volume.points)
-        self.city_mesh_face_mid_points = 0
 
         # Creating instance of embree solar
         self.embree = py_embree_solar.PyEmbreeSolar(mesh.vertices, mesh.faces)
@@ -77,7 +59,6 @@ class SolarEngine:
         # Move the mesh to the centre of the model
         if move_to_center:
             self.mesh.vertices += centerVec
-            self.tmesh.vertices += centerVec
 
         # Update bounding box after the mesh has been moved
         self._calc_bounds()
@@ -114,125 +95,105 @@ class SolarEngine:
 
         self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
-    def _match_suns_and_quads(self, suns: list[Sun], sundome: SunDome):
-        for sun in suns:
-            dmin = 1000000000
-            quad_index = None
-            for j, quad in enumerate(sundome.quads):
-                if quad.over_horizon:
-                    d = distance(quad.center, vec_2_ndarray(sun.position))
-
-                    if d < dmin:
-                        dmin = d
-                        quad_index = j
-
-            # Add sun to the closest quad
-            if quad_index is not None:
-                sundome.quads[quad_index].sun_indices = np.append(
-                    sundome.quads[quad_index].sun_indices, sun.index
-                )
-                sundome.quads[quad_index].has_sun = True
-
-        # Extract all quads with suns into a sub sundome mesh
-        sundome.calc_sub_sundome_mesh(self.tolerance)
+    def get_skydome_ray_count(self):
+        return self.embree.get_skydome_ray_count()
 
     def run_analysis(
         self,
         p: SolarParameters,
-        sunpath: Sunpath,
-        results: Results,
-        skydome: SkyDome = None,
+        sunc: SunCollection,
+        outc: OutputCollection,
         sundome: SunDome = None,
     ):
-        if p.a_type == AnalysisType.sun_raycasting:
-            # self._sun_raycasting(sunpath.suns, results)
-            print("EMBREE")
-            self._sun_raycasting_embree(sunpath.suns, results)
-        elif p.a_type == AnalysisType.sky_raycasting:
-            self._sky_raycasting(sunpath.suns, results, skydome)
-        elif p.a_type == AnalysisType.com_raycasting:
-            self._sun_raycasting(sunpath.suns, results)
-            self._sky_raycasting(sunpath.suns, results, skydome)
-        elif p.a_type == AnalysisType.sun_precasting:
-            self._match_suns_and_quads(sunpath.suns, sundome)
-            self._sun_precasting(sunpath.suns, results, sundome)
-        elif p.a_type == AnalysisType.com_precasting:
-            self._match_suns_and_quads(sunpath.suns, sundome)
-            self._sun_precasting(sunpath.suns, results, sundome)
-            self._sky_raycasting(sunpath.suns, results, skydome)
+        if p.sun_analysis:
+            if p.use_quads and sundome is not None:
+                self._sun_quad_raycasting(sundome, sunc, outc)
+            else:
+                self._sun_raycasting(sunc, outc)
 
-        results.calc_accumulated_results()
-        results.calc_average_results()
+        if p.sky_analysis:
+            self._sky_raycasting(sunc, outc)
 
-    def _sun_raycasting(self, suns: list[Sun], results: Results):
-        n = len(suns)
-        info(f"Iterative analysis started for {n} number of iterations")
-        counter = 0
-
-        for sun in suns:
-            if sun.over_horizon:
-                sun_vec = utils.vec_2_ndarray(sun.sun_vec)
-                sun_vec_rev = utils.reverse_vector(sun_vec)
-
-                face_in_sun, n_int = ray.raytrace(self.volume, sun_vec_rev)
-                face_sun_angles = mc.face_sun_angle(self.tmesh, sun_vec)
-                irradianceF = mc.compute_irradiance(
-                    face_in_sun, face_sun_angles, self.f_count, sun.irradiance_dn
-                )
-
-                results.res_list[sun.index].face_in_sun = face_in_sun
-                results.res_list[sun.index].face_sun_angles = face_sun_angles
-                results.res_list[sun.index].face_irradiance_dn = irradianceF
-
-                counter += 1
-
-                info(
-                    f"Sun raycasting iteration {counter} done, {n_int} intersections were found"
-                )
-
-    def _sun_raycasting_embree(self, suns: list[Sun], results: Results):
-        sun_pos = []
-        for sun in suns:
-            if sun.over_horizon:
-                pos = vec_2_ndarray(sun.position)
-                sun_pos.append(pos)
-
-        sun_pos = np.array(sun_pos)
-
-        output1 = self.embree.sun_raytrace_occ8(sun_pos)
-        output2 = self.embree.sun_raytrace_int8(sun_pos)
-
-    def _sky_raycasting(
-        self, suns: list[Sun], results: Results, skydome: SkyDome = None
+    def _sun_quad_raycasting(
+        self, sundome: SunDome, sunc: SunCollection, outc: OutputCollection
     ):
-        if skydome is None:
-            error("Skydome is None, cannot run sky raycasting")
-            return
+        sundome.match_suns_and_quads(sunc)
+        active_quads = sundome.active_quads
+        sun_vecs = sundome.get_active_quad_centers()
+
+        # active_quads_meshes = sundome.get_active_quad_meshes()
+        # one_mesh = concatenate_meshes(active_quads_meshes)
+        # pc = PointCloud(points=sunc.positions)
+        # window = Window(1200, 800)
+        # scene = Scene()
+        # scene.add_mesh("Mesh diffuse", one_mesh)
+        # scene.add_pointcloud("pc", pc)
+        # window.render(scene)
+
+        print(
+            f" ----- Running sun quad raycasting for {sunc.count} suns in {len(sun_vecs)} quads. -----"
+        )
+        if self.embree.sun_raytrace_occ8(sun_vecs):
+            quad_angles = self.embree.get_angle_results()
+            quad_occlusion = self.embree.get_occluded_results()
+            angles = np.zeros((sunc.count, self.f_count))
+            occlusion = np.zeros((sunc.count, self.f_count))
+            # Map the results back to the individual sun positions
+            for i, quad in enumerate(active_quads):
+                q_angles = quad_angles[i]
+                q_occlusion = quad_occlusion[i]
+                for sun_index in quad.sun_indices:
+                    angles[sun_index, :] = q_angles
+                    occlusion[sun_index, :] = q_occlusion
+
+            irradiance_dn = self._calc_normal_irradiance(sunc, occlusion, angles)
+            outc.face_sun_angles = angles
+            outc.occlusion = occlusion
+            outc.irradiance_dn = irradiance_dn
         else:
-            info("Sky raycasting started")
+            warning(f"Something went wrong in embree solar.")
 
-            ray_targets = skydome.get_ray_targets()
-            ray_areas = skydome.get_ray_areas()
-            sky_portion = ray.raytrace_skydome(self.volume, ray_targets, ray_areas)
+    def _sun_raycasting(self, sunc: SunCollection, outc: OutputCollection):
+        print(f"----- Running sun raycasting -----")
+        if self.embree.sun_raytrace_occ8(sunc.sun_vecs):
+            angles = self.embree.get_angle_results()
+            occlusion = self.embree.get_occluded_results()
+            irradiance_dn = self._calc_normal_irradiance(sunc, occlusion, angles)
 
-            # Results independent of weather data
-            face_in_sky = np.ones(len(sky_portion), dtype=bool)
-            for i in range(0, len(sky_portion)):
-                if sky_portion[i] > 0.5:
-                    face_in_sky[i] = False
+            outc.face_sun_angles = angles
+            outc.occlusion = occlusion
+            outc.irradiance_dn = irradiance_dn
 
-            results.res_acum.face_in_sky = face_in_sky
-
-            # Results which depends on wheater data
-            for sun in suns:
-                irradiance_diffuse = sun.irradiance_di
-                sky_portion_copy = copy.deepcopy(sky_portion)
-                diffuse_irradiance = irradiance_diffuse * sky_portion_copy
-                results.res_list[sun.index].face_irradiance_di = diffuse_irradiance
-
-    def _sun_precasting(self, suns: list[Sun], results: Results, sundome: SunDome):
-        if sundome is None:
-            error("Sundome is None, cannot run sky precasting calculations")
-            return
         else:
-            info("Sundome precasting started")
+            warning(f"Something went wrong with sun analysis in embree solar.")
+
+    def _sky_raycasting(self, sunc: SunCollection, outc: OutputCollection):
+        print(f"----- Running sky raycasting -----")
+        if self.embree.sky_raytrace_occ8():  # Array with nFace elements
+            facehit_sky = self.embree.get_face_skyhit_results()
+            visible_sky = self.embree.get_face_skyportion_results()
+            outc.visible_sky = visible_sky
+            outc.facehit_sky = facehit_sky
+            outc.irradiance_di = self._calc_diffuse_irradiance(sunc, visible_sky)
+        else:
+            warning(f"Something went wrong with sky analysis in embree solar.")
+
+    def _calc_diffuse_irradiance(self, sunc: SunCollection, visible_sky: np.ndarray):
+        diffuse_irradiance = []
+        for di in sunc.irradiance_di:
+            diffuse_irradiance.append(di * (1.0 - visible_sky))
+
+        return np.array(diffuse_irradiance)
+
+    def _calc_normal_irradiance(
+        self, sunc: SunCollection, occlusion: np.ndarray, angles: np.ndarray
+    ):
+        irradiance = []
+        for i in range(sunc.count):
+            # angle_fraction = 1 if the angle is pi (180 degrees).
+            angle_fraction = angles[i] / np.pi
+            face_in_sun = 1 - occlusion[i]
+            irr_for_sun = sunc.irradiance_dn[i] * face_in_sun * angle_fraction
+            irradiance.append(irr_for_sun)
+
+        return np.array(irradiance)
