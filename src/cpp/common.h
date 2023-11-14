@@ -85,10 +85,19 @@ static inline float CalcAngle2(Vector ray, Vector nml)
 {
     // If vectors are not unitized
     float dot = ray.x * nml.x + ray.y * nml.y + ray.z * nml.z;
+
     float magN = std::sqrt(nml.x * nml.x + nml.y * nml.y + nml.z * nml.z);
     float magR = std::sqrt(ray.x * ray.x + ray.y * ray.y + ray.z * ray.z);
-    float cosTheta = dot / (magN * magR);
-    float angleInRadians = std::acos(cosTheta);
 
+    // Check for zero vectors
+    if (magR == 0.0f || magN == 0.0f)
+        throw std::invalid_argument("Zero vector is not allowed.");
+
+    float cosTheta = dot / (magN * magR);
+
+    // Clamp cosTheta to the [-1, 1] range
+    cosTheta = std::max(-1.0f, std::min(1.0f, cosTheta));
+
+    float angleInRadians = std::acos(cosTheta);
     return angleInRadians;
 }

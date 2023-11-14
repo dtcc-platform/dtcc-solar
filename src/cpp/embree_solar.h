@@ -36,6 +36,7 @@ public:
 
     std::vector<std::vector<int>> GetMeshFaces();
     std::vector<std::vector<float>> GetMeshVertices();
+    std::vector<std::vector<float>> GetFaceNormals();
 
     std::vector<std::vector<int>> GetOccludedResults();
     std::vector<std::vector<float>> GetAngleResults();

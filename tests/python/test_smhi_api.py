@@ -3,7 +3,7 @@ import pandas as pd
 from pprint import pp
 from dtcc_solar import data_smhi
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import SimType, SolarParameters, DataSource, ColorBy
+from dtcc_solar.utils import SolarParameters, DataSource, ColorBy
 
 
 class TestSmhiApi:

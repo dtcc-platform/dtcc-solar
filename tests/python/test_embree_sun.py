@@ -5,7 +5,6 @@ from dtcc_solar import py_embree_solar
 from dtcc_model import Mesh, PointCloud
 from pprint import pp
 from dtcc_viewer import Scene, Window, MeshShading
-from dtcc_solar.utils import RayBundles
 
 
 class TestEmbreeSolar:
@@ -27,16 +26,10 @@ class TestEmbreeSolar:
         self.embree = py_embree_solar.PyEmbreeSolar(self.mesh.vertices, self.mesh.faces)
 
     def test_skydome_raytrace(self):
-        bundles = RayBundles.four
-
-        if bundles == RayBundles.one:
-            results = self.embree.sun_raytrace_occ1(self.sun_vecs)
-        elif bundles == RayBundles.four:
-            results = self.embree.sun_raytrace_occ4(self.sun_vecs)
-        elif bundles == RayBundles.eight:
-            results = self.embree.sun_raytrace_occ8(self.sun_vecs)
-        elif bundles == RayBundles.sixteen:
-            results = self.embree.sun_raytrace_occ16(self.sun_vecs)
+        results1 = self.embree.sun_raytrace_occ1(self.sun_vecs)
+        results2 = self.embree.sun_raytrace_occ4(self.sun_vecs)
+        results3 = self.embree.sun_raytrace_occ8(self.sun_vecs)
+        results4 = self.embree.sun_raytrace_occ16(self.sun_vecs)
 
         angles = self.embree.get_angle_results()
         occlusion = self.embree.get_occluded_results()

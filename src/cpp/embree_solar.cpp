@@ -101,6 +101,21 @@ std::vector<std::vector<float>> EmbreeSolar::GetMeshVertices()
     return vertices;
 }
 
+std::vector<std::vector<float>> EmbreeSolar::GetFaceNormals()
+{
+    auto vertices = std::vector<std::vector<float>>(mFaceCount, std::vector<float>(3, 0));
+
+    for (int i = 0; i < mFaceCount; i++)
+    {
+        Vector v = mFaceNormals[i];
+        vertices[i][0] = v.x;
+        vertices[i][1] = v.y;
+        vertices[i][2] = v.z;
+    }
+
+    return vertices;
+}
+
 std::vector<std::vector<int>> EmbreeSolar::GetSkydomeFaces()
 {
     return mSkydome->GetFaces();
@@ -333,11 +348,15 @@ void EmbreeSolar::Raytrace_occ4(std::vector<float> &angles, std::vector<int> &oc
                 hitCounter++;
                 occluded[rayIndex] = 1;
             }
-            // RayIndex is the same as FaceIndex
-            Vector ray = {rayBundle.dir_x[j], rayBundle.dir_y[j], rayBundle.dir_z[j]};
-            Vector nml = mFaceNormals[rayIndex];
-            float angle = CalcAngle(ray, nml);
-            angles[rayIndex] = angle;
+
+            if (valid[j] == -1) // If ray is valid
+            {
+                // RayIndex is the same as FaceIndex
+                Vector ray = {rayBundle.dir_x[j], rayBundle.dir_y[j], rayBundle.dir_z[j]};
+                Vector nml = mFaceNormals[rayIndex];
+                float angle = CalcAngle2(ray, nml);
+                angles[rayIndex] = angle;
+            }
         }
     }
 }
@@ -359,11 +378,15 @@ void EmbreeSolar::Raytrace_occ8(std::vector<float> &angles, std::vector<int> &oc
                 occluded[rayIndex] = 1;
                 hitCounter++;
             }
-            // RayIndex is the same as FaceIndex
-            Vector ray = {rayBundle.dir_x[j], rayBundle.dir_y[j], rayBundle.dir_z[j]};
-            Vector nml = mFaceNormals[rayIndex];
-            float angle = CalcAngle(ray, nml);
-            angles[rayIndex] = angle;
+
+            if (valid[j] == -1) // If ray is valid
+            {
+                // RayIndex is the same as FaceIndex
+                Vector ray = {rayBundle.dir_x[j], rayBundle.dir_y[j], rayBundle.dir_z[j]};
+                Vector nml = mFaceNormals[rayIndex];
+                float angle = CalcAngle2(ray, nml);
+                angles[rayIndex] = angle;
+            }
         }
     }
 }
@@ -385,11 +408,15 @@ void EmbreeSolar::Raytrace_occ16(std::vector<float> &angles, std::vector<int> &o
                 hitCounter++;
                 occluded[rayIndex] = 1;
             }
-            // RayIndex is the same as FaceIndex
-            Vector ray = {rayBundle.dir_x[j], rayBundle.dir_y[j], rayBundle.dir_z[j]};
-            Vector nml = mFaceNormals[rayIndex];
-            float angle = CalcAngle(ray, nml);
-            angles[rayIndex] = angle;
+
+            if (valid[j] == -1) // If ray is valid
+            {
+                // RayIndex is the same as FaceIndex
+                Vector ray = {rayBundle.dir_x[j], rayBundle.dir_y[j], rayBundle.dir_z[j]};
+                Vector nml = mFaceNormals[rayIndex];
+                float angle = CalcAngle2(ray, nml);
+                angles[rayIndex] = angle;
+            }
         }
     }
 }
@@ -724,6 +751,8 @@ PYBIND11_MODULE(py_embree_solar, m)
              { py::array out = py::cast(self.GetMeshFaces()); return out; })
         .def("get_mesh_vertices", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetMeshVertices()); return out; })
+        .def("get_face_normals", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetFaceNormals()); return out; })
         .def("get_skydome_faces", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetSkydomeFaces()); return out; })
         .def("get_skydome_vertices", [](EmbreeSolar &self)

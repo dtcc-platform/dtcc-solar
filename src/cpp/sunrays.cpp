@@ -308,7 +308,7 @@ void Sunrays::BundleRays()
         mRays4[bundleIndex4].mask[rayIndex4] = mask;
         mRays4[bundleIndex4].flags[rayIndex4] = flag;
 
-        // Set the validity of the ray in the bundle, -1 = Valied, 0 = Invalid
+        // Set the validity of the ray in the bundle, -1 = Valid, 0 = Invalid
         mRays4Valid[bundleIndex4][rayIndex4] = -1;
 
         rayIndex8 = i % 8;

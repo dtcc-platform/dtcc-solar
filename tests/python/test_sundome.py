@@ -8,10 +8,11 @@ from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.sundome import SunDome
 
+
 from pprint import pp
 from dtcc_model import Mesh, PointCloud
 from dtcc_viewer import Scene, Window, MeshShading
-from dtcc_solar.utils import SolarParameters
+from dtcc_solar.utils import SolarParameters, SunApprox
 
 
 class TestSunDome:
@@ -33,16 +34,15 @@ class TestSunDome:
             latitude=self.lat,
             longitude=self.lon,
             weather_file=self.w_file,
+            sun_approx=SunApprox.quad,
         )
 
         self.solar_engine = SolarEngine(self.city_mesh)
         self.sunpath = Sunpath(self.p, self.radius)
 
     def test_sundome_day_loops(self):
-        self.sundome = SunDome(self.sunpath, 150, 20)
-
-        mesh = self.sundome.mesh
-        pc_quad_mid_pts = self.sundome.pc
+        mesh = self.sunpath.sundome.mesh
+        pc_quad_mid_pts = self.sunpath.sundome.pc
 
         sun_pos_dict = self.sunpath.get_analemmas(2019, 2)
         pc_analemmas = self.sunpath.create_sunpath_pc(sun_pos_dict)

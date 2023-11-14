@@ -6,12 +6,15 @@ from dtcc_solar.utils import distance, SolarParameters, concatenate_meshes
 from dtcc_solar import py_embree_solar
 
 from dtcc_solar.sundome import SunDome
-from dtcc_solar.utils import SunCollection, OutputCollection
+from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox
 
+from dtcc_solar.sunpath import Sunpath
 from dtcc_model import Mesh, PointCloud
 from dtcc_model.geometry import Bounds
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_viewer import Window, Scene, MeshShading
+from dtcc_solar.sungroups import SunGroups
+from pprint import pp
 
 
 class SolarEngine:
@@ -98,21 +101,45 @@ class SolarEngine:
     def get_skydome_ray_count(self):
         return self.embree.get_skydome_ray_count()
 
-    def run_analysis(
-        self,
-        p: SolarParameters,
-        sunc: SunCollection,
-        outc: OutputCollection,
-        sundome: SunDome = None,
-    ):
+    def run_analysis(self, p: SolarParameters, sunp: Sunpath, outc: OutputCollection):
         if p.sun_analysis:
-            if p.use_quads and sundome is not None:
-                self._sun_quad_raycasting(sundome, sunc, outc)
-            else:
-                self._sun_raycasting(sunc, outc)
+            if p.sun_approx == SunApprox.quad and sunp.sundome is not None:
+                self._sun_quad_raycasting(sunp.sundome, sunp.sunc, outc)
+            elif p.sun_approx == SunApprox.group and sunp.sungroups is not None:
+                self._sun_group_raycasting(sunp.sungroups, sunp.sunc, outc)
+            elif p.sun_approx == SunApprox.none:
+                self._sun_raycasting(sunp.sunc, outc)
 
         if p.sky_analysis:
-            self._sky_raycasting(sunc, outc)
+            self._sky_raycasting(sunp.sunc, outc)
+
+    def _sun_group_raycasting(
+        self, sungroups: SunGroups, sunc: SunCollection, outc: OutputCollection
+    ):
+        sun_vecs = sungroups.list_centers
+        sun_indices = sungroups.sun_indices
+        n_groups = len(sun_vecs)
+
+        print(f" --- Anlysing {sunc.count} suns in {len(sun_vecs)} quad groups. ---")
+        if self.embree.sun_raytrace_occ8(sun_vecs):
+            group_angles = np.pi - self.embree.get_angle_results()
+            group_occlusion = self.embree.get_occluded_results()
+            angles = np.zeros((sunc.count, self.f_count))
+            occlusion = np.zeros((sunc.count, self.f_count))
+            # Map the results back to the individual sun positions
+            for i in range(n_groups):
+                g_angles = group_angles[i]
+                g_occlusion = group_occlusion[i]
+                for sun_index in sun_indices[i]:
+                    angles[sun_index, :] = g_angles
+                    occlusion[sun_index, :] = g_occlusion
+
+            irradiance_dn = self._calc_normal_irradiance(sunc, occlusion, angles)
+            outc.face_sun_angles = angles
+            outc.occlusion = occlusion
+            outc.irradiance_dn = irradiance_dn
+        else:
+            warning(f"Something went wrong in embree solar.")
 
     def _sun_quad_raycasting(
         self, sundome: SunDome, sunc: SunCollection, outc: OutputCollection
@@ -130,11 +157,9 @@ class SolarEngine:
         # scene.add_pointcloud("pc", pc)
         # window.render(scene)
 
-        print(
-            f" ----- Running sun quad raycasting for {sunc.count} suns in {len(sun_vecs)} quads. -----"
-        )
+        print(f" --- Anlysing {sunc.count} suns in {len(sun_vecs)} quad groups. ---")
         if self.embree.sun_raytrace_occ8(sun_vecs):
-            quad_angles = self.embree.get_angle_results()
+            quad_angles = np.pi - self.embree.get_angle_results()
             quad_occlusion = self.embree.get_occluded_results()
             angles = np.zeros((sunc.count, self.f_count))
             occlusion = np.zeros((sunc.count, self.f_count))
@@ -156,7 +181,7 @@ class SolarEngine:
     def _sun_raycasting(self, sunc: SunCollection, outc: OutputCollection):
         print(f"----- Running sun raycasting -----")
         if self.embree.sun_raytrace_occ8(sunc.sun_vecs):
-            angles = self.embree.get_angle_results()
+            angles = np.pi - self.embree.get_angle_results()
             occlusion = self.embree.get_occluded_results()
             irradiance_dn = self._calc_normal_irradiance(sunc, occlusion, angles)
 
@@ -192,7 +217,7 @@ class SolarEngine:
         for i in range(sunc.count):
             # angle_fraction = 1 if the angle is pi (180 degrees).
             angle_fraction = angles[i] / np.pi
-            face_in_sun = 1 - occlusion[i]
+            face_in_sun = 1.0 - occlusion[i]
             irr_for_sun = sunc.irradiance_dn[i] * face_in_sun * angle_fraction
             irradiance.append(irr_for_sun)
 

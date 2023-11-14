@@ -18,6 +18,12 @@ class DataSource(IntEnum):
     epw = 4
 
 
+class SunApprox(IntEnum):
+    none = 1
+    group = 2
+    quad = 3
+
+
 class ColorBy(IntEnum):
     face_sun_angle = 1
     occlusion = 2
@@ -117,9 +123,11 @@ class SolarParameters:
     export: bool = False
     start_date: str = "2019-06-03 07:00:00"
     end_date: str = "2019-06-03 21:00:00"
-    use_quads: bool = False
+    sun_approx: SunApprox = SunApprox.none
     sun_analysis: bool = True
     sky_analysis: bool = False
+    suns_per_group: int = 8
+    sundome_div: tuple[int, int] = (150, 20)
 
 
 def dict_2_np_array(sun_pos_dict):
@@ -273,11 +281,12 @@ def scalar_product(vec1, vec2):
 
 
 def distance(v1, v2):
-    return math.sqrt(
+    d = math.sqrt(
         math.pow((v1[0] - v2[0]), 2)
         + math.pow((v1[1] - v2[1]), 2)
-        + +math.pow((v1[2] - v2[2]), 2)
+        + math.pow((v1[2] - v2[2]), 2)
     )
+    return d
 
 
 def reverse_mask(mask):
@@ -395,3 +404,14 @@ def match_sunpath_scale(loop_pts, radius: float):
             loop_pts[hour][i] = pt
 
     return loop_pts
+
+
+def calc_face_mid_points(mesh):
+    faceVertexIndex1 = mesh.faces[:, 0]
+    faceVertexIndex2 = mesh.faces[:, 1]
+    faceVertexIndex3 = mesh.faces[:, 2]
+    vertex1 = np.array(mesh.vertices[faceVertexIndex1])
+    vertex2 = np.array(mesh.vertices[faceVertexIndex2])
+    vertex3 = np.array(mesh.vertices[faceVertexIndex3])
+    face_mid_points = (vertex1 + vertex2 + vertex3) / 3.0
+    return face_mid_points

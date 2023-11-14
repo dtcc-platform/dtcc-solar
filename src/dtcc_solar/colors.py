@@ -3,6 +3,21 @@ from dtcc_solar.utils import ColorBy, OutputCollection
 from pprint import pp
 
 
+def create_data_dict(outc: OutputCollection):
+    fsa = np.sum(outc.face_sun_angles, axis=0)
+    occ = np.sum((1 - outc.occlusion), axis=0)
+    dn = np.sum(outc.irradiance_dn, axis=0)
+    # di = np.sum(outc.irradiance_di, axis=0)
+    # dh = np.sum(outc.irradiance_dh, axis=0)
+    data_dict = {
+        "face sun angles": fsa,
+        "inverse occlusion": occ,
+        "direct normal irradiance": dn,
+    }
+
+    return data_dict
+
+
 def color_mesh(outc: OutputCollection, color_by: ColorBy):
     colors = []
     if color_by == ColorBy.face_sun_angle:

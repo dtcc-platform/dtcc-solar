@@ -7,9 +7,8 @@ import copy
 
 from dtcc_solar import utils
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import SimType, SolarParameters, SunCollection, OutputCollection
+from dtcc_solar.utils import SolarParameters, SunApprox, OutputCollection
 from dtcc_solar.solar_engine import SolarEngine
-from dtcc_solar.results import Results
 from dtcc_solar.sundome import SunDome
 from dtcc_io import meshes
 from dtcc_model import Mesh
@@ -24,7 +23,6 @@ class TestRaytracing:
     lat: float
     city_mesh: Mesh
     solar_engine: SolarEngine
-    sunpath: Sunpath
     sunpath: Sunpath
     suns: List[Any]
     file_name: str
@@ -56,7 +54,7 @@ class TestRaytracing:
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
-        self.solar_engine.run_analysis(p, sunpath.sunc, outputc)
+        self.solar_engine.run_analysis(p, sunpath, outputc)
 
         # occ = len(self.city_mesh.faces) == len(outputc.occlusion[0])
         # ang = len(self.city_mesh.faces) == len(outputc.face_sun_angles[0])
@@ -72,7 +70,7 @@ class TestRaytracing:
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
-        self.solar_engine.run_analysis(p, sunpath.sunc, outputc)
+        self.solar_engine.run_analysis(p, sunpath, outputc)
 
         nfaces = len(self.solar_engine.mesh.faces)
         nsuns = sunpath.sunc.count
@@ -89,11 +87,11 @@ class TestRaytracing:
         p.use_quads = True
         p.start_date = "2019-01-01 00:00:00"
         p.end_date = "2019-12-31 23:00:00"
+        p.sun_approx = SunApprox.quad
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
-        sundome = SunDome(sunpath, 150, 20)
-        self.solar_engine.run_analysis(p, sunpath.sunc, outputc, sundome)
+        self.solar_engine.run_analysis(p, sunpath, outputc)
 
         nfaces = len(self.solar_engine.mesh.faces)
         nsuns = sunpath.sunc.count
@@ -112,7 +110,7 @@ class TestRaytracing:
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
-        self.solar_engine.run_analysis(p, sunpath.sunc, outputc)
+        self.solar_engine.run_analysis(p, sunpath, outputc)
 
         facehit_sky = outputc.facehit_sky
         ray_count = len(facehit_sky) * len(facehit_sky[0])

@@ -5,7 +5,7 @@ import datetime
 import numpy as np
 import pandas as pd
 from dtcc_solar import utils
-from dtcc_solar.utils import SunCollection, DataSource, unitize
+from dtcc_solar.utils import SunCollection, DataSource, unitize, SunApprox
 from dtcc_solar.utils import SolarParameters
 from pvlib import solarposition
 from dtcc_solar import data_clm, data_epw, data_meteo, data_smhi
@@ -13,6 +13,8 @@ from dtcc_model import Mesh, PointCloud
 from dtcc_solar.colors import get_blended_color_yellow_red
 from dtcc_solar.utils import concatenate_meshes
 from dtcc_solar.logging import info, debug, warning, error
+from dtcc_solar.sungroups import SunGroups
+from dtcc_solar.sundome import SunDome
 
 # from timezonefinder import TimezoneFinder
 from pprint import pp
@@ -34,14 +36,28 @@ class Sunpath:
     daypath_meshes: list[Mesh]  # Day paths for three dates in a year
     analemmas_pc: PointCloud  # Analemmas for each hour in a year as a point cloud
 
+    sungroups: SunGroups
+    sundome: SunDome
+
     def __init__(self, p: SolarParameters, radius: float, include_night: bool = False):
         self.lat = p.latitude
         self.lon = p.longitude
         self.r = radius
         self.origin = np.array([0, 0, 0])
+        self.sungroups = None
+        self.sundome = None
         self.create_suns(p, include_night)
+
         if p.display:
             self._build_sunpath_mesh()
+
+        if p.sun_approx == SunApprox.group:
+            sun_pos_dict = self.get_analemmas(2019, p.suns_per_group)
+            self.sungroups = SunGroups(sun_pos_dict, self.sunc)
+        elif p.sun_approx == SunApprox.quad:
+            dates = pd.date_range(start="2019-01-01", end="2019-12-31", freq="1D")
+            sun_pos_dict = self.get_daypaths(dates, 10)
+            self.sundome = SunDome(sun_pos_dict, self.r, p.sundome_div)
 
     def get_analemmas(self, year: int, sample_rate: int):
         start_date = str(year) + "-01-01 12:00:00"
@@ -155,6 +171,8 @@ class Sunpath:
         zeniths = []
         for i in range(self.sunc.count):
             sun_vec = unitize(np.array([x_sun[i], y_sun[i], z_sun[i]]))
+            # length = np.linalg.norm(sun_vec)
+            # print(length)
             sun_vecs.append(sun_vec)
             positions.append(np.array([x_sun[i], y_sun[i], z_sun[i]]))
             zeniths.append(zeni[i])
@@ -202,7 +220,7 @@ class Sunpath:
 
         # Get analemmas mesh and sun positions represented as a point cloud
         sun_pos_dict = self.get_analemmas(2019, 2)
-        self.analemmas_meshes = self._create_mesh_strip(sun_pos_dict, self.r, self.w)
+        self.analemmas_meshes = self.create_mesh_strip(sun_pos_dict, self.r, self.w)
         self.analemmas_pc = self.create_sunpath_pc(sun_pos_dict)
 
         # Get every sun position for each minute in a year as points in a point cloud
@@ -213,7 +231,7 @@ class Sunpath:
         # Get day path loops as mesh strips
         days = pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"])
         days_dict = self.get_daypaths(days, 2)
-        self.daypath_meshes = self._create_mesh_strip(days_dict, self.r, self.w)
+        self.daypath_meshes = self.create_mesh_strip(days_dict, self.r, self.w)
 
         # Create pc representation of current sun positions
         self.sun_pc = self._create_sun_spheres()
@@ -224,14 +242,7 @@ class Sunpath:
 
         info("Sunpath mesh representation created")
 
-    def _create_sun_spheres(self):
-        points = []
-        points = self.sunc.positions
-        points = np.array(points)
-        pc = PointCloud(points=points)
-        return pc
-
-    def _create_mesh_strip(self, sun_pos_dict, radius: float, width: float):
+    def create_mesh_strip(self, sun_pos_dict, radius: float, width: float):
         meshes = []
 
         for h in sun_pos_dict:
@@ -253,8 +264,8 @@ class Sunpath:
                 sun_pos_1 = np.array([pos[i].x, pos[i].y, pos[i].z])
                 sun_pos_2 = np.array([pos[i_next].x, pos[i_next].y, pos[i_next].z])
 
-                vec_1 = utils.unitize(0.5 * (sun_pos_1 + sun_pos_2))
-                vec_2 = utils.unitize(sun_pos_2 - sun_pos_1)
+                vec_1 = unitize(0.5 * (sun_pos_1 + sun_pos_2))
+                vec_2 = unitize(sun_pos_2 - sun_pos_1)
                 vec_3 = np.cross(vec_1, vec_2)
 
                 # Offset vertices to create a width for path
@@ -284,6 +295,13 @@ class Sunpath:
             meshes.append(mesh)
 
         return meshes
+
+    def _create_sun_spheres(self):
+        points = []
+        points = self.sunc.positions
+        points = np.array(points)
+        pc = PointCloud(points=points)
+        return pc
 
     def create_sunpath_pc(self, sun_pos_dict):
         points = []

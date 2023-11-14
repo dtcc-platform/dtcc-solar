@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from dtcc_model import Mesh, PointCloud
 from dtcc_solar.utils import SunQuad, SunCollection
-from dtcc_solar.sunpath import Sunpath
 from shapely import LineString
 from pprint import pp
 from dtcc_solar.utils import distance, unitize
@@ -21,18 +20,16 @@ class SunDome:
     active_quads: list[SunQuad]
     quad_mid_pts: np.ndarray  # [n_quads * 3] mid points for all quads
 
-    def __init__(self, sunpath: Sunpath, div_n: int, div_m: int):
+    def __init__(self, sun_pos_dict: dict, radius: float, div: tuple[int, int]):
         self.center = np.array([0, 0, 0])
         self.all_quads = []
         self.active_quads = []
-        day_loop1, day_loop2 = self._calc_outermost_day_loops(sunpath)
-        self._create_mesh(sunpath.r, day_loop1, day_loop2, div_n, div_m)
+        day_loop1, day_loop2 = self._calc_outermost_day_loops(sun_pos_dict)
+        self._create_mesh(radius, day_loop1, day_loop2, div[0], div[1])
         self._process_quads()
 
-    def _calc_outermost_day_loops(self, sunpath: Sunpath):
+    def _calc_outermost_day_loops(self, sun_pos_dict: dict):
         """Returns the outermost day path loops"""
-        dates = pd.date_range(start="2019-01-01", end="2019-12-31", freq="1D")
-        sun_pos_dict = sunpath.get_daypaths(dates, 10)
         day_loops = []
         avrg_pts = []
 
