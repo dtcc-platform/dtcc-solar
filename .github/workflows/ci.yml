@@ -25,7 +25,7 @@ jobs:
     - name: clone repo
       run: git clone https://github.com/dtcc-platform/${{ github.event.repository.name }} -b $BRANCH && pwd
     - name: pip install
-      run: export "DEB_PYTHON_INSTALL_LAYOUT=deb_system" && pip install ${{ github.event.repository.name }}/
+      run: export "DEB_PYTHON_INSTALL_LAYOUT=deb_system" && sudo apt-get install libembree-dev && pip install ${{ github.event.repository.name }}/
     # Not needed for anything apart from dtcc-model
     #- name: cmake install
     #run: cd ${{ github.event.repository.name }}/build/ && cmake .. && make all && sudo make install && cd ..
