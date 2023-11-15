@@ -23,9 +23,9 @@ jobs:
     # VN at 16 March 2023: checkout/v3 causes some weird issues, so went for manual cloning instead...
     #- uses: actions/checkout@v3
     - name: clone repo
-      run: git clone https://github.com/dtcc-platform/${{ github.event.repository.name }} -b $BRANCH && pwd
+      run: git clone https://github.com/dtcc-platform/${{ github.event.repository.name }} -b $BRANCH && pwd && sudo apt-get install -y libembree-dev
     - name: pip install
-      run: export "DEB_PYTHON_INSTALL_LAYOUT=deb_system" && sudo apt-get install libembree-dev && pip install ${{ github.event.repository.name }}/
+      run: export "DEB_PYTHON_INSTALL_LAYOUT=deb_system" && sudo apt-get install -y libembree-dev && pip install ${{ github.event.repository.name }}/
     # Not needed for anything apart from dtcc-model
     #- name: cmake install
     #run: cd ${{ github.event.repository.name }}/build/ && cmake .. && make all && sudo make install && cd ..
