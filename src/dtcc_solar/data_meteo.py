@@ -18,7 +18,7 @@ def get_data(lon: float, lat: float, sunc: SunCollection):
     url_2 = "latitude=" + str(lat) + "&longitude=" + str(lon)
     url_3 = "&start_date=" + date_from_str + "&end_date=" + date_to_str
     url_4 = "&hourly=direct_normal_irradiance"
-    url_5 = "&hourly=direct_radiation"  # diffuse_radiation"
+    url_5 = "&hourly=direct_radiation"
     url_6 = "&hourly=diffuse_radiation"
 
     # Direct normal irradiance, units W/m2

@@ -4,7 +4,6 @@ import pandas as pd
 import math
 import os
 
-import dtcc_solar.data_io as io
 from dtcc_solar.scripts.main import run_script
 from dtcc_solar.sunpath import Sunpath, SunpathVis, SunpathUtils
 

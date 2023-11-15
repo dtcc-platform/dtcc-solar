@@ -4,7 +4,6 @@ from dtcc_solar.skydome import SkyDome
 from dtcc_solar.utils import distance, SolarParameters, concatenate_meshes
 
 from dtcc_solar import py_embree_solar
-
 from dtcc_solar.sundome import SunDome
 from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox
 
@@ -34,6 +33,7 @@ class SolarEngine:
     city_mesh_points: np.ndarray
     city_mesh_face_mid_points: np.ndarray
     skydome: SkyDome
+    face_areas: np.ndarray
 
     def __init__(self, mesh: Mesh) -> None:
         self.mesh = mesh
@@ -50,13 +50,14 @@ class SolarEngine:
 
         # Creating instance of embree solar
         self.embree = py_embree_solar.PyEmbreeSolar(mesh.vertices, mesh.faces)
-
         info("Solar engine created")
 
     def _preprocess_mesh(self, move_to_center: bool):
         self._calc_bounds()
         # Center mesh based on x and y coordinates only
-        center_bb = np.array([np.average(self.bbx), np.average(self.bby), 0])
+        center_bb = np.array(
+            [np.average(self.bbx), np.average(self.bby), np.average(self.bbz)]
+        )
         centerVec = self.origin - center_bb
 
         # Move the mesh to the centre of the model
@@ -82,6 +83,8 @@ class SolarEngine:
         self.dome_radius = self.sunpath_radius / 40
         self.tolerance = self.sunpath_radius / 1.0e7
 
+        self._calc_face_areas()
+
         info(f"Tolerance for point comparions set to: {self.tolerance}")
 
     def _calc_bounds(self):
@@ -98,6 +101,19 @@ class SolarEngine:
 
         self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
+    def _calc_face_areas(self):
+        areas = []
+        for face in self.mesh.faces:
+            v1 = self.mesh.vertices[face[0]]
+            v2 = self.mesh.vertices[face[1]]
+            v3 = self.mesh.vertices[face[2]]
+            v1v2 = v2 - v1
+            v1v3 = v3 - v1
+            area = 0.5 * np.linalg.norm(np.cross(v1v2, v1v3))
+            areas.append(area)
+
+        self.face_areas = np.array(areas)
+
     def get_skydome_ray_count(self):
         return self.embree.get_skydome_ray_count()
 
@@ -112,6 +128,8 @@ class SolarEngine:
 
         if p.sky_analysis:
             self._sky_raycasting(sunp.sunc, outc)
+
+        outc.calculate_watts(self.face_areas)
 
     def _sun_group_raycasting(
         self, sungroups: SunGroups, sunc: SunCollection, outc: OutputCollection

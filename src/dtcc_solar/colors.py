@@ -7,16 +7,15 @@ def create_data_dict(outc: OutputCollection):
     fsa = np.sum(outc.face_sun_angles, axis=0)
     occ = np.sum((1 - outc.occlusion), axis=0)
     dn = np.sum(outc.irradiance_dn, axis=0)
+    di = np.sum(outc.irradiance_di, axis=0)
 
-    print(outc.irradiance_di)
-    print(outc.irradiance_dh)
-
-    # di = np.sum(outc.irradiance_di, axis=0)
-    # dh = np.sum(outc.irradiance_dh, axis=0)
     data_dict = {
-        "face sun angles": fsa,
-        "inverse occlusion": occ,
-        "direct normal irradiance": dn,
+        "face sun angles (rad)": fsa,
+        "inverse occlusion (0-1)": occ,
+        "direct normal irradiance (W/m2)": dn,
+        "diffuse irradiance (W/m2)": di,
+        "total irradiance (W/m2)": dn + di,
+        "watts per face (W)": outc.watts,
     }
 
     return data_dict

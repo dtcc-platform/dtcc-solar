@@ -54,7 +54,7 @@ def import_data(sunc: SunCollection, weather_file: str):
     sun_index = 0
     epw_index = 0
     for epw_date in year_dates:
-        if sun_index < sunc.count:  # len(suns):
+        if sun_index < sunc.count:
             sun_date = sunc.datetime_strs[sun_index]
             if date_match(epw_date, sun_date):
                 sunc.irradiance_dn[sun_index] = direct_normal_radiation[epw_index]

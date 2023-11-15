@@ -8,10 +8,7 @@ import pathlib
 from pvlib import solarposition
 from dtcc_solar import utils
 from pprint import pp
-import dtcc_solar.data_io
-from dtcc_solar.data_io import Vec3
 import pytz
-from tzwhere import tzwhere
 from timezonefinder import TimezoneFinder
 import datetime
 import shapely
@@ -108,7 +105,6 @@ def get_sunpath_hour_loops(
         + name_extension
         + ".csv"
     )
-    dtcc_solar.data_io.print_list(sol_pos_hour.index.to_list(), filename)
 
     print("Size sol_pos_hour: " + str(len(sol_pos_hour)))
 
@@ -139,7 +135,6 @@ def get_sunpath_hour_loops(
         + name_extension
         + ".csv"
     )
-    dtcc_solar.data_io.print_list(my_Datetimeindex.timetz, filename2)
 
     x = dict.fromkeys([h for h in loop_hours])
     y = dict.fromkeys([h for h in loop_hours])
