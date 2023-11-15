@@ -207,13 +207,13 @@ class Sunpath:
 
     def _append_weather_data(self, p: SolarParameters):
         if p.data_source == DataSource.smhi:
-            self.sunc = data_smhi.get_data(p.longitude, p.latitude, self.sunc)
+            data_smhi.get_data(p.longitude, p.latitude, self.sunc)
         if p.data_source == DataSource.meteo:
-            self.sunc = data_meteo.get_data(p.longitude, p.latitude, self.sunc)
+            data_meteo.get_data(p.longitude, p.latitude, self.sunc)
         elif p.data_source == DataSource.clm:
-            self.sunc = data_clm.import_data(self.sunc, p.weather_file)
+            data_clm.import_data(self.sunc, p.weather_file)
         elif p.data_source == DataSource.epw:
-            self.sunc = data_epw.import_data(self.sunc, p.weather_file)
+            data_epw.import_data(self.sunc, p.weather_file)
 
     def _build_sunpath_mesh(self):
         self.w = self.r / 300

@@ -84,7 +84,6 @@ class TestRaytracing:
         p = copy.deepcopy(self.p)
         p.sun_analysis = True
         p.sky_analysis = True
-        p.use_quads = True
         p.start_date = "2019-01-01 00:00:00"
         p.end_date = "2019-12-31 23:00:00"
         p.sun_approx = SunApprox.quad

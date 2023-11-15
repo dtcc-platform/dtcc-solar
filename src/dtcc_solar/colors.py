@@ -7,6 +7,10 @@ def create_data_dict(outc: OutputCollection):
     fsa = np.sum(outc.face_sun_angles, axis=0)
     occ = np.sum((1 - outc.occlusion), axis=0)
     dn = np.sum(outc.irradiance_dn, axis=0)
+
+    print(outc.irradiance_di)
+    print(outc.irradiance_dh)
+
     # di = np.sum(outc.irradiance_di, axis=0)
     # dh = np.sum(outc.irradiance_dh, axis=0)
     data_dict = {
@@ -16,40 +20,6 @@ def create_data_dict(outc: OutputCollection):
     }
 
     return data_dict
-
-
-def color_mesh(outc: OutputCollection, color_by: ColorBy):
-    colors = []
-    if color_by == ColorBy.face_sun_angle:
-        fsa = np.sum(outc.face_sun_angles, axis=0)
-        colors = calc_colors(fsa)
-    elif color_by == ColorBy.occlusion:
-        occ = np.sum(outc.occlusion, axis=0)
-        colors = calc_colors(occ)
-    elif color_by == ColorBy.irradiance_dn:
-        dn = np.sum(outc.irradiance_dn, axis=0)
-        colors = calc_colors(dn)
-    elif color_by == ColorBy.irradiance_dh:
-        dh = np.sum(outc.irradiance_dh, axis=0)
-        colors = calc_colors(dh)
-    elif color_by == ColorBy.irradiance_di:
-        di = np.sum(outc.irradiance_di, axis=0)
-        colors = calc_colors(di)
-    elif color_by == ColorBy.irradiance_tot:
-        pp(outc.irradiance_dn)
-        dn = np.sum(outc.irradiance_dn, axis=0)
-        di = np.sum(outc.irradiance_di, axis=0)
-        pp(dn)
-        tot = dn + di
-        colors = calc_colors(tot)
-    else:
-        print("Color calculation for city mesh failed!")
-
-    return colors
-
-
-def color_analemmas():
-    pass
 
 
 def calc_colors(values):

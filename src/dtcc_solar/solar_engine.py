@@ -120,7 +120,7 @@ class SolarEngine:
         sun_indices = sungroups.sun_indices
         n_groups = len(sun_vecs)
 
-        print(f" --- Anlysing {sunc.count} suns in {len(sun_vecs)} quad groups. ---")
+        print(f" --- Anlysing {sunc.count} suns in {len(sun_vecs)} sun groups. ---")
         if self.embree.sun_raytrace_occ8(sun_vecs):
             group_angles = np.pi - self.embree.get_angle_results()
             group_occlusion = self.embree.get_occluded_results()
@@ -147,15 +147,6 @@ class SolarEngine:
         sundome.match_suns_and_quads(sunc)
         active_quads = sundome.active_quads
         sun_vecs = sundome.get_active_quad_centers()
-
-        # active_quads_meshes = sundome.get_active_quad_meshes()
-        # one_mesh = concatenate_meshes(active_quads_meshes)
-        # pc = PointCloud(points=sunc.positions)
-        # window = Window(1200, 800)
-        # scene = Scene()
-        # scene.add_mesh("Mesh diffuse", one_mesh)
-        # scene.add_pointcloud("pc", pc)
-        # window.render(scene)
 
         print(f" --- Anlysing {sunc.count} suns in {len(sun_vecs)} quad groups. ---")
         if self.embree.sun_raytrace_occ8(sun_vecs):

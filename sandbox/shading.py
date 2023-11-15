@@ -29,7 +29,7 @@ class Shading:
         edgeLengthAverage = mc.calculate_average_edge_length(self.meshes.city_mesh)
         targetLength = 0.05 * edgeLengthAverage
         evalMesh = copy.deepcopy(self.meshes.city_mesh)
-        sun_vec_rev = utils.reverse_vector(sun_vec)
+        sun_vec_rev = -1.0 * sun_vec
         all_face_in_sun = np.array([], dtype=bool)
         all_face_shading = np.array([])
 

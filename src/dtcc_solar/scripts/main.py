@@ -1,17 +1,12 @@
-import numpy as np
-import pandas as pd
 import os
 import time
 
-from dtcc_solar.utils import ColorBy, OutputCollection, SolarParameters, DataSource
-from dtcc_solar.utils import SunApprox
+from dtcc_solar.utils import OutputCollection, SolarParameters, DataSource, SunApprox
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.viewer import Viewer
-from dtcc_solar.sundome import SunDome
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
-from dtcc_solar.colors import color_mesh, create_data_dict
-from dtcc_solar.sungroups import SunGroups
+from dtcc_solar.colors import create_data_dict
 
 from dtcc_model import Mesh
 from dtcc_io import meshes
@@ -33,7 +28,7 @@ def run_script(solar_parameters: SolarParameters):
     if p.display:
         data_dict = create_data_dict(outputc)
         viewer = Viewer()
-        viewer.build_sunpath_diagram(sunpath)
+        viewer.build_sunpath_diagram(sunpath, p)
         viewer.add_mesh("City mesh", mesh=mesh, data=data_dict)
         viewer.show()
 
@@ -44,34 +39,56 @@ if __name__ == "__main__":
     inputfile_M = "../../../data/models/CitySurfaceM.stl"
     inputfile_L = "../../../data/models/CitySurfaceL.stl"
 
-    weather_file_clm = (
-        "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
+    lnd_clm = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
+    lnd_epw = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+    gbg_clm = "../../../data/weather/SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.clm"
+    gbg_epw = "../../../data/weather/SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.epw"
+    sth_clm = (
+        "../../../data/weather/SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.clm"
+    )
+    sth_epw = (
+        "../../../data/weather/SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
     )
 
-    # Iterative solar analysis
+    # Gothenburg
     p_1 = SolarParameters(
         file_name=inputfile_L,
-        weather_file=weather_file_clm,
+        weather_file=gbg_clm,
         start_date="2019-01-01 00:00:00",
         end_date="2019-12-31 00:00:00",
-        data_source=DataSource.clm,
-        color_by=ColorBy.irradiance_dn,
+        longitude=11.97,
+        latitude=57.71,
+        data_source=DataSource.smhi,
         sun_analysis=True,
         sky_analysis=True,
         sun_approx=SunApprox.group,
     )
 
-    # Iterative solar analysis
+    # Stockholm
     p_2 = SolarParameters(
         file_name=inputfile_L,
-        weather_file=weather_file_clm,
+        weather_file=sth_clm,
         start_date="2019-01-01 00:00:00",
         end_date="2019-12-31 00:00:00",
+        longitude=18.063,
+        latitude=59.33,
         data_source=DataSource.clm,
-        color_by=ColorBy.irradiance_dn,
         sun_analysis=True,
         sky_analysis=True,
         sun_approx=SunApprox.quad,
+    )
+
+    # Rio de Janeiro
+    p_3 = SolarParameters(
+        file_name=inputfile_L,
+        start_date="2019-01-01 00:00:00",
+        end_date="2019-12-31 00:00:00",
+        longitude=-43.19,
+        latitude=-22.90,
+        data_source=DataSource.meteo,
+        sun_analysis=True,
+        sky_analysis=True,
+        sun_approx=SunApprox.group,
     )
 
     run_script(p_1)

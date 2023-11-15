@@ -27,7 +27,7 @@ class SkyDome:
         self.ray_in_sky = 0
         self.face_in_sky = 0
         self.face_intensity = 0
-        self.quad_sun_angle = 0
+        # self.quad_sun_angle = 0
         self.quad_count = 0
 
         self.build_mesh()
@@ -114,15 +114,6 @@ class SkyDome:
         self.quad_count = len(self.meshes_quads)
 
         info("Sky dome mesh created")
-
-    def calc_quad_sun_angle(self, sun_vec):
-        quad_sun_angle = np.zeros(len(self.ray_targets))
-        for i in range(0, len(self.ray_targets)):
-            vec_ray = self.ray_targets[i]
-            angle = utils.vector_angle(vec_ray, sun_vec)
-            quad_sun_angle[i] = angle
-
-        self.quad_sun_angle = quad_sun_angle
 
     # Create two triangles that represent the mesh that goes with a particular sky dome ray.
     def create_dome_mesh_quad(self, ray_length, azim, next_azim, elev, next_elev):
@@ -244,3 +235,15 @@ class SkyDome:
         area1 = math.pi * (((C1 * C1) / 4) + h1 * h1)
         area2 = math.pi * (((C2 * C2) / 4) + h2 * h2)
         return area2 - area1
+
+
+"""
+    def calc_quad_sun_angle(self, sun_vec):
+        quad_sun_angle = np.zeros(len(self.ray_targets))
+        for i in range(0, len(self.ray_targets)):
+            vec_ray = self.ray_targets[i]
+            angle = utils.vector_angle(vec_ray, sun_vec)
+            quad_sun_angle[i] = angle
+
+        self.quad_sun_angle = quad_sun_angle
+"""

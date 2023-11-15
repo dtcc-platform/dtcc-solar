@@ -3,7 +3,7 @@ from dtcc_viewer import Scene, Window, MeshShading
 from dtcc_model import Mesh, PointCloud
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import concatenate_meshes
+from dtcc_solar.utils import concatenate_meshes, SolarParameters, SunApprox
 from dtcc_solar.sundome import SunDome
 from dtcc_solar.sungroups import SunGroups
 from typing import Any
@@ -36,18 +36,18 @@ class Viewer:
     ):
         self.scene.add_pointcloud(name, pc=pc, size=size, colors=colors, data=data)
 
-    def build_sunpath_diagram(self, sunpath: Sunpath):
-        if sunpath.sungroups is not None:
+    def build_sunpath_diagram(self, sunpath: Sunpath, p: SolarParameters):
+        if p.sun_approx == SunApprox.group:
             group_centers_pc = sunpath.sungroups.centers_pc
             self.add_pc("Group centers", group_centers_pc, 1.5 * sunpath.w)
-
-        if sunpath.sundome is not None:
-            sky_mesh = sunpath.sundome.mesh
-            self.add_mesh("Sunpath mesh", mesh=sky_mesh, shading=MeshShading.wireframe)
-
-        # analemmas = sunpath.analemmas_meshes
-        # analemmas = concatenate_meshes(analemmas)
-        # self.add_mesh("Analemmas", mesh=analemmas, shading=MeshShading.ambient)
+        elif p.sun_approx == SunApprox.quad:
+            # sky_mesh = sunpath.sundome.mesh
+            quads = sunpath.sundome.get_active_quad_meshes()
+            centers = sunpath.sundome.get_active_quad_centers()
+            centers_pc = PointCloud(points=centers)
+            quads = concatenate_meshes(quads)
+            self.add_pc("Quad centers", centers_pc, 1.5 * sunpath.w)
+            self.add_mesh("Sunpath mesh", mesh=quads, shading=MeshShading.wireframe)
 
         day_paths = sunpath.daypath_meshes
         day_paths = concatenate_meshes(day_paths)

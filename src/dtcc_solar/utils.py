@@ -118,8 +118,7 @@ class SolarParameters:
     latitude: float = 51.5
     longitude: float = -0.12
     display: bool = True
-    data_source: DataSource = DataSource.clm
-    color_by: ColorBy = ColorBy.face_sun_angle
+    data_source: DataSource = DataSource.meteo
     export: bool = False
     start_date: str = "2019-06-03 07:00:00"
     end_date: str = "2019-06-03 21:00:00"
@@ -241,43 +240,9 @@ def unitize(vec: np.ndarray):
     return vecNorm
 
 
-def reverse_vector(vec):
-    vecRev = -1.0 * vec
-    return vecRev
-
-
 def calc_vector_length(vec: np.ndarray):
     length = math.sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2])
     return length
-
-
-def vector_angle(vec1, vec2):
-    lengthV1 = calc_vector_length(vec1)
-    lengthV2 = calc_vector_length(vec2)
-    scalarV1V2 = scalar_product(vec1, vec2)
-    denominator = lengthV1 * lengthV2
-    if denominator != 0:
-        angle = math.acos(scalarV1V2 / (denominator))
-        return angle
-    return 0
-
-
-def calculate_normal(v1, v2):
-    v3 = cross_product(v1, v2)
-    normal = unitize(v3)
-    return normal
-
-
-def cross_product(a, b):
-    vCross = np.zeros(3)
-    vCross[0] = a[1] * b[2] - a[2] * b[1]
-    vCross[1] = a[2] * b[0] - a[0] * b[2]
-    vCross[2] = a[0] * b[1] - a[1] * b[0]
-    return vCross
-
-
-def scalar_product(vec1, vec2):
-    return vec1[0] * vec2[0] + vec1[1] * vec2[1] + vec1[2] * vec2[2]
 
 
 def distance(v1, v2):
@@ -287,23 +252,6 @@ def distance(v1, v2):
         + math.pow((v1[2] - v2[2]), 2)
     )
     return d
-
-
-def reverse_mask(mask):
-    revMask = [not elem for elem in mask]
-    return revMask
-
-
-def get_index_of_closest_point(point, array_of_points):
-    dmin = 10000000000
-    index = -1
-    for i in range(0, len(array_of_points)):
-        d = distance(point, array_of_points[i])
-        if d < dmin:
-            dmin = d
-            index = i
-
-    return index
 
 
 def concatenate_meshes(meshes: list[Mesh]):
@@ -338,13 +286,6 @@ def print_list(listToPrint, path):
             counter += 1
 
     print("Export completed")
-
-
-def print_dict(dictToPrint, filename):
-    counter = 0
-    with open(filename, "w") as f:
-        for key in dictToPrint:
-            f.write("Key:" + str(key) + " " + str(dictToPrint[key]) + "\n")
 
 
 def print_results(shouldPrint, faceRayFaces):
