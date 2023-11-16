@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import SolarParameters, SunCollection, DataSource, ColorBy
+from dtcc_solar.utils import SolarParameters, SunCollection, DataSource
 from typing import List, Dict, Any
 import copy
 
@@ -33,7 +33,6 @@ class TestWeatherDataComparison:
             latitude=self.lat,
             longitude=self.lon,
             data_source=DataSource.smhi,
-            color_by=ColorBy.face_sun_angle,
             start_date=start_date,
             end_date=end_date,
             display=False,

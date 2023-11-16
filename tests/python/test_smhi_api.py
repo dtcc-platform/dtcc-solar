@@ -3,7 +3,7 @@ import pandas as pd
 from pprint import pp
 from dtcc_solar import data_smhi
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import SolarParameters, DataSource, ColorBy
+from dtcc_solar.utils import SolarParameters, DataSource
 
 
 class TestSmhiApi:
@@ -32,7 +32,6 @@ class TestSmhiApi:
             longitude=self.lon,
             display=False,
             data_source=DataSource.smhi,
-            color_by=ColorBy.face_sun_angle,
             export=False,
             start_date=start_date,
             end_date=end_date,
@@ -69,7 +68,6 @@ class TestSmhiApi:
             latitude=self.lat,
             longitude=self.lon,
             data_source=DataSource.smhi,
-            color_by=ColorBy.face_sun_angle,
             start_date=start_date,
             end_date=end_date,
         )

@@ -9,7 +9,6 @@ from dtcc_solar import utils
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import SolarParameters, SunApprox, OutputCollection
 from dtcc_solar.solar_engine import SolarEngine
-from dtcc_solar.sundome import SunDome
 from dtcc_io import meshes
 from dtcc_model import Mesh
 import dtcc_solar.data_meteo as meteo
@@ -126,7 +125,7 @@ if __name__ == "__main__":
 
     test = TestRaytracing()
     test.setup_method()
-    # test.test_raytracing_sun_instant()
+    test.test_raytracing_sun_instant()
     # test.test_raytracing_sun_iterative()
     # test.test_raytracing_sun_quad_iterative()
     # test.test_raytracing_sky_instant()

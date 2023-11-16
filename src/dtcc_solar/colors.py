@@ -15,7 +15,6 @@ def create_data_dict(outc: OutputCollection):
         "direct normal irradiance (W/m2)": dn,
         "diffuse irradiance (W/m2)": di,
         "total irradiance (W/m2)": dn + di,
-        "watts per face (W)": outc.watts,
     }
 
     return data_dict

@@ -129,8 +129,6 @@ class SolarEngine:
         if p.sky_analysis:
             self._sky_raycasting(sunp.sunc, outc)
 
-        outc.calculate_watts(self.face_areas)
-
     def _sun_group_raycasting(
         self, sungroups: SunGroups, sunc: SunCollection, outc: OutputCollection
     ):

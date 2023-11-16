@@ -105,20 +105,10 @@ class OutputCollection:
     irradiance_dh: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
     irradiance_di: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Watts per face as a result of direct and diffuse irradiance
-    watts: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Percentage of the sky dome that is visible from the face
     visible_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Results for face and each sky raytracing intersection
     facehit_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
-
-    def calculate_watts(self, face_areas: np.ndarray) -> None:
-        dn = np.sum(self.irradiance_dn, axis=0)
-        di = np.sum(self.irradiance_di, axis=0)
-        n_dn = len(dn)
-        n_di = len(di)
-        if n_dn == len(face_areas) and n_di == len(face_areas):
-            self.watts = (dn + di) * face_areas
 
 
 @dataclass

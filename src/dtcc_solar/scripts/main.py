@@ -39,24 +39,19 @@ if __name__ == "__main__":
     inputfile_M = "../../../data/models/CitySurfaceM.stl"
     inputfile_L = "../../../data/models/CitySurfaceL.stl"
 
-    inputfile_L = "../../../data/models/lozenets.stl"
-    inputfile_L = "../../../data/models/City136kSoft.stl"
+    path = "../../../data/weather/"
 
-    lnd_clm = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
-    lnd_epw = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
-    gbg_clm = "../../../data/weather/SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.clm"
-    gbg_epw = "../../../data/weather/SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.epw"
-    sth_clm = (
-        "../../../data/weather/SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.clm"
-    )
-    sth_epw = (
-        "../../../data/weather/SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
-    )
+    lnd_clm = "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
+    lnd_epw = "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+    gbg_clm = "SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.clm"
+    gbg_epw = "SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.epw"
+    sth_clm = "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.clm"
+    sth_epw = "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
 
     # Gothenburg
     p_1 = SolarParameters(
         file_name=inputfile_L,
-        weather_file=gbg_clm,
+        weather_file=path + gbg_clm,
         start_date="2019-01-01 00:00:00",
         end_date="2019-12-31 00:00:00",
         longitude=11.97,
@@ -70,7 +65,7 @@ if __name__ == "__main__":
     # Stockholm
     p_2 = SolarParameters(
         file_name=inputfile_L,
-        weather_file=sth_clm,
+        weather_file=path + sth_clm,
         start_date="2019-01-01 00:00:00",
         end_date="2019-12-31 00:00:00",
         longitude=18.063,
@@ -94,4 +89,4 @@ if __name__ == "__main__":
         sun_approx=SunApprox.group,
     )
 
-    run_script(p_1)
+    run_script(p_3)

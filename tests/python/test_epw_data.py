@@ -3,7 +3,7 @@ import pandas as pd
 from dtcc_solar import data_epw
 from pprint import pp
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import SolarParameters, DataSource, ColorBy
+from dtcc_solar.utils import SolarParameters, DataSource
 from dtcc_solar import utils
 
 
@@ -32,7 +32,6 @@ class TestEpwData:
             latitude=self.lat,
             longitude=self.lon,
             data_source=DataSource.smhi,
-            color_by=ColorBy.face_sun_angle,
             start_date=start_date,
             end_date=end_date,
             sun_analysis=True,

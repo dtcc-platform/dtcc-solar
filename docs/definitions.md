@@ -7,7 +7,6 @@ Radiation - Number of photons emitted by a single source.
 
 Irradiation - The radiation falling on a surface
 
-
 # How to measure irradiance
 Irradiance can be measured and calculated using four components: GHI, BHI, DHI and DNI.
 
@@ -25,15 +24,14 @@ DNI refers to Direct normal irradiance
 
 GHI is calculated from:
 
-	GHI = DHI + BHI
+GHI = DHI + BHI
 
-	where
+where
 	
-	BHI = (DNI * cos(z))
+BHI = (DNI * cos(z))
 
-	hence
+hence
 
-	GHI = DHI + (DNI * cos(z))
-
+GHI = DHI + (DNI * cos(z))
 
 (Source: https://ratedpower.com/blog/solar-irradiance-meteorological-data/) 

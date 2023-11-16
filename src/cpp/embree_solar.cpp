@@ -448,6 +448,8 @@ bool EmbreeSolar::SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs)
             printf("Invalid sun vector size in EmbreeSolar::iterateRaytrace_occ1.\n");
             return false;
         }
+        if (i > 0 && i % 100 == 0)
+            printf("Sun raytracing for %d sun vectors completed.\n", i);
     }
 
     printf("Found %d intersections.\n", hitCounter);
@@ -483,6 +485,8 @@ bool EmbreeSolar::SunRaytrace_Occ4(std::vector<std::vector<float>> sun_vecs)
             printf("Invalid sun vector size in EmbreeSolar::iterateRaytrace_occ4.\n");
             return false;
         }
+        if (i > 0 && i % 100 == 0)
+            printf("Sun raytracing for %d sun vectors completed.\n", i);
     }
 
     printf("Found %d intersections.\n", hitCounter);
@@ -520,6 +524,8 @@ bool EmbreeSolar::SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs)
             printf("Invalid sun vector size in EmbreeSolar::iterateRaytrace_occ8.\n");
             return false;
         }
+        if (i > 0 && i % 100 == 0)
+            printf("Sun raytracing for %d sun vectors completed.\n", i);
     }
 
     printf("Found %d intersections.\n", hitCounter);
@@ -554,6 +560,8 @@ bool EmbreeSolar::SunRaytrace_Occ16(std::vector<std::vector<float>> sun_vecs)
             printf("Invalid sun vector size in EmbreeSolar::iterateRaytrace_occ16.\n");
             return false;
         }
+        if (i > 0 && i % 100 == 0)
+            printf("Sun raytracing for %d sun vectors completed.\n", i);
     }
 
     printf("Found %d intersections.\n", hitCounter);
@@ -591,7 +599,7 @@ bool EmbreeSolar::SkyRaytrace_Occ1()
             hitAttempts++;
         }
         mFaceSkyPortion[i] = hitPortion;
-        if (i % 10000 == 0)
+        if (i > 0 && i % 10000 == 0)
             printf("Sky raytracing for %d faces completed.\n", i);
     }
 
@@ -636,7 +644,7 @@ bool EmbreeSolar::SkyRaytrace_Occ4()
             }
         }
         mFaceSkyPortion[i] = hitPortion;
-        if (i % 10000 == 0)
+        if (i > 0 && i % 10000 == 0)
             printf("Sky raytracing for %d faces completed.\n", i);
     }
 
@@ -681,7 +689,7 @@ bool EmbreeSolar::SkyRaytrace_Occ8()
             }
         }
         mFaceSkyPortion[i] = hitPortion;
-        if (i % 10000 == 0)
+        if (i > 0 && i % 10000 == 0)
             printf("Sky raytracing for %d faces completed.\n", i);
     }
 
@@ -726,7 +734,7 @@ bool EmbreeSolar::SkyRaytrace_Occ16()
             }
         }
         mFaceSkyPortion[i] = hitPortion;
-        if (i % 10000 == 0)
+        if (i > 0 && i % 10000 == 0)
             printf("Sky raytracing for %d faces completed.\n", i);
     }
 
