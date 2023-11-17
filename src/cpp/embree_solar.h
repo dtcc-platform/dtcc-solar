@@ -4,6 +4,7 @@
 #include <math.h>
 #include <limits>
 #include <iostream>
+#include <chrono>
 #include <vector>
 #include "common.h"
 #include "sunrays.h"

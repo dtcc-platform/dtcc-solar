@@ -13,6 +13,7 @@ htmlcov/
 
 *.coverage
 
+*.3dm.rhl
 *.3dm
 *.so
 *.o
