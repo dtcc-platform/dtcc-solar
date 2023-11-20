@@ -37,10 +37,10 @@ public:
     int GetBundle8Count();
     int GetBundle16Count();
 
-    RTCRay *GetRays();
-    RTCRay4 *GetRays4();
-    RTCRay8 *GetRays8();
-    RTCRay16 *GetRays16();
+    std::vector<RTCRay> &GetRays();
+    std::vector<RTCRay4> &GetRays4();
+    std::vector<RTCRay8> &GetRays8();
+    std::vector<RTCRay16> &GetRays16();
 
     RTCRayHit *GetRayHit();
     RTCRayHit4 *GetRayHit4();
@@ -64,10 +64,10 @@ private:
     std::vector<float> mRayAreas;
     std::vector<std::vector<float>> mRayDirections;
 
-    RTCRay *mRays;
-    RTCRay4 *mRays4;
-    RTCRay8 *mRays8;
-    RTCRay16 *mRays16;
+    std::vector<RTCRay> mRays;
+    std::vector<RTCRay4> mRays4;
+    std::vector<RTCRay8> mRays8;
+    std::vector<RTCRay16> mRays16;
 
     RTCRayHit *mRayHit;
     RTCRayHit4 *mRayHit4;

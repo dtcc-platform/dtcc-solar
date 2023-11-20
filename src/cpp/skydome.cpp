@@ -25,11 +25,6 @@ Skydome::Skydome(int nStrips)
 
 Skydome::~Skydome()
 {
-    delete[] mRays;
-    delete[] mRays4;
-    delete[] mRays8;
-    delete[] mRays16;
-
     // Delete the 2d arrays
     for (int i = 0; i < mBundle4Count; i++)
         delete[] mRays4Valid[i];
@@ -57,11 +52,10 @@ void Skydome::InitRays(int rayCount)
     std::cout << "Number of 8 bundles: " << mBundle8Count << std::endl;
     std::cout << "Number of 16 bundles: " << mBundle16Count << std::endl;
 
-    // Defining the arrays for the rays on the heap
-    mRays = new RTCRay[mRayCount];
-    mRays4 = new RTCRay4[mBundle4Count];
-    mRays8 = new RTCRay8[mBundle8Count];
-    mRays16 = new RTCRay16[mBundle16Count];
+    mRays = std::vector<RTCRay>(mRayCount);
+    mRays4 = std::vector<RTCRay4>(mBundle4Count);
+    mRays8 = std::vector<RTCRay8>(mBundle8Count);
+    mRays16 = std::vector<RTCRay16>(mBundle16Count);
 
     // Defining a 2d array for the vadility of each ray in the 4 group bundles.
     mRays4Valid = new int *[mBundle4Count];
@@ -116,22 +110,22 @@ int Skydome::GetBundle16Count()
     return mBundle16Count;
 }
 
-RTCRay *Skydome::GetRays()
+std::vector<RTCRay> &Skydome::GetRays()
 {
     return mRays;
 }
 
-RTCRay4 *Skydome::GetRays4()
+std::vector<RTCRay4> &Skydome::GetRays4()
 {
     return mRays4;
 }
 
-RTCRay8 *Skydome::GetRays8()
+std::vector<RTCRay8> &Skydome::GetRays8()
 {
     return mRays8;
 }
 
-RTCRay16 *Skydome::GetRays16()
+std::vector<RTCRay16> &Skydome::GetRays16()
 {
     return mRays16;
 }
@@ -324,8 +318,6 @@ void Skydome::BundleRays()
 
 void Skydome::CreateRays()
 {
-    mRays = new RTCRay[mRayCount];
-
     for (int i = 0; i < mRayCount; i++)
     {
         RTCRay ray;

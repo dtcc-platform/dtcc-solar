@@ -42,7 +42,7 @@ if __name__ == "__main__":
     path = "../../../data/weather/"
 
     # inputfile_L = "../../../data/models/lozenets.stl"
-    inputfile_L = "../../../data/models/City136kSoft.stl"
+    # inputfile_L = "../../../data/models/City136kSoft.stl"
 
     lnd_clm = "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
     lnd_epw = "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"

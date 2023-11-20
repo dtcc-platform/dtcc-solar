@@ -25,8 +25,6 @@ public:
     void Translate8Rays(Vertex new_origin);
     void Translate16Rays(Vertex new_origin);
 
-    void Raytrace();
-
     float CalcSphereCapArea(float elevation);
     float CalcHemisphereArea();
 
@@ -42,10 +40,10 @@ public:
     int GetBundle8Count();
     int GetBundle16Count();
 
-    RTCRay *GetRays();
-    RTCRay4 *GetRays4();
-    RTCRay8 *GetRays8();
-    RTCRay16 *GetRays16();
+    std::vector<RTCRay> &GetRays();
+    std::vector<RTCRay4> &GetRays4();
+    std::vector<RTCRay8> &GetRays8();
+    std::vector<RTCRay16> &GetRays16();
 
     int **GetValid4();
     int **GetValid8();
@@ -71,10 +69,10 @@ private:
     std::vector<float> mRayAreas;
     std::vector<std::vector<float>> mRayDirections;
 
-    RTCRay *mRays;
-    RTCRay4 *mRays4;
-    RTCRay8 *mRays8;
-    RTCRay16 *mRays16;
+    std::vector<RTCRay> mRays;
+    std::vector<RTCRay4> mRays4;
+    std::vector<RTCRay8> mRays8;
+    std::vector<RTCRay16> mRays16;
 
     int **mRays4Valid;
     int **mRays8Valid;

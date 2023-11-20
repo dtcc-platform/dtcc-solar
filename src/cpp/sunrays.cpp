@@ -37,11 +37,6 @@ Sunrays::Sunrays(Vertex *faceMidPoints, int faceCount)
 
 Sunrays::~Sunrays()
 {
-    delete[] mRays;
-    delete[] mRays4;
-    delete[] mRays8;
-    delete[] mRays16;
-
     delete[] mRayHit;
     delete[] mRayHit4;
     delete[] mRayHit8;
@@ -74,11 +69,10 @@ void Sunrays::InitRays(int rayCount)
     std::cout << "Number of 8 bundles: " << mBundle8Count << std::endl;
     std::cout << "Number of 16 bundles: " << mBundle16Count << std::endl;
 
-    // Defining the arrays for the rays on the heap
-    mRays = new RTCRay[mRayCount];
-    mRays4 = new RTCRay4[mBundle4Count];
-    mRays8 = new RTCRay8[mBundle8Count];
-    mRays16 = new RTCRay16[mBundle16Count];
+    mRays = std::vector<RTCRay>(mRayCount);
+    mRays4 = std::vector<RTCRay4>(mBundle4Count);
+    mRays8 = std::vector<RTCRay8>(mBundle8Count);
+    mRays16 = std::vector<RTCRay16>(mBundle16Count);
 
     mRayHit = new RTCRayHit[mRayCount];
     mRayHit4 = new RTCRayHit4[mBundle4Count];
@@ -133,22 +127,22 @@ int Sunrays::GetBundle16Count()
     return mBundle16Count;
 }
 
-RTCRay *Sunrays::GetRays()
+std::vector<RTCRay> &Sunrays::GetRays()
 {
     return mRays;
 }
 
-RTCRay4 *Sunrays::GetRays4()
+std::vector<RTCRay4> &Sunrays::GetRays4()
 {
     return mRays4;
 }
 
-RTCRay8 *Sunrays::GetRays8()
+std::vector<RTCRay8> &Sunrays::GetRays8()
 {
     return mRays8;
 }
 
-RTCRay16 *Sunrays::GetRays16()
+std::vector<RTCRay16> &Sunrays::GetRays16()
 {
     return mRays16;
 }
