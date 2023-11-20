@@ -41,6 +41,9 @@ if __name__ == "__main__":
 
     path = "../../../data/weather/"
 
+    # inputfile_L = "../../../data/models/lozenets.stl"
+    inputfile_L = "../../../data/models/City136kSoft.stl"
+
     lnd_clm = "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
     lnd_epw = "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
     gbg_clm = "SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.clm"
@@ -89,4 +92,4 @@ if __name__ == "__main__":
         sun_approx=SunApprox.group,
     )
 
-    run_script(p_3)
+    run_script(p_1)

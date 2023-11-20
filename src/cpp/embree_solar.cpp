@@ -187,7 +187,7 @@ void EmbreeSolar::CreateGeom(std::vector<std::vector<float>> vertices, std::vect
     mVertices = (Vertex *)rtcSetNewGeometryBuffer(mGeometry, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, sizeof(Vertex), mVertexCount);
     mFaces = (Face *)rtcSetNewGeometryBuffer(mGeometry, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, sizeof(Face), mFaceCount);
 
-    for (int i = 0; i < vertices.size(); i++)
+    for (long unsigned int i = 0; i < vertices.size(); i++)
     {
         if (vertices[i].size() == 3)
         {
@@ -200,7 +200,7 @@ void EmbreeSolar::CreateGeom(std::vector<std::vector<float>> vertices, std::vect
             printf("Invalid vertex size in EmbreeSolar::createGeom.\n");
     }
 
-    for (int i = 0; i < faces.size(); i++)
+    for (long unsigned int i = 0; i < faces.size(); i++)
     {
         if (faces[i].size() == 3)
         {
@@ -432,7 +432,7 @@ bool EmbreeSolar::SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs)
     int hitCounter = 0;
 
     printf("Running rtcOccluded1 for %d sun vectors.\n", (int)sun_vecs.size());
-    for (int i = 0; i < sun_vecs.size(); i++)
+    for (long unsigned int i = 0; i < sun_vecs.size(); i++)
     {
         auto sun_vec = UnitizeVector(sun_vecs[i]);
         auto &angels = mAngles[i];
@@ -449,7 +449,7 @@ bool EmbreeSolar::SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs)
             return false;
         }
         if (i > 0 && i % 100 == 0)
-            printf("Sun raytracing for %d sun vectors completed.\n", i);
+            printf("Sun raytracing for %d sun vectors completed.\n", int(i));
     }
 
     printf("Found %d intersections.\n", hitCounter);
@@ -470,7 +470,7 @@ bool EmbreeSolar::SunRaytrace_Occ4(std::vector<std::vector<float>> sun_vecs)
     int hitCounter = 0;
 
     printf("Running rtcOccluded4 for %d sun vectors.\n", (int)sun_vecs.size());
-    for (int i = 0; i < sun_vecs.size(); i++)
+    for (long unsigned int i = 0; i < sun_vecs.size(); i++)
     {
         auto sun_vec = UnitizeVector(sun_vecs[i]);
         auto &angels = mAngles[i];
@@ -486,7 +486,7 @@ bool EmbreeSolar::SunRaytrace_Occ4(std::vector<std::vector<float>> sun_vecs)
             return false;
         }
         if (i > 0 && i % 100 == 0)
-            printf("Sun raytracing for %d sun vectors completed.\n", i);
+            printf("Sun raytracing for %d sun vectors completed.\n", int(i));
     }
 
     printf("Found %d intersections.\n", hitCounter);
@@ -508,7 +508,7 @@ bool EmbreeSolar::SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs)
     int hitCounter = 0;
 
     printf("Running rtcOccluded8 for %d sun vectors.\n", (int)sun_vecs.size());
-    for (int i = 0; i < sun_vecs.size(); i++)
+    for (long unsigned int i = 0; i < sun_vecs.size(); i++)
     {
         auto sun_vec = UnitizeVector(sun_vecs[i]);
         auto &angels = mAngles[i];
@@ -525,7 +525,7 @@ bool EmbreeSolar::SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs)
             return false;
         }
         if (i > 0 && i % 100 == 0)
-            printf("Sun raytracing for %d sun vectors completed.\n", i);
+            printf("Sun raytracing for %d sun vectors completed.\n", int(i));
     }
 
     printf("Found %d intersections.\n", hitCounter);
@@ -545,7 +545,7 @@ bool EmbreeSolar::SunRaytrace_Occ16(std::vector<std::vector<float>> sun_vecs)
     auto start = std::chrono::high_resolution_clock::now();
     printf("Running rtcOccluded16 for %d sun vectors.\n", (int)sun_vecs.size());
     int hitCounter = 0;
-    for (int i = 0; i < sun_vecs.size(); i++)
+    for (long unsigned int i = 0; i < sun_vecs.size(); i++)
     {
         auto sun_vec = UnitizeVector(sun_vecs[i]);
         auto &angles = mAngles[i];
@@ -561,7 +561,7 @@ bool EmbreeSolar::SunRaytrace_Occ16(std::vector<std::vector<float>> sun_vecs)
             return false;
         }
         if (i > 0 && i % 100 == 0)
-            printf("Sun raytracing for %d sun vectors completed.\n", i);
+            printf("Sun raytracing for %d sun vectors completed.\n", int(i));
     }
 
     printf("Found %d intersections.\n", hitCounter);
@@ -695,8 +695,8 @@ bool EmbreeSolar::SkyRaytrace_Occ8()
 
     printf("Found %d intersections in %d attempts.\n", hitCounter, hitAttempts);
     auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float> duration = end - start;
-    std::cout << "Time elapsed: " << duration.count() << " seconds" << std::endl;
+    std::chrono::duration<float> time = end - start;
+    std::cout << "Time elapsed: " << time.count() << " seconds" << std::endl;
 
     return true;
 }
@@ -740,8 +740,8 @@ bool EmbreeSolar::SkyRaytrace_Occ16()
 
     printf("Found %d intersections in %d attempts.\n", hitCounter, hitAttempts);
     auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float> duration = end - start;
-    std::cout << "Time elapsed: " << duration.count() << " seconds" << std::endl;
+    std::chrono::duration<float> time = end - start;
+    std::cout << "Time elapsed: " << time.count() << " seconds" << std::endl;
 
     return true;
 }
