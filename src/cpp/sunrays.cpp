@@ -37,11 +37,6 @@ Sunrays::Sunrays(Vertex *faceMidPoints, int faceCount)
 
 Sunrays::~Sunrays()
 {
-    delete[] mRayHit;
-    delete[] mRayHit4;
-    delete[] mRayHit8;
-    delete[] mRayHit16;
-
     // Delete the 2d arrays
     for (int i = 0; i < mBundle4Count; i++)
         delete[] mRays4Valid[i];
@@ -74,10 +69,10 @@ void Sunrays::InitRays(int rayCount)
     mRays8 = std::vector<RTCRay8>(mBundle8Count);
     mRays16 = std::vector<RTCRay16>(mBundle16Count);
 
-    mRayHit = new RTCRayHit[mRayCount];
-    mRayHit4 = new RTCRayHit4[mBundle4Count];
-    mRayHit8 = new RTCRayHit8[mBundle8Count];
-    mRayHit16 = new RTCRayHit16[mBundle16Count];
+    mRayHit = std::vector<RTCRayHit>(mRayCount);
+    mRayHit4 = std::vector<RTCRayHit4>(mRayCount);
+    mRayHit8 = std::vector<RTCRayHit8>(mRayCount);
+    mRayHit16 = std::vector<RTCRayHit16>(mRayCount);
 
     // Defining a 2d array for the vadility of each ray in the 4 group bundles.
     mRays4Valid = new int *[mBundle4Count];
@@ -147,22 +142,22 @@ std::vector<RTCRay16> &Sunrays::GetRays16()
     return mRays16;
 }
 
-RTCRayHit *Sunrays::GetRayHit()
+std::vector<RTCRayHit> &Sunrays::GetRayHit()
 {
     return mRayHit;
 }
 
-RTCRayHit4 *Sunrays::GetRayHit4()
+std::vector<RTCRayHit4> &Sunrays::GetRayHit4()
 {
     return mRayHit4;
 }
 
-RTCRayHit8 *Sunrays::GetRayHit8()
+std::vector<RTCRayHit8> &Sunrays::GetRayHit8()
 {
     return mRayHit8;
 }
 
-RTCRayHit16 *Sunrays::GetRayHit16()
+std::vector<RTCRayHit16> &Sunrays::GetRayHit16()
 {
     return mRayHit16;
 }

@@ -42,10 +42,10 @@ public:
     std::vector<RTCRay8> &GetRays8();
     std::vector<RTCRay16> &GetRays16();
 
-    RTCRayHit *GetRayHit();
-    RTCRayHit4 *GetRayHit4();
-    RTCRayHit8 *GetRayHit8();
-    RTCRayHit16 *GetRayHit16();
+    std::vector<RTCRayHit> &GetRayHit();
+    std::vector<RTCRayHit4> &GetRayHit4();
+    std::vector<RTCRayHit8> &GetRayHit8();
+    std::vector<RTCRayHit16> &GetRayHit16();
 
     int **GetValid4();
     int **GetValid8();
@@ -69,10 +69,10 @@ private:
     std::vector<RTCRay8> mRays8;
     std::vector<RTCRay16> mRays16;
 
-    RTCRayHit *mRayHit;
-    RTCRayHit4 *mRayHit4;
-    RTCRayHit8 *mRayHit8;
-    RTCRayHit16 *mRayHit16;
+    std::vector<RTCRayHit> mRayHit;
+    std::vector<RTCRayHit4> mRayHit4;
+    std::vector<RTCRayHit8> mRayHit8;
+    std::vector<RTCRayHit16> mRayHit16;
 
     int **mRays4Valid;
     int **mRays8Valid;
