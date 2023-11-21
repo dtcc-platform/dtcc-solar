@@ -25,7 +25,7 @@ jobs:
     - name: clone repo
       run: git clone https://github.com/dtcc-platform/${{ github.event.repository.name }} -b $BRANCH && pwd && wget https://github.com/embree/embree/releases/download/v4.3.0/embree-4.3.0.x86_64.linux.tar.gz && tar xvzf embree-4.3.0.x86_64.linux.tar.gz && pwd && ls -alt
     - name: pip install
-      run: export "DEB_PYTHON_INSTALL_LAYOUT=deb_system" && pip install ${{ github.event.repository.name }}/
+      run: export "DEB_PYTHON_INSTALL_LAYOUT=deb_system" && source dtcc-solar/embree-vars.sh && pip install ${{ github.event.repository.name }}/
     # Not needed for anything apart from dtcc-model
     #- name: cmake install
     #run: cd ${{ github.event.repository.name }}/build/ && cmake .. && make all && sudo make install && cd ..
