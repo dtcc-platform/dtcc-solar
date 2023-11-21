@@ -46,7 +46,8 @@ include_directories(${CMAKE_SOURCE_DIR}/src/cpp)
 # Set installation directory
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/src)
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
-list(APPEND CMAKE_PREFIX_PATH /home/cit-jenso/embree/lib/cmake/embree-4.3.0)
+# Needs to be appended to local installations, this is hardcoded for CI
+list(APPEND CMAKE_PREFIX_PATH /home/runner/work/dtcc-solar/dtcc-solar)
 
 # Add subdirectories
 add_subdirectory(src)
