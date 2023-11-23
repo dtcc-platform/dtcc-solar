@@ -1,5 +1,5 @@
 import numpy as np
-from dtcc_solar import py_embree_solar
+from dtcc_solar import py_embree_solar as embree
 from dtcc_io import meshes
 from pprint import pp
 
@@ -19,7 +19,7 @@ class TestEmbreeSolar:
 
         # All sun vectors
         self.sun_vecs = np.array([sun_vec_1, sun_vec_2, sun_vec_3])
-        self.embree = py_embree_solar.PyEmbreeSolar()
+        self.embree = embree.PyEmbreeSolar()
         self.faces = self.embree.get_mesh_faces()
 
     def test_sun_raytrace(self):

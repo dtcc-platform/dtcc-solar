@@ -6,6 +6,7 @@
 #include <iostream>
 #include <vector>
 #include "common.h"
+#include "logging.h"
 
 class Skydome
 {

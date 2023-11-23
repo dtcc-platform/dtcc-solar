@@ -2,14 +2,13 @@
 
 Skydome::Skydome()
 {
-    printf("Skydome created with default constructor.\n");
     mRayOrigin = {0.0, 0.0, 0.0};
     CreateMesh(10);
     InitRays(mRayDirections.size());
     CreateRays();
     BundleRays();
 
-    printf("Skydome instance created, ready for raytracing.\n");
+    info("Skydome instance created with default constructor, ready for raytracing.");
 }
 
 Skydome::Skydome(int nStrips)
@@ -20,7 +19,7 @@ Skydome::Skydome(int nStrips)
     CreateRays();
     BundleRays();
 
-    printf("Skydome instance created, ready for raytracing.\n");
+    info("Skydome instance created, ready for raytracing.");
 }
 
 Skydome::~Skydome()
@@ -46,11 +45,11 @@ void Skydome::InitRays(int rayCount)
     mBundle8Count = ceil((float)mRayCount / 8.0f);
     mBundle16Count = ceil((float)mRayCount / 16.0f);
 
-    std::cout << "Skydome rays data: " << std::endl;
-    std::cout << "Number of rays: " << mRayCount << std::endl;
-    std::cout << "Number of 4 bundles: " << mBundle4Count << std::endl;
-    std::cout << "Number of 8 bundles: " << mBundle8Count << std::endl;
-    std::cout << "Number of 16 bundles: " << mBundle16Count << std::endl;
+    debug("Skydome rays data:");
+    debug("Number of rays:" + str(mRayCount) + ".");
+    debug("Number of 4 bundles:" + str(mBundle4Count) + ".");
+    debug("Number of 8 bundles:" + str(mBundle8Count) + ".");
+    debug("Number of 16 bundles:" + str(mBundle16Count) + ".");
 
     mRays = std::vector<RTCRay>(mRayCount);
     mRays4 = std::vector<RTCRay4>(mBundle4Count);

@@ -9,6 +9,7 @@
 #include "common.h"
 #include "sunrays.h"
 #include "skydome.h"
+#include "logging.h"
 
 #ifdef PYTHON_MODULE
 #include <pybind11/pybind11.h>
@@ -25,6 +26,7 @@ class EmbreeSolar
 public:
     EmbreeSolar();
     EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces);
+    EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<bool> face_mask);
     virtual ~EmbreeSolar();
 
     void CreateDevice();
@@ -85,6 +87,10 @@ private:
     Vertex *mVertices;
     Vertex *mFaceMidPts;
     Vector *mFaceNormals;
+
+    int mMaskCount;
+    bool mApplyMask;
+    std::vector<bool> mFaceMask;
 
     // Results from analysis
     std::vector<std::vector<int>> mOccluded;

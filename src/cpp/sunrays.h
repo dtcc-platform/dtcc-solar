@@ -6,31 +6,25 @@
 #include <iostream>
 #include <vector>
 #include "common.h"
+#include "logging.h"
 
 class Sunrays
 {
-
 public:
     Sunrays();
-    Sunrays(Vertex *faceMidPoints, int faceCount);
+    Sunrays(Vertex *faceMidPoints, int faceCount, std::vector<bool> faceMask);
     ~Sunrays();
 
     void InitRays(int rayCount);
     void CreateGridRays();
 
-    void CreateRays();
     void CreateRays(Vertex *faceMidPts, int faceCount);
-    void CreateRayHit(Vertex *faceMidPts, int faceCount);
-
     void BundleRays();
-    void BundleRayHit();
 
-    void UpdateRay1Directions(std::vector<float> new_sun_vec);
-    void UpdateRay4Directions(std::vector<float> new_sun_vec);
-    void UpdateRay8Directions(std::vector<float> new_sun_vec);
-    void UpdateRay16Directions(std::vector<float> new_sun_vec);
-
-    void UpdateRayHit8Directions(std::vector<float> new_sun_vec);
+    void UpdateRay1Directions(std::vector<float> new_sun_vec, bool applyMask);
+    void UpdateRay4Directions(std::vector<float> new_sun_vec, bool applyMask);
+    void UpdateRay8Directions(std::vector<float> new_sun_vec, bool applyMask);
+    void UpdateRay16Directions(std::vector<float> new_sun_vec, bool applyMask);
 
     int GetRayCount();
     int GetBundle4Count();
@@ -47,9 +41,9 @@ public:
     std::vector<RTCRayHit8> &GetRayHit8();
     std::vector<RTCRayHit16> &GetRayHit16();
 
-    int **GetValid4();
-    int **GetValid8();
-    int **GetValid16();
+    int **GetValid4(bool applyMask);
+    int **GetValid8(bool applyMask);
+    int **GetValid16(bool applyMask);
 
 private:
     int mRayCount;
@@ -69,12 +63,13 @@ private:
     std::vector<RTCRay8> mRays8;
     std::vector<RTCRay16> mRays16;
 
-    std::vector<RTCRayHit> mRayHit;
-    std::vector<RTCRayHit4> mRayHit4;
-    std::vector<RTCRayHit8> mRayHit8;
-    std::vector<RTCRayHit16> mRayHit16;
-
     int **mRays4Valid;
     int **mRays8Valid;
     int **mRays16Valid;
+
+    int **mRays4ValidMask;
+    int **mRays8ValidMask;
+    int **mRays16ValidMask;
+
+    std::vector<bool> mFaceMask;
 };

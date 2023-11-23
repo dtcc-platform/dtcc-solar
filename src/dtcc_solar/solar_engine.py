@@ -1,9 +1,10 @@
 import math
 import numpy as np
+import trimesh
 from dtcc_solar.skydome import SkyDome
-from dtcc_solar.utils import distance, SolarParameters, concatenate_meshes
+from dtcc_solar.utils import SolarParameters, calc_face_mid_points, concatenate_meshes
 
-from dtcc_solar import py_embree_solar
+from dtcc_solar import py_embree_solar as embree
 from dtcc_solar.sundome import SunDome
 from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox
 
@@ -34,6 +35,7 @@ class SolarEngine:
     city_mesh_face_mid_points: np.ndarray
     skydome: SkyDome
     face_areas: np.ndarray
+    face_mask: np.ndarray
 
     def __init__(self, mesh: Mesh) -> None:
         self.mesh = mesh
@@ -48,8 +50,9 @@ class SolarEngine:
         self.path_width = 0
         self._preprocess_mesh(True)
 
-        # Creating instance of embree solar
-        self.embree = py_embree_solar.PyEmbreeSolar(mesh.vertices, mesh.faces)
+        # Set which faces should be included in the analysis
+        self.face_mask = np.ones(self.f_count, dtype=bool)
+
         info("Solar engine created")
 
     def _preprocess_mesh(self, move_to_center: bool):
@@ -114,10 +117,100 @@ class SolarEngine:
 
         self.face_areas = np.array(areas)
 
+    def set_face_mask(self, xdom: list, ydom: list) -> Mesh:
+        face_mid_pts = calc_face_mid_points(self.mesh)
+        face_mask = []
+
+        if (
+            len(xdom) == 2
+            and len(ydom) == 2
+            and xdom[0] < xdom[1]
+            and ydom[0] < ydom[1]
+        ):
+            x_max = face_mid_pts[:, 0].max()
+            x_min = face_mid_pts[:, 0].min()
+            y_max = face_mid_pts[:, 1].max()
+            y_min = face_mid_pts[:, 1].min()
+
+            x_range = x_max - x_min
+            y_range = y_max - y_min
+
+            for pt in face_mid_pts:
+                xnrm = (pt[0] - x_min) / x_range
+                ynrm = (pt[1] - y_min) / y_range
+                if (xnrm > xdom[0] and xnrm < xdom[1]) and (
+                    ynrm > ydom[0] and ynrm < ydom[1]
+                ):
+                    face_mask.append(True)
+                else:
+                    face_mask.append(False)
+        else:
+            print(f"Invalid domain.")
+
+        self.face_mask = np.array(face_mask, dtype=bool)
+        info(f"Face mask set to: {self.face_mask.sum()} faces.")
+
+    def subdivide_masked_mesh(self, max_edge_length: float) -> Mesh:
+        mesh_1, mesh_2 = self.split_mesh_by_face_mask()
+
+        if mesh_1 is not None:
+            vs, fs = trimesh.remesh.subdivide_to_size(
+                mesh_1.vertices, mesh_1.faces, max_edge=max_edge_length, max_iter=5
+            )
+            subdee_mesh = Mesh(vertices=vs, faces=fs)
+
+        f_count_1 = len(mesh_1.faces)
+        f_count_2 = len(mesh_2.faces)
+        f_count_sd = len(subdee_mesh.faces)
+
+        new_mesh = concatenate_meshes([subdee_mesh, mesh_2])
+
+        face_mask_sd = np.ones(f_count_sd, dtype=bool)
+        face_mask_2 = np.zeros(f_count_2, dtype=bool)
+        face_mask = np.concatenate((face_mask_sd, face_mask_2))
+
+        # update mesh and face mask
+        self.mesh = new_mesh
+        self.face_mask = face_mask
+        self.f_count = len(self.mesh.faces)
+
+        info(
+            f"Subdivided masked mesh from {f_count_1} to {f_count_sd} number of faces."
+        )
+
+    def split_mesh_by_face_mask(self) -> Mesh:
+        if np.array(self.face_mask, dtype=int).sum() == 0:
+            warning("No faces selected in face mask. Returning original mesh.")
+            return None, self.mesh
+        elif np.array(self.face_mask, dtype=int).sum() == len(self.mesh.faces):
+            warning("All faces selected in face mask. Returning original mesh.")
+            return self.mesh, None
+        else:
+            mesh_tri = trimesh.Trimesh(self.mesh.vertices, self.mesh.faces)
+            mesh_tri.update_faces(self.face_mask)
+            mesh_tri.remove_unreferenced_vertices()
+            mesh_in = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
+
+            face_mask_inv = np.invert(self.face_mask)
+            mesh_tri = trimesh.Trimesh(self.mesh.vertices, self.mesh.faces)
+            mesh_tri.update_faces(face_mask_inv)
+            mesh_tri.remove_unreferenced_vertices()
+            mesh_out = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
+
+            info(f"Split mesh into {len(mesh_in.faces)}, {len(mesh_out.faces)} faces.")
+            return mesh_in, mesh_out
+
     def get_skydome_ray_count(self):
         return self.embree.get_skydome_ray_count()
 
     def run_analysis(self, p: SolarParameters, sunp: Sunpath, outc: OutputCollection):
+        # Creating instance of embree solar
+        info(f"Creating embree instance")
+        self.embree = embree.PyEmbreeSolar(
+            self.mesh.vertices, self.mesh.faces, self.face_mask
+        )
+        info(f"Running analysis...")
+
         if p.sun_analysis:
             if p.sun_approx == SunApprox.quad and sunp.sundome is not None:
                 self._sun_quad_raycasting(sunp.sundome, sunp.sunc, outc)
@@ -135,14 +228,15 @@ class SolarEngine:
         sun_vecs = sungroups.list_centers
         sun_indices = sungroups.sun_indices
         n_groups = len(sun_vecs)
-
-        print(f" --- Anlysing {sunc.count} suns in {len(sun_vecs)} sun groups. ---")
+        f_count = len(self.mesh.faces)
+        info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} sun groups.")
         if self.embree.sun_raytrace_occ8(sun_vecs):
             group_angles = np.pi - self.embree.get_angle_results()
             group_occlusion = self.embree.get_occluded_results()
-            angles = np.zeros((sunc.count, self.f_count))
-            occlusion = np.zeros((sunc.count, self.f_count))
+            angles = np.zeros((sunc.count, f_count))
+            occlusion = np.zeros((sunc.count, f_count))
             # Map the results back to the individual sun positions
+            info("Mapping raytracing results from group back to sun positions")
             for i in range(n_groups):
                 g_angles = group_angles[i]
                 g_occlusion = group_occlusion[i]
@@ -163,13 +257,14 @@ class SolarEngine:
         sundome.match_suns_and_quads(sunc)
         active_quads = sundome.active_quads
         sun_vecs = sundome.get_active_quad_centers()
-
-        print(f" --- Anlysing {sunc.count} suns in {len(sun_vecs)} quad groups. ---")
+        f_count = len(self.mesh.faces)
+        info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} quad groups.")
         if self.embree.sun_raytrace_occ8(sun_vecs):
             quad_angles = np.pi - self.embree.get_angle_results()
             quad_occlusion = self.embree.get_occluded_results()
-            angles = np.zeros((sunc.count, self.f_count))
-            occlusion = np.zeros((sunc.count, self.f_count))
+            angles = np.zeros((sunc.count, f_count))
+            occlusion = np.zeros((sunc.count, f_count))
+            info("Mapping raytracing results back to quad group sun positions.")
             # Map the results back to the individual sun positions
             for i, quad in enumerate(active_quads):
                 q_angles = quad_angles[i]
@@ -186,7 +281,7 @@ class SolarEngine:
             warning(f"Something went wrong in embree solar.")
 
     def _sun_raycasting(self, sunc: SunCollection, outc: OutputCollection):
-        print(f"----- Running sun raycasting -----")
+        info(f"Running sun raycasting")
         if self.embree.sun_raytrace_occ8(sunc.sun_vecs):
             angles = np.pi - self.embree.get_angle_results()
             occlusion = self.embree.get_occluded_results()
@@ -200,7 +295,7 @@ class SolarEngine:
             warning(f"Something went wrong with sun analysis in embree solar.")
 
     def _sky_raycasting(self, sunc: SunCollection, outc: OutputCollection):
-        print(f"----- Running sky raycasting -----")
+        info(f"Running sky raycasting")
         if self.embree.sky_raytrace_occ8():  # Array with nFace elements
             facehit_sky = self.embree.get_face_skyhit_results()
             visible_sky = self.embree.get_face_skyportion_results()
