@@ -1,9 +1,7 @@
 import math
 import numpy as np
 import trimesh
-from dtcc_solar.skydome import SkyDome
 from dtcc_solar.utils import SolarParameters, calc_face_mid_points, concatenate_meshes
-
 from dtcc_solar import py_embree_solar as embree
 from dtcc_solar.sundome import SunDome
 from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox
@@ -33,7 +31,6 @@ class SolarEngine:
     city_mesh_faces: np.ndarray
     city_mesh_points: np.ndarray
     city_mesh_face_mid_points: np.ndarray
-    skydome: SkyDome
     face_areas: np.ndarray
     face_mask: np.ndarray
 

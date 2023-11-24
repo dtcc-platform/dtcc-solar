@@ -97,4 +97,4 @@ if __name__ == "__main__":
         sun_approx=SunApprox.group,
     )
 
-    run_script(p_3)
+    run_script(p_1)
