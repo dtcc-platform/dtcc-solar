@@ -36,7 +36,6 @@ dependencies = [
   "matplotlib >= 3.6.2",
   "dataclasses >= 0.6",
   "pybind11 >= 2.10.0, < 2.11.0",
-  "PyOpenGL",  
   "dtcc-model@git+https://github.com/dtcc-platform/dtcc-model.git@develop",
   "dtcc-io@git+https://github.com/dtcc-platform/dtcc-io.git@develop",
   "dtcc-viewer@git+https://github.com/dtcc-platform/dtcc-viewer.git@develop",  
