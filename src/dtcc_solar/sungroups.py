@@ -5,7 +5,6 @@ from dtcc_solar.utils import SunCollection
 from pprint import pp
 from dtcc_solar.utils import distance
 from dtcc_solar.logging import info, debug, warning, error
-from dtcc_viewer.opengl_viewer import Window, Scene
 from dtcc_model import Mesh, PointCloud
 
 
@@ -24,13 +23,6 @@ class SunGroups:
         self._create_group_centers(sun_pos_dict)
         self._match_suns_and_quads(sunc)
         self._mask_data()
-
-    def _view(self):
-        pc = PointCloud(points=self.list_centers)
-        window = Window(1200, 800)
-        scene = Scene()
-        scene.add_pointcloud(pc=pc, name="Sun centers", size=1 * self.w)
-        window.render(scene)
 
     def _create_group_centers(self, sun_pos_dict):
         self.dict_centers = dict.fromkeys(np.arange(0, 24), [])

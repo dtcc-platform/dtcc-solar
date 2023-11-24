@@ -15,5 +15,4 @@ __all__ = [
     "OutputCollection",
     "SolarParameters",
     "DataSource",
-    # "SolarViewer",
 ]
