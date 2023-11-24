@@ -2,7 +2,7 @@ from .solar_engine import SolarEngine
 from .sunpath import Sunpath
 from .sundome import SunDome
 
-# from .viewer import Viewer as SolarViewer
+from .viewer import Viewer as SolarViewer
 from .utils import SunQuad, SolarParameters, DataSource, OutputCollection
 
 
@@ -15,4 +15,5 @@ __all__ = [
     "OutputCollection",
     "SolarParameters",
     "DataSource",
+    "SolarViewer",
 ]
