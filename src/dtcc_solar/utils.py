@@ -123,7 +123,7 @@ class SolarParameters:
     export: bool = False
     start_date: str = "2019-06-03 07:00:00"
     end_date: str = "2019-06-03 21:00:00"
-    sun_approx: SunApprox = SunApprox.none
+    sun_approx: SunApprox = SunApprox.group
     sun_analysis: bool = True
     sky_analysis: bool = False
     suns_per_group: int = 8
@@ -357,62 +357,3 @@ def calc_face_mid_points(mesh):
     vertex3 = np.array(mesh.vertices[faceVertexIndex3])
     face_mid_points = (vertex1 + vertex2 + vertex3) / 3.0
     return face_mid_points
-
-
-def get_sub_face_mask(xdom: list, ydom: list, mesh: Mesh) -> Mesh:
-    face_mid_pts = calc_face_mid_points(mesh)
-    face_mask = []
-
-    if len(xdom) == 2 and len(ydom) == 2 and xdom[0] < xdom[1] and ydom[0] < ydom[1]:
-        x_max = face_mid_pts[:, 0].max()
-        x_min = face_mid_pts[:, 0].min()
-        y_max = face_mid_pts[:, 1].max()
-        y_min = face_mid_pts[:, 1].min()
-
-        x_range = x_max - x_min
-        y_range = y_max - y_min
-
-        for pt in face_mid_pts:
-            xnrm = (pt[0] - x_min) / x_range
-            ynrm = (pt[1] - y_min) / y_range
-            if (xnrm > xdom[0] and xnrm < xdom[1]) and (
-                ynrm > ydom[0] and ynrm < ydom[1]
-            ):
-                face_mask.append(True)
-            else:
-                face_mask.append(False)
-    else:
-        print(f"Invalid domain.")
-
-    return np.array(face_mask, dtype=bool)
-
-
-def get_sub_mesh_dom(xdom: list, ydom: list, mesh: Mesh) -> Mesh:
-    face_mask = get_sub_face_mask(xdom, ydom, mesh)
-    mesh_tri = trimesh.Trimesh(mesh.vertices, mesh.faces)
-    mesh_tri.update_faces(face_mask)
-    mesh_tri.remove_unreferenced_vertices()
-    mesh_dtcc_in = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
-
-    face_mask = np.invert(face_mask)
-    mesh_tri = trimesh.Trimesh(mesh.vertices, mesh.faces)
-    mesh_tri.update_faces(face_mask)
-    mesh_tri.remove_unreferenced_vertices()
-    mesh_dtcc_out = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
-
-    return mesh_dtcc_in, mesh_dtcc_out
-
-
-def get_sub_mesh(face_mask: np.ndarray, mesh: Mesh) -> Mesh:
-    mesh_tri = trimesh.Trimesh(mesh.vertices, mesh.faces)
-    mesh_tri.update_faces(face_mask)
-    mesh_tri.remove_unreferenced_vertices()
-    mesh_dtcc_in = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
-
-    face_mask = np.invert(face_mask)
-    mesh_tri = trimesh.Trimesh(mesh.vertices, mesh.faces)
-    mesh_tri.update_faces(face_mask)
-    mesh_tri.remove_unreferenced_vertices()
-    mesh_dtcc_out = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
-
-    return mesh_dtcc_in, mesh_dtcc_out

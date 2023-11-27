@@ -24,8 +24,8 @@ def run_script(solar_parameters: SolarParameters):
     sunpath = Sunpath(p, engine.sunpath_radius)
     outputc = OutputCollection()
 
-    engine.set_face_mask([0.45, 0.55], [0.45, 0.55])
-    engine.subdivide_masked_mesh(3.0)
+    # engine.set_face_mask([0.45, 0.55], [0.45, 0.55])
+    # engine.subdivide_masked_mesh(3.0)
     engine.run_analysis(p, sunpath, outputc)
 
     if p.display:
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         end_date="2019-12-31 00:00:00",
         longitude=11.97,
         latitude=57.71,
-        data_source=DataSource.smhi,
+        data_source=DataSource.clm,
         sun_analysis=True,
         sky_analysis=True,
         sun_approx=SunApprox.group,

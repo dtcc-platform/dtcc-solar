@@ -3,7 +3,7 @@ from .sunpath import Sunpath
 from .sundome import SunDome
 
 from .viewer import Viewer as SolarViewer
-from .utils import SunQuad, SolarParameters, DataSource, OutputCollection
+from .utils import SunQuad, SolarParameters, DataSource, OutputCollection, SunApprox
 
 
 # Classes and methods visible on the Docs page
@@ -16,4 +16,5 @@ __all__ = [
     "SolarParameters",
     "DataSource",
     "SolarViewer",
+    "SunApprox",
 ]
