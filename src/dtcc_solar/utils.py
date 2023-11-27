@@ -111,6 +111,32 @@ class OutputCollection:
     # Results for face and each sky raytracing intersection
     facehit_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
 
+    def process_results(self, face_mask: np.ndarray = None):
+        fsa = np.sum(self.face_sun_angles, axis=0)
+        occ = np.sum((1 - self.occlusion), axis=0)
+        dn = np.sum(self.irradiance_dn, axis=0)
+        di = np.sum(self.irradiance_di, axis=0)
+
+        fsa_masked = fsa[face_mask]
+        occ_masked = occ[face_mask]
+        dn_masked = dn[face_mask]
+        di_masked = di[face_mask]
+
+        face_mask_inv = np.invert(face_mask)
+        count = np.array(face_mask_inv, dtype=int).sum()
+
+        self.data_dict_1 = {
+            "face sun angles (rad)": fsa_masked,
+            "inverse occlusion (0-1)": occ_masked,
+            "direct normal irradiance (W/m2)": dn_masked,
+            "diffuse irradiance (W/m2)": di_masked,
+            "total irradiance (W/m2)": dn_masked + di_masked,
+        }
+
+        self.data_dict_2 = None
+        if face_mask is not None:
+            self.data_dict_2 = {"No data": np.ones(count)}
+
 
 @dataclass
 class SolarParameters:

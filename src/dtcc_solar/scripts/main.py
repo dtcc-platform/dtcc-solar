@@ -6,8 +6,6 @@ from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
-from dtcc_solar.colors import create_data_dict
-from dtcc_solar.utils import get_sub_mesh, get_sub_face_mask
 
 from dtcc_model import Mesh
 from dtcc_io import meshes
@@ -29,12 +27,12 @@ def run_script(solar_parameters: SolarParameters):
     engine.run_analysis(p, sunpath, outputc)
 
     if p.display:
-        data_dict_1, data_dict_2 = create_data_dict(outputc, engine.face_mask)
+        outputc.process_results(engine.face_mask)
         mesh_1, mesh_2 = engine.split_mesh_by_face_mask()
         viewer = Viewer()
         viewer.build_sunpath_diagram(sunpath, p)
-        viewer.add_mesh("Analysed mesh", mesh=mesh_1, data=data_dict_1)
-        viewer.add_mesh("Shading mesh", mesh=mesh_2, data=data_dict_2)
+        viewer.add_mesh("Analysed mesh", mesh=mesh_1, data=outputc.data_dict_1)
+        viewer.add_mesh("Shading mesh", mesh=mesh_2, data=outputc.data_dict_2)
         viewer.show()
 
 
@@ -64,7 +62,7 @@ if __name__ == "__main__":
         end_date="2019-12-31 00:00:00",
         longitude=11.97,
         latitude=57.71,
-        data_source=DataSource.clm,
+        data_source=DataSource.smhi,
         sun_analysis=True,
         sky_analysis=True,
         sun_approx=SunApprox.group,
