@@ -4,7 +4,7 @@ import trimesh
 from dtcc_solar.utils import SolarParameters, calc_face_mid_points, concatenate_meshes
 from dtcc_solar import py_embree_solar as embree
 from dtcc_solar.sundome import SunDome
-from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox
+from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox, MeshType
 
 from dtcc_solar.sunpath import Sunpath
 from dtcc_model import Mesh, PointCloud
@@ -34,7 +34,7 @@ class SolarEngine:
     face_areas: np.ndarray
     face_mask: np.ndarray
 
-    def __init__(self, mesh: Mesh) -> None:
+    def __init__(self, mesh: Mesh):
         self.mesh = mesh
         self.origin = np.array([0, 0, 0])
         self.f_count = len(self.mesh.faces)

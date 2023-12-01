@@ -19,6 +19,11 @@ class DataSource(IntEnum):
     epw = 4
 
 
+class MeshType(IntEnum):
+    analysis = 1
+    shading = 2
+
+
 class SunApprox(IntEnum):
     none = 1
     group = 2
