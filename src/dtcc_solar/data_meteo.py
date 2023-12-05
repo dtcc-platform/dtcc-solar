@@ -45,21 +45,24 @@ def get_data(lon: float, lat: float, sunc: SunCollection):
         api_dates = normal_irradiance.json()["hourly"]["time"]
         api_dates = format_api_dates(api_dates)
 
-        normal_irradiance_hourly = normal_irradiance.json()["hourly"][
+        normal_irradiance_h = normal_irradiance.json()["hourly"][
             "direct_normal_irradiance"
         ]
-        direct_radiation_hourly = direct_radiation.json()["hourly"]["direct_radiation"]
-        diffuse_radiation_hourly = diffuse_radiation.json()["hourly"][
-            "diffuse_radiation"
-        ]
+        # direct_radiation_h = direct_radiation.json()["hourly"]["direct_radiation"]
+        diffuse_radiation_h = diffuse_radiation.json()["hourly"]["diffuse_radiation"]
+
+        print(sunc.count)
 
         for i in range(len(api_dates)):
             if sun_counter < sunc.count:
                 sun_date = sunc.datetime_strs[sun_counter]
                 if date_match(api_dates[i], sun_date):
-                    sunc.irradiance_dn[sun_counter] = normal_irradiance_hourly[i]
-                    sunc.irradiance_dh[sun_counter] = direct_radiation_hourly[i]
-                    sunc.irradiance_di[sun_counter] = diffuse_radiation_hourly[i]
+                    sunc.dni[sun_counter] = normal_irradiance_h[i]
+                    sunc.dhi[sun_counter] = diffuse_radiation_h[i]
+
+                    print(sunc.dni[sun_counter])
+                    print(sunc.dhi[sun_counter])
+                    # sunc.irradiance_di[sun_counter] = direct_radiation_h[i]
                     sun_counter += 1
 
         info("Wheter data successfully collected from Open Meteo API")

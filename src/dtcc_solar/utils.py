@@ -86,9 +86,9 @@ class SunCollection:
     # Normalised sun vectors
     sun_vecs: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    irradiance_dn: np.ndarray = field(default_factory=lambda: np.empty(0))
+    dni: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    irradiance_dh: np.ndarray = field(default_factory=lambda: np.empty(0))
+    dhi: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
     irradiance_di: np.ndarray = field(default_factory=lambda: np.empty(0))
     # List zenith values
@@ -106,9 +106,9 @@ class OutputCollection:
     # Angle between face normal an sun vector
     occlusion: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    irradiance_dn: np.ndarray = field(default_factory=lambda: np.empty(0))
+    dni: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    irradiance_dh: np.ndarray = field(default_factory=lambda: np.empty(0))
+    dhi: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
     irradiance_di: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Percentage of the sky dome that is visible from the face
@@ -117,25 +117,21 @@ class OutputCollection:
     facehit_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
 
     def process_results(self, face_mask: np.ndarray = None):
-        fsa = np.sum(self.face_sun_angles, axis=0)
-        occ = np.sum((1 - self.occlusion), axis=0)
-        dn = np.sum(self.irradiance_dn, axis=0)
-        di = np.sum(self.irradiance_di, axis=0)
-
-        fsa_masked = fsa[face_mask]
-        occ_masked = occ[face_mask]
-        dn_masked = dn[face_mask]
-        di_masked = di[face_mask]
+        fsa_masked = self.face_sun_angles[face_mask]
+        occ_masked = 1.0 - self.occlusion[face_mask]
+        dni_masked = self.dni[face_mask]
+        dhi_masked = self.dhi[face_mask]
+        tot_masked = dni_masked + dhi_masked
 
         face_mask_inv = np.invert(face_mask)
         count = np.array(face_mask_inv, dtype=int).sum()
 
         self.data_dict_1 = {
+            "total irradiance (W/m2)": tot_masked,
+            "direct normal irradiance (W/m2)": dni_masked,
+            "diffuse irradiance (W/m2)": dhi_masked,
             "face sun angles (rad)": fsa_masked,
             "inverse occlusion (0-1)": occ_masked,
-            "direct normal irradiance (W/m2)": dn_masked,
-            "diffuse irradiance (W/m2)": di_masked,
-            "total irradiance (W/m2)": dn_masked + di_masked,
         }
 
         self.data_dict_2 = None

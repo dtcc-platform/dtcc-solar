@@ -92,6 +92,10 @@ EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<s
     mSkydome = new Skydome(10);
     mSunrays = new Sunrays(mFaceMidPts, mFaceCount, mFaceMask);
 
+    mHasSunResults = false;
+    mHasSkyResults = false;
+    mHasIrrResults = false;
+
     info("Model setup with mesh geometry complete.");
 }
 
@@ -189,6 +193,26 @@ std::vector<std::vector<int>> EmbreeSolar::GetFaceSkyHitResults()
 std::vector<float> EmbreeSolar::GetFaceSkyPortionResults()
 {
     return mFaceSkyPortion;
+}
+
+std::vector<float> EmbreeSolar::GetIrradianceResultsDNI()
+{
+    return mIrradianceDNI;
+}
+
+std::vector<float> EmbreeSolar::GetIrradianceResultsDHI()
+{
+    return mIrradianceDHI;
+}
+
+std::vector<float> EmbreeSolar::GetAccumulatedAngles()
+{
+    return mAccumAngles;
+}
+
+std::vector<float> EmbreeSolar::GetAccumulatedOcclusion()
+{
+    return mAccumOcclud;
 }
 
 int EmbreeSolar::GetSkydomeRayCount()
@@ -500,7 +524,7 @@ bool EmbreeSolar::SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs)
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
-
+    mHasSunResults = true;
     return true;
 }
 
@@ -537,6 +561,7 @@ bool EmbreeSolar::SunRaytrace_Occ4(std::vector<std::vector<float>> sun_vecs)
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
+    mHasSunResults = true;
     return true;
 }
 
@@ -575,6 +600,7 @@ bool EmbreeSolar::SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs)
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
+    mHasSunResults = true;
     return true;
 }
 
@@ -611,6 +637,7 @@ bool EmbreeSolar::SunRaytrace_Occ16(std::vector<std::vector<float>> sun_vecs)
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
+    mHasSunResults = true;
     return true;
 }
 
@@ -653,7 +680,7 @@ bool EmbreeSolar::SkyRaytrace_Occ1()
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
-
+    mHasSkyResults = true;
     return true;
 }
 
@@ -701,7 +728,7 @@ bool EmbreeSolar::SkyRaytrace_Occ4()
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
-
+    mHasSkyResults = true;
     return true;
 }
 
@@ -749,7 +776,7 @@ bool EmbreeSolar::SkyRaytrace_Occ8()
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
-
+    mHasSkyResults = true;
     return true;
 }
 
@@ -797,7 +824,105 @@ bool EmbreeSolar::SkyRaytrace_Occ16()
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
+    mHasSkyResults = true;
+    return true;
+}
 
+bool EmbreeSolar::CalcIrradiance(std::vector<float> dni, std::vector<float> dhi)
+{
+    mIrradianceDNI = std::vector<float>(mFaceCount, 0.0);
+    mIrradianceDHI = std::vector<float>(mFaceCount, 0.0);
+    mAccumAngles = std::vector<float>(mFaceCount, 0.0);
+    mAccumOcclud = std::vector<float>(mFaceCount, 0.0);
+
+    if (dni.size() < 1 || dhi.size() < 1)
+    {
+        error("Invalid weather data count in EmbreeSolar::CalcIrradiance.");
+        return false;
+    }
+    else if (mHasSunResults && (dni.size() != mAngles.size()))
+    {
+        error("Weather data does not match number of suns used for raytracing in EmbreeSolar::CalcIrradiance.");
+        return false;
+    }
+    else // Data size is correct
+    {
+        for (long unsigned int sunIndex = 0; sunIndex < mAngles.size(); sunIndex++)
+        {
+            float weatherDNI = dni[sunIndex]; // Direct normal irradiance
+            float weatherDHI = dhi[sunIndex]; // Direct horizontal irradiance
+
+            for (long unsigned int faceIndex = 0; faceIndex < mAngles[sunIndex].size(); faceIndex++)
+            {
+                if (mHasSunResults)
+                {
+                    float angle = M_PI - mAngles[sunIndex][faceIndex];
+                    float angleFraction = angle / M_PI;
+                    float faceInSun = 1.0f - mOccluded[sunIndex][faceIndex];
+                    float irradianceDNI = weatherDNI * faceInSun * angleFraction;
+                    mIrradianceDNI[faceIndex] += irradianceDNI;
+                    mAccumAngles[faceIndex] += mAngles[sunIndex][faceIndex];
+                    mAccumOcclud[faceIndex] += mOccluded[sunIndex][faceIndex];
+                }
+                if (mHasSkyResults)
+                {
+                    float visible_sky = mFaceSkyPortion[faceIndex];
+                    float irradianceDHI = weatherDHI * (1.0f - visible_sky);
+                    mIrradianceDHI[faceIndex] += irradianceDHI;
+                }
+            }
+        }
+        mHasIrrResults = true;
+    }
+    info("Irradiance calculation completed.");
+    return true;
+}
+
+bool EmbreeSolar::CalcIrradianceGroup(std::vector<float> dni, std::vector<float> dhi, std::vector<std::vector<int>> sunGroups)
+{
+    mIrradianceDNI = std::vector<float>(mFaceCount, 0.0);
+    mIrradianceDHI = std::vector<float>(mFaceCount, 0.0);
+    mAccumAngles = std::vector<float>(mFaceCount, 0.0);
+    mAccumOcclud = std::vector<float>(mFaceCount, 0.0);
+
+    for (long unsigned int i = 0; i < sunGroups.size(); i++)
+    {
+        int groupSunIndex = i;
+
+        for (long unsigned int j = 0; j < sunGroups[i].size(); j++)
+        {
+            // Weather data is stored for the real sun positions
+            int realSunIndex = sunGroups[i][j];
+            float weatherDNI = dni[realSunIndex]; // Direct normal irradiance
+            float weatherDHI = dhi[realSunIndex]; // Direct horizontal irradiance
+
+            // Angles and occluded are calculated for the group sun positions
+            for (long unsigned int faceIndex = 0; faceIndex < mAngles[groupSunIndex].size(); faceIndex++)
+            {
+                if (mHasSunResults)
+                {
+                    float angle = M_PI - mAngles[groupSunIndex][faceIndex];
+                    float angleFraction = angle / M_PI;
+                    float faceInSun = 1.0f - mOccluded[groupSunIndex][faceIndex];
+                    float irradianceDNI = weatherDNI * faceInSun * angleFraction;
+                    mIrradianceDNI[faceIndex] += irradianceDNI;
+                    mAccumAngles[faceIndex] += mAngles[groupSunIndex][faceIndex];
+                    mAccumOcclud[faceIndex] += mOccluded[groupSunIndex][faceIndex];
+                }
+
+                if (mHasSkyResults)
+                {
+                    float visible_sky = mFaceSkyPortion[faceIndex];
+                    float irradianceDHI = weatherDHI * (1.0f - visible_sky);
+                    mIrradianceDHI[faceIndex] += irradianceDHI;
+                    // std::cout << "Visible sky: " << visible_sky << std::endl;
+                    // std::cout << "DHI: " << weatherDHI << std::endl;
+                }
+            }
+        }
+    }
+    mHasIrrResults = true;
+    info("Irradiance calculation completed.");
     return true;
 }
 
@@ -841,6 +966,10 @@ PYBIND11_MODULE(py_embree_solar, m)
              { py::array out = py::cast(self.SkyRaytrace_Occ8()); return out; })
         .def("sky_raytrace_occ16", [](EmbreeSolar &self)
              { py::array out = py::cast(self.SkyRaytrace_Occ16()); return out; })
+        .def("calc_irradiance", [](EmbreeSolar &self, std::vector<float> dni, std::vector<float> dhi)
+             { py::array out = py::cast(self.CalcIrradiance(dni, dhi)); return out; })
+        .def("calc_irradiance_group", [](EmbreeSolar &self, std::vector<float> dni, std::vector<float> dhi, std::vector<std::vector<int>> sunGroups)
+             { py::array out = py::cast(self.CalcIrradianceGroup(dni, dhi, sunGroups)); return out; })
         .def("get_angle_results", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetAngleResults()); return out; })
         .def("get_occluded_results", [](EmbreeSolar &self)
@@ -848,7 +977,15 @@ PYBIND11_MODULE(py_embree_solar, m)
         .def("get_face_skyhit_results", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetFaceSkyHitResults()); return out; })
         .def("get_face_skyportion_results", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.GetFaceSkyPortionResults()); return out; });
+             { py::array out = py::cast(self.GetFaceSkyPortionResults()); return out; })
+        .def("get_results_dni", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetIrradianceResultsDNI()); return out; })
+        .def("get_results_dhi", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetIrradianceResultsDHI()); return out; })
+        .def("get_accumulated_angles", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetAccumulatedAngles()); return out; })
+        .def("get_accumulated_occlusion", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetAccumulatedOcclusion()); return out; });
 }
 
 #endif

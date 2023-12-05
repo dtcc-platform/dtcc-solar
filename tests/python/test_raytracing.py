@@ -12,6 +12,7 @@ from dtcc_solar.solar_engine import SolarEngine
 from dtcc_io import meshes
 from dtcc_model import Mesh
 import dtcc_solar.data_meteo as meteo
+from dtcc_solar.logging import set_log_level, info, debug, warning, error
 
 from typing import List, Any
 from pprint import pp
@@ -72,12 +73,10 @@ class TestRaytracing:
         self.solar_engine.run_analysis(p, sunpath, outputc)
 
         nfaces = len(self.solar_engine.mesh.faces)
-        nsuns = sunpath.sunc.count
+        nocc = len(outputc.occlusion)
+        nang = len(outputc.face_sun_angles)
 
-        occ_shp = outputc.occlusion.shape
-        ang_shp = outputc.face_sun_angles.shape
-
-        assert occ_shp == (nsuns, nfaces) and ang_shp == (nsuns, nfaces)
+        assert nocc == nfaces and nang == nfaces
 
     def test_raytracing_sun_quad_iterative(self):
         p = copy.deepcopy(self.p)
@@ -92,12 +91,10 @@ class TestRaytracing:
         self.solar_engine.run_analysis(p, sunpath, outputc)
 
         nfaces = len(self.solar_engine.mesh.faces)
-        nsuns = sunpath.sunc.count
+        nocc = len(outputc.occlusion)
+        nang = len(outputc.face_sun_angles)
 
-        occ_shp = outputc.occlusion.shape
-        ang_shp = outputc.face_sun_angles.shape
-
-        assert occ_shp == (nsuns, nfaces) and ang_shp == (nsuns, nfaces)
+        assert nocc == nfaces and nang == nfaces
 
     def test_raytracing_sky_instant(self):
         p = copy.deepcopy(self.p)
@@ -105,6 +102,7 @@ class TestRaytracing:
         p.sky_analysis = True
         p.start_date = "2019-06-01 12:00:00"
         p.end_date = "2019-06-01 12:00:00"
+        p.sun_approx = SunApprox.none
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
@@ -122,10 +120,10 @@ class TestRaytracing:
 if __name__ == "__main__":
     os.system("clear")
     print("--------------------- Raytracing test started -----------------------")
-
+    set_log_level("INFO")
     test = TestRaytracing()
     test.setup_method()
-    test.test_raytracing_sun_instant()
+    # test.test_raytracing_sun_instant()
     # test.test_raytracing_sun_iterative()
     # test.test_raytracing_sun_quad_iterative()
-    # test.test_raytracing_sky_instant()
+    test.test_raytracing_sky_instant()

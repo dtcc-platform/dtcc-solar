@@ -39,6 +39,7 @@ class SolarEngine:
         self.origin = np.array([0, 0, 0])
         self.f_count = len(self.mesh.faces)
         self.v_count = len(self.mesh.vertices)
+        info(f"Mesh has {self.f_count} faces and {self.v_count} vertices.")
 
         self.horizon_z = 0
         self.sunpath_radius = 0
@@ -49,7 +50,6 @@ class SolarEngine:
 
         # Set which faces should be included in the analysis
         self.face_mask = np.ones(self.f_count, dtype=bool)
-
         info("Solar engine created")
 
     def _preprocess_mesh(self, move_to_center: bool):
@@ -71,11 +71,11 @@ class SolarEngine:
         self.horizon_z = np.average(self.mesh.vertices[:, 2])
 
         # Calculating sunpath radius
-        xRange = self.bb.width
-        yRange = self.bb.height
-        zRange = self.zmax - self.zmin
+        dx = self.bb.width
+        dy = self.bb.height
+        dz = self.zmax - self.zmin
         self.sunpath_radius = math.sqrt(
-            math.pow(xRange / 2, 2) + math.pow(yRange / 2, 2) + math.pow(zRange / 2, 2)
+            math.pow(dx / 2, 2) + math.pow(dy / 2, 2) + math.pow(dz / 2, 2)
         )
 
         # Hard coded size proportions
@@ -84,8 +84,8 @@ class SolarEngine:
         self.tolerance = self.sunpath_radius / 1.0e7
 
         self._calc_face_areas()
-
-        info(f"Tolerance for point comparions set to: {self.tolerance}")
+        if move_to_center:
+            info(f"Mesh has been moved to origin.")
 
     def _calc_bounds(self):
         self.xmin = self.mesh.vertices[:, 0].min()
@@ -145,22 +145,34 @@ class SolarEngine:
             print(f"Invalid domain.")
 
         self.face_mask = np.array(face_mask, dtype=bool)
-        info(f"Face mask set to: {self.face_mask.sum()} faces.")
+        true_count = self.face_mask.sum()
+        false_count = len(self.face_mask) - true_count
+        info(
+            f"Face mask set to include: {true_count} faces for analys with {false_count} faces for the shading mesh."
+        )
 
     def subdivide_masked_mesh(self, max_edge_length: float) -> Mesh:
         mesh_1, mesh_2 = self.split_mesh_by_face_mask()
 
         if mesh_1 is not None:
-            vs, fs = trimesh.remesh.subdivide_to_size(
-                mesh_1.vertices, mesh_1.faces, max_edge=max_edge_length, max_iter=5
-            )
-            subdee_mesh = Mesh(vertices=vs, faces=fs)
+            try:
+                vs, fs = trimesh.remesh.subdivide_to_size(
+                    mesh_1.vertices, mesh_1.faces, max_edge=max_edge_length, max_iter=6
+                )
+                subdee_mesh = Mesh(vertices=vs, faces=fs)
+            except:
+                warning(f"Could not subdivide mesh with length {max_edge_length}.")
+                subdee_mesh = mesh_1
 
+        f_count_2 = 0
         f_count_1 = len(mesh_1.faces)
-        f_count_2 = len(mesh_2.faces)
         f_count_sd = len(subdee_mesh.faces)
 
-        new_mesh = concatenate_meshes([subdee_mesh, mesh_2])
+        if mesh_2 is None:
+            new_mesh = subdee_mesh
+        else:
+            f_count_2 = len(mesh_2.faces)
+            new_mesh = concatenate_meshes([subdee_mesh, mesh_2])
 
         face_mask_sd = np.ones(f_count_sd, dtype=bool)
         face_mask_2 = np.zeros(f_count_2, dtype=bool)
@@ -171,9 +183,7 @@ class SolarEngine:
         self.face_mask = face_mask
         self.f_count = len(self.mesh.faces)
 
-        info(
-            f"Subdivided masked mesh from {f_count_1} to {f_count_sd} number of faces."
-        )
+        info(f"Subdivided masked mesh from {f_count_1} to {f_count_sd} faces.")
 
     def split_mesh_by_face_mask(self) -> Mesh:
         if np.array(self.face_mask, dtype=int).sum() == 0:
@@ -208,6 +218,7 @@ class SolarEngine:
         )
         info(f"Running analysis...")
 
+        # Run raytracing
         if p.sun_analysis:
             if p.sun_approx == SunApprox.quad and sunp.sundome is not None:
                 self._sun_quad_raycasting(sunp.sundome, sunp.sunc, outc)
@@ -219,32 +230,34 @@ class SolarEngine:
         if p.sky_analysis:
             self._sky_raycasting(sunp.sunc, outc)
 
+        # Calculate irradiance base on raytracing results and weather data
+        if p.sun_approx == SunApprox.none:
+            self.embree.calc_irradiance(sunp.sunc.dni, sunp.sunc.dhi)
+        elif p.sun_approx == SunApprox.group:
+            indices = sunp.sungroups.sun_indices
+            self.embree.calc_irradiance_group(sunp.sunc.dni, sunp.sunc.dhi, indices)
+        elif p.sun_approx == SunApprox.quad:
+            active_quads = sunp.sundome.active_quads
+            indices = [quad.sun_indices for quad in active_quads]
+            self.embree.calc_irradiance_group(sunp.sunc.dni, sunp.sunc.dhi, indices)
+
+        # Save results to output collection
+        if p.sun_analysis:
+            outc.dni = self.embree.get_results_dni()
+            outc.dhi = self.embree.get_results_dhi()
+            outc.face_sun_angles = np.pi - self.embree.get_accumulated_angles()
+            outc.occlusion = self.embree.get_accumulated_occlusion()
+
+        if p.sky_analysis:
+            outc.facehit_sky = self.embree.get_face_skyhit_results()
+
     def _sun_group_raycasting(
         self, sungroups: SunGroups, sunc: SunCollection, outc: OutputCollection
     ):
         sun_vecs = sungroups.list_centers
-        sun_indices = sungroups.sun_indices
-        n_groups = len(sun_vecs)
-        f_count = len(self.mesh.faces)
         info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} sun groups.")
         if self.embree.sun_raytrace_occ8(sun_vecs):
-            group_angles = np.pi - self.embree.get_angle_results()
-            group_occlusion = self.embree.get_occluded_results()
-            angles = np.zeros((sunc.count, f_count))
-            occlusion = np.zeros((sunc.count, f_count))
-            # Map the results back to the individual sun positions
-            info("Mapping raytracing results from group back to sun positions")
-            for i in range(n_groups):
-                g_angles = group_angles[i]
-                g_occlusion = group_occlusion[i]
-                for sun_index in sun_indices[i]:
-                    angles[sun_index, :] = g_angles
-                    occlusion[sun_index, :] = g_occlusion
-
-            irradiance_dn = self._calc_normal_irradiance(sunc, occlusion, angles)
-            outc.face_sun_angles = angles
-            outc.occlusion = occlusion
-            outc.irradiance_dn = irradiance_dn
+            info(f"Raytracing sun groups completed successfully.")
         else:
             warning(f"Something went wrong in embree solar.")
 
@@ -252,72 +265,23 @@ class SolarEngine:
         self, sundome: SunDome, sunc: SunCollection, outc: OutputCollection
     ):
         sundome.match_suns_and_quads(sunc)
-        active_quads = sundome.active_quads
         sun_vecs = sundome.get_active_quad_centers()
-        f_count = len(self.mesh.faces)
         info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} quad groups.")
         if self.embree.sun_raytrace_occ8(sun_vecs):
-            quad_angles = np.pi - self.embree.get_angle_results()
-            quad_occlusion = self.embree.get_occluded_results()
-            angles = np.zeros((sunc.count, f_count))
-            occlusion = np.zeros((sunc.count, f_count))
-            info("Mapping raytracing results back to quad group sun positions.")
-            # Map the results back to the individual sun positions
-            for i, quad in enumerate(active_quads):
-                q_angles = quad_angles[i]
-                q_occlusion = quad_occlusion[i]
-                for sun_index in quad.sun_indices:
-                    angles[sun_index, :] = q_angles
-                    occlusion[sun_index, :] = q_occlusion
-
-            irradiance_dn = self._calc_normal_irradiance(sunc, occlusion, angles)
-            outc.face_sun_angles = angles
-            outc.occlusion = occlusion
-            outc.irradiance_dn = irradiance_dn
+            info(f"Raytracing sun groups completed successfully.")
         else:
             warning(f"Something went wrong in embree solar.")
 
     def _sun_raycasting(self, sunc: SunCollection, outc: OutputCollection):
         info(f"Running sun raycasting")
         if self.embree.sun_raytrace_occ8(sunc.sun_vecs):
-            angles = np.pi - self.embree.get_angle_results()
-            occlusion = self.embree.get_occluded_results()
-            irradiance_dn = self._calc_normal_irradiance(sunc, occlusion, angles)
-
-            outc.face_sun_angles = angles
-            outc.occlusion = occlusion
-            outc.irradiance_dn = irradiance_dn
-
+            info(f"Running sun raycasting completed successfully.")
         else:
             warning(f"Something went wrong with sun analysis in embree solar.")
 
     def _sky_raycasting(self, sunc: SunCollection, outc: OutputCollection):
         info(f"Running sky raycasting")
         if self.embree.sky_raytrace_occ8():  # Array with nFace elements
-            facehit_sky = self.embree.get_face_skyhit_results()
-            visible_sky = self.embree.get_face_skyportion_results()
-            outc.visible_sky = visible_sky
-            outc.facehit_sky = facehit_sky
-            outc.irradiance_di = self._calc_diffuse_irradiance(sunc, visible_sky)
+            info(f"Running sky raycasting completed succefully.")
         else:
             warning(f"Something went wrong with sky analysis in embree solar.")
-
-    def _calc_diffuse_irradiance(self, sunc: SunCollection, visible_sky: np.ndarray):
-        diffuse_irradiance = []
-        for di in sunc.irradiance_di:
-            diffuse_irradiance.append(di * (1.0 - visible_sky))
-
-        return np.array(diffuse_irradiance)
-
-    def _calc_normal_irradiance(
-        self, sunc: SunCollection, occlusion: np.ndarray, angles: np.ndarray
-    ):
-        irradiance = []
-        for i in range(sunc.count):
-            # angle_fraction = 1 if the angle is pi (180 degrees).
-            angle_fraction = angles[i] / np.pi
-            face_in_sun = 1.0 - occlusion[i]
-            irr_for_sun = sunc.irradiance_dn[i] * face_in_sun * angle_fraction
-            irradiance.append(irr_for_sun)
-
-        return np.array(irradiance)

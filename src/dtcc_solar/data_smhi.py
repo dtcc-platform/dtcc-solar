@@ -48,8 +48,8 @@ def get_data(lon: float, lat: float, sunc: SunCollection):
             api_date = ni_json[i]["date_time"]
             sun_date = sunc.datetime_strs[i]
             if date_match(api_date, sun_date):
-                sunc.irradiance_dn[i] = ni_json[i]["value"]
-                sunc.irradiance_di[i] = hi_json[i]["value"]
+                sunc.dni[i] = ni_json[i]["value"]
+                sunc.dhi[i] = hi_json[i]["value"]
 
         info("Wheter data successfully collected from the API of SMHI")
         info(f"Source: {strong_data_path}")

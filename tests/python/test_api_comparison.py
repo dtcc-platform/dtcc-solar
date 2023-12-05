@@ -380,8 +380,8 @@ def format_data_per_day_suns(sunc: SunCollection):
         key = sunc.datetime_strs[i]
         date_key = key[0:10]
         hour = sunc.time_stamps[i].hour
-        data_ni.append(sunc.irradiance_dn[i])
-        data_hi.append(sunc.irradiance_di[i])
+        data_ni.append(sunc.dni[i])
+        data_hi.append(sunc.dhi[i])
         if hour == 23:
             normal_irr[date_key] = data_ni
             horizon_irr[date_key] = data_hi

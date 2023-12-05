@@ -57,8 +57,8 @@ def import_data(sunc: SunCollection, weather_file: str):
         if sun_index < sunc.count:
             sun_date = sunc.datetime_strs[sun_index]
             if date_match(epw_date, sun_date):
-                sunc.irradiance_dn[sun_index] = direct_normal_radiation[epw_index]
-                sunc.irradiance_di[sun_index] = diffuse_horisontal_radiation[epw_index]
+                sunc.dni[sun_index] = direct_normal_radiation[epw_index]
+                sunc.dhi[sun_index] = diffuse_horisontal_radiation[epw_index]
                 sun_index += 1
         epw_index += 1
 

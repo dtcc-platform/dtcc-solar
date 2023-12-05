@@ -22,8 +22,8 @@ def run_script(solar_parameters: SolarParameters):
     sunpath = Sunpath(p, engine.sunpath_radius)
     outputc = OutputCollection()
 
-    engine.set_face_mask([0.35, 0.55], [0.4, 0.6])
-    engine.subdivide_masked_mesh(3.0)
+    engine.set_face_mask([0.3, 0.7], [0.3, 0.7])
+    engine.subdivide_masked_mesh(3.5)
     engine.run_analysis(p, sunpath, outputc)
 
     if p.display:

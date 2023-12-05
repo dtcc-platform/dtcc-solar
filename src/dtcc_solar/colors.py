@@ -3,35 +3,6 @@ from dtcc_solar.utils import ColorBy, OutputCollection
 from pprint import pp
 
 
-def create_data_dict(outc: OutputCollection, face_mask: np.ndarray = None):
-    fsa = np.sum(outc.face_sun_angles, axis=0)
-    occ = np.sum((1 - outc.occlusion), axis=0)
-    dn = np.sum(outc.irradiance_dn, axis=0)
-    di = np.sum(outc.irradiance_di, axis=0)
-
-    fsa_masked = fsa[face_mask]
-    occ_masked = occ[face_mask]
-    dn_masked = dn[face_mask]
-    di_masked = di[face_mask]
-
-    face_mask_inv = np.invert(face_mask)
-    count = np.array(face_mask_inv, dtype=int).sum()
-
-    data_dict_1 = {
-        "face sun angles (rad)": fsa_masked,
-        "inverse occlusion (0-1)": occ_masked,
-        "direct normal irradiance (W/m2)": dn_masked,
-        "diffuse irradiance (W/m2)": di_masked,
-        "total irradiance (W/m2)": dn_masked + di_masked,
-    }
-
-    data_dict_2 = None
-    if face_mask is not None:
-        data_dict_2 = {"No data": np.ones(count)}
-
-    return data_dict_1, data_dict_2
-
-
 def calc_colors(values):
     colors = []
     values = np.array(values, dtype=float)

@@ -51,8 +51,8 @@ def import_data(sunc: SunCollection, weather_file: str):
         if sun_index < sunc.count:
             sun_date = sunc.datetime_strs[sun_index]
             if date_match(clm_date, sun_date):
-                sunc.irradiance_dn[sun_index] = year_normal_irr[clm_date]
-                sunc.irradiance_di[sun_index] = year_diffuse_irr[clm_date]
+                sunc.dni[sun_index] = year_normal_irr[clm_date]
+                sunc.dhi[sun_index] = year_diffuse_irr[clm_date]
                 sun_index += 1
 
     info(f"Weather data successfully collected from: {weather_file}")

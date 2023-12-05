@@ -181,18 +181,18 @@ class Sunpath:
         self.sunc.sun_vecs = np.array(sun_vecs)
         self.sunc.positions = np.array(positions)
         self.sunc.zeniths = np.array(zeniths)
-        self.sunc.irradiance_dh = np.zeros(self.sunc.count)
+        self.sunc.dhi = np.zeros(self.sunc.count)
         self.sunc.irradiance_di = np.zeros(self.sunc.count)
-        self.sunc.irradiance_dn = np.zeros(self.sunc.count)
+        self.sunc.dni = np.zeros(self.sunc.count)
 
     def _remove_suns_below_horizon(self, over_horizon: list[bool]):
         # Remove data where the sun is below the horizon
         self.sunc.sun_vecs = self.sunc.sun_vecs[over_horizon, :]
         self.sunc.positions = self.sunc.positions[over_horizon, :]
         self.sunc.date_times = self.sunc.date_times[over_horizon]
-        self.sunc.irradiance_dh = self.sunc.irradiance_dh[over_horizon]
+        self.sunc.dhi = self.sunc.dhi[over_horizon]
         self.sunc.irradiance_di = self.sunc.irradiance_di[over_horizon]
-        self.sunc.irradiance_dn = self.sunc.irradiance_dn[over_horizon]
+        self.sunc.dni = self.sunc.dni[over_horizon]
         self.sunc.count = len(self.sunc.positions)
 
         timestamps = []

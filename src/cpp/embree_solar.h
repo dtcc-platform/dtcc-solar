@@ -51,6 +51,11 @@ public:
     std::vector<std::vector<float>> GetSkydomeVertices();
     std::vector<std::vector<float>> GetSkydomeRayDirections();
 
+    std::vector<float> GetIrradianceResultsDNI();
+    std::vector<float> GetIrradianceResultsDHI();
+    std::vector<float> GetAccumulatedAngles();
+    std::vector<float> GetAccumulatedOcclusion();
+
     void Raytrace_occ1(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
     void Raytrace_occ4(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
     void Raytrace_occ8(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
@@ -65,6 +70,9 @@ public:
     bool SkyRaytrace_Occ4();
     bool SkyRaytrace_Occ8();
     bool SkyRaytrace_Occ16();
+
+    bool CalcIrradiance(std::vector<float> dni, std::vector<float> dhi);
+    bool CalcIrradianceGroup(std::vector<float> dni, std::vector<float> dhi, std::vector<std::vector<int>> sunGroups);
 
     void CalcFaceNormals();
     void ErrorFunction(void *userPtr, enum RTCError error, const char *str);
@@ -92,9 +100,19 @@ private:
     bool mApplyMask;
     std::vector<bool> mFaceMask;
 
-    // Results from analysis
+    bool mHasSunResults;
+    bool mHasSkyResults;
+    bool mHasIrrResults;
+
+    // Results from analysis based on sun vectors or group sun vectors
     std::vector<std::vector<int>> mOccluded;
     std::vector<std::vector<float>> mAngles;
+
+    // Results from analysis mapped onto all sun positions
+    std::vector<float> mIrradianceDNI;
+    std::vector<float> mIrradianceDHI;
+    std::vector<float> mAccumAngles;
+    std::vector<float> mAccumOcclud;
 
     std::vector<std::vector<int>> mFaceSkyHit;
     std::vector<float> mFaceSkyPortion;
