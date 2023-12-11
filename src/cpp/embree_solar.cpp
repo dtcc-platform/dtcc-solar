@@ -46,8 +46,8 @@ EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<s
 
     set_log_level(INFO);
 
-    mVertexCount = vertices.size();
-    mFaceCount = faces.size();
+    mVertexCount = (int)vertices.size();
+    mFaceCount = (int)faces.size();
     mFaceNormals = new Vector[mFaceCount];
 
     mMaskCount = mFaceCount;
@@ -72,8 +72,8 @@ EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<s
 
     set_log_level(INFO);
 
-    mVertexCount = vertices.size();
-    mFaceCount = faces.size();
+    mVertexCount = (int)vertices.size();
+    mFaceCount = (int)faces.size();
     mFaceNormals = new Vector[mFaceCount];
 
     mApplyMask = true;
@@ -493,14 +493,15 @@ bool EmbreeSolar::SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs)
 {
     // Define a 2D vector to store intersection results. Each postion is given the
     // initial values 0, which is changed to 1 if an intersection is found.
-    mAngles = std::vector<std::vector<float>>(sun_vecs.size(), std::vector<float>(mFaceCount, 0.0));
-    mOccluded = std::vector<std::vector<int>>(sun_vecs.size(), std::vector<int>(mFaceCount, 0));
+    int nSunVecs = (int)sun_vecs.size();
+    mAngles = std::vector<std::vector<float>>(nSunVecs, std::vector<float>(mFaceCount, 0.0f));
+    mOccluded = std::vector<std::vector<int>>(nSunVecs, std::vector<int>(mFaceCount, 0));
 
     auto start = std::chrono::high_resolution_clock::now();
     int hitCounter = 0;
 
-    info("Running rtcOccluded1 for " + str(sun_vecs.size()) + " sun vectors.");
-    for (long unsigned int i = 0; i < sun_vecs.size(); i++)
+    info("Running rtcOccluded1 for " + str(nSunVecs) + " sun vectors.");
+    for (int i = 0; i < nSunVecs; i++)
     {
         auto sun_vec = UnitizeVector(sun_vecs[i]);
         auto &angels = mAngles[i];
@@ -532,13 +533,14 @@ bool EmbreeSolar::SunRaytrace_Occ4(std::vector<std::vector<float>> sun_vecs)
 {
     // Define a 2D vector to store intersection results. Each postion is given the
     // initial values 0, which is changed to 1 if an intersection is found.
-    mAngles = std::vector<std::vector<float>>(sun_vecs.size(), std::vector<float>(mFaceCount, 0.0));
-    mOccluded = std::vector<std::vector<int>>(sun_vecs.size(), std::vector<int>(mFaceCount, 0));
+    int nSunVecs = (int)sun_vecs.size();
+    mAngles = std::vector<std::vector<float>>(nSunVecs, std::vector<float>(mFaceCount, 0.0));
+    mOccluded = std::vector<std::vector<int>>(nSunVecs, std::vector<int>(mFaceCount, 0));
     auto start = std::chrono::high_resolution_clock::now();
     int hitCounter = 0;
 
-    info("Running rtcOccluded4 for " + str(sun_vecs.size()) + " sun vectors.");
-    for (long unsigned int i = 0; i < sun_vecs.size(); i++)
+    info("Running rtcOccluded4 for " + str(nSunVecs) + " sun vectors.");
+    for (int i = 0; i < nSunVecs; i++)
     {
         auto sun_vec = UnitizeVector(sun_vecs[i]);
         auto &angels = mAngles[i];
@@ -569,14 +571,15 @@ bool EmbreeSolar::SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs)
 {
     // Define a 2D vector to store intersection results. Each postion is given the
     // initial values 0, which is changed to 1 if an intersection is found.
-    mAngles = std::vector<std::vector<float>>(sun_vecs.size(), std::vector<float>(mFaceCount, 0.0));
-    mOccluded = std::vector<std::vector<int>>(sun_vecs.size(), std::vector<int>(mFaceCount, 0));
+    int nSunVecs = (int)sun_vecs.size();
+    mAngles = std::vector<std::vector<float>>(nSunVecs, std::vector<float>(mFaceCount, 0.0));
+    mOccluded = std::vector<std::vector<int>>(nSunVecs, std::vector<int>(mFaceCount, 0));
 
     auto start = std::chrono::high_resolution_clock::now();
     int hitCounter = 0;
 
-    info("Running rtcOccluded8 for " + str(sun_vecs.size()) + " sun vectors.");
-    for (long unsigned int i = 0; i < sun_vecs.size(); i++)
+    info("Running rtcOccluded8 for " + str(nSunVecs) + " sun vectors.");
+    for (int i = 0; i < nSunVecs; i++)
     {
         auto sun_vec = UnitizeVector(sun_vecs[i]);
         auto &angels = mAngles[i];
@@ -608,13 +611,14 @@ bool EmbreeSolar::SunRaytrace_Occ16(std::vector<std::vector<float>> sun_vecs)
 {
     // Define a 2D vector to store intersection results. Each postion is given the
     // initial values 0, which is changed to 1 if an intersection is found.
-    mAngles = std::vector<std::vector<float>>(sun_vecs.size(), std::vector<float>(mFaceCount, 0.0));
-    mOccluded = std::vector<std::vector<int>>(sun_vecs.size(), std::vector<int>(mFaceCount, 0));
+    int nSunVecs = (int)sun_vecs.size();
+    mAngles = std::vector<std::vector<float>>(nSunVecs, std::vector<float>(mFaceCount, 0.0));
+    mOccluded = std::vector<std::vector<int>>(nSunVecs, std::vector<int>(mFaceCount, 0));
 
     auto start = std::chrono::high_resolution_clock::now();
-    info("Running rtcOccluded16 for " + str(sun_vecs.size()) + " sun vectors.");
+    info("Running rtcOccluded16 for " + str(nSunVecs) + " sun vectors.");
     int hitCounter = 0;
-    for (long unsigned int i = 0; i < sun_vecs.size(); i++)
+    for (int i = 0; i < nSunVecs; i++)
     {
         auto sun_vec = UnitizeVector(sun_vecs[i]);
         auto &angles = mAngles[i];
@@ -835,12 +839,15 @@ bool EmbreeSolar::CalcIrradiance(std::vector<float> dni, std::vector<float> dhi)
     mAccumAngles = std::vector<float>(mFaceCount, 0.0);
     mAccumOcclud = std::vector<float>(mFaceCount, 0.0);
 
-    if (dni.size() < 1 || dhi.size() < 1)
+    int nDNI = (int)dni.size();
+    int nDHI = (int)dhi.size();
+
+    if (nDNI < 1 || nDHI < 1)
     {
         error("Invalid weather data count in EmbreeSolar::CalcIrradiance.");
         return false;
     }
-    else if (mHasSunResults && (dni.size() != mAngles.size()))
+    else if (mHasSunResults && (nDNI != (int)mAngles.size()))
     {
         error("Weather data does not match number of suns used for raytracing in EmbreeSolar::CalcIrradiance.");
         return false;

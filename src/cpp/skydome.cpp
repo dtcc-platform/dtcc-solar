@@ -4,7 +4,7 @@ Skydome::Skydome()
 {
     mRayOrigin = {0.0, 0.0, 0.0};
     CreateMesh(10);
-    InitRays(mRayDirections.size());
+    InitRays((int)mRayDirections.size());
     CreateRays();
     BundleRays();
 
@@ -15,7 +15,7 @@ Skydome::Skydome(int nStrips)
 {
     mRayOrigin = {0.0, 0.0, 0.0};
     CreateMesh(nStrips);
-    InitRays(mRayDirections.size());
+    InitRays((int)mRayDirections.size());
     CreateRays();
     BundleRays();
 
@@ -86,7 +86,7 @@ void Skydome::InitRays(int rayCount)
 
 int Skydome::GetFaceCount()
 {
-    return mFaces.size();
+    return (int)mFaces.size();
 }
 
 int Skydome::GetRayCount()
@@ -337,12 +337,12 @@ void Skydome::CreateRays()
 void Skydome::CreateMesh(int nStrips)
 {
     int topCapDiv = 4;
-    float maxAzim = 2 * M_PI;
-    float maxElev = 0.5 * M_PI;
+    float maxAzim = 2.0f * M_PI;
+    float maxElev = 0.5f * M_PI;
     float dElev = maxElev / nStrips;
 
     float elev = maxElev - dElev;
-    float azim = 0;
+    float azim = 0.0f;
 
     float topCapArea = CalcSphereCapArea(elev);
     float hemisphereArea = CalcHemisphereArea();
@@ -354,20 +354,20 @@ void Skydome::CreateMesh(int nStrips)
 
     for (int i = 0; i < nStrips - 1; ++i)
     {
-        azim = 0;
+        azim = 0.0f;
         float nextElev = elev - dElev;
         float stripArea = CalcSphereStripArea(elev, nextElev);
         int nAzim = (int)(stripArea / targetArea);
         float dAzim = maxAzim / nAzim;
         faceAreaPart = (stripArea / nAzim) / hemisphereArea;
-        float midElev = (elev + nextElev) / 2.0;
+        float midElev = (elev + nextElev) / 2.0f;
 
         for (int j = 0; j < nAzim; ++j)
         {
             float nextAzim = azim + dAzim;
             CreateDomeMeshQuad(azim, nextAzim, elev, nextElev);
 
-            float midAzim = (azim + nextAzim) / 2.0;
+            float midAzim = (azim + nextAzim) / 2.0f;
             float x = cos(midElev) * cos(midAzim);
             float y = cos(midElev) * sin(midAzim);
             float z = sin(midElev);
@@ -383,10 +383,10 @@ void Skydome::CreateMesh(int nStrips)
 
 void Skydome::GetTopCap(float maxElev, float elev, float maxAzim, int nAzim, float faceAreaPart)
 {
-    float elev_mid = (elev + maxElev) / 2.0;
+    float elev_mid = (elev + maxElev) / 2.0f;
     float dAzim = maxAzim / nAzim;
-    float azim_mid = dAzim / 2.0;
-    float azim = 0;
+    float azim_mid = dAzim / 2.0f;
+    float azim = 0.0f;
 
     for (int i = 0; i < nAzim; ++i)
     {
@@ -408,23 +408,23 @@ void Skydome::GetTopCap(float maxElev, float elev, float maxAzim, int nAzim, flo
 float Skydome::CalcHemisphereArea()
 {
     float r = 1.0f;
-    float area = 2 * M_PI * r * r;
+    float area = 2.0f * M_PI * r * r;
     return area;
 }
 
 float Skydome::CalcSphereCapArea(float elevation)
 {
-    float r = 1.0;
+    float r = 1.0f;
     float h = r - r * sin(elevation);
-    float C = 2 * sqrt(h * (2 * r - h));
-    float area = M_PI * (((C * C) / 4) + h * h);
+    float C = 2.0f * sqrt(h * (2.0f * r - h));
+    float area = M_PI * (((C * C) / 4.0f) + h * h);
     return area;
 }
 
 // Create a quad from 4 points
 void Skydome::CreateDomeMeshQuad(float azim, float nextAzim, float elev, float nextElev)
 {
-    float rayLength = 1.0;
+    float rayLength = 1.0f;
 
     float x1 = rayLength * cos(elev) * cos(azim);
     float y1 = rayLength * cos(elev) * sin(azim);
@@ -450,10 +450,12 @@ void Skydome::CreateDomeMeshQuad(float azim, float nextAzim, float elev, float n
     std::vector<float> pt4 = {x4, y4, z4};
     mVertices.push_back(pt4);
 
-    int index0 = mVertices.size() - 4;
-    int index1 = mVertices.size() - 3;
-    int index2 = mVertices.size() - 2;
-    int index3 = mVertices.size() - 1;
+    int vCount = (int)mVertices.size();
+
+    int index0 = vCount - 4;
+    int index1 = vCount - 3;
+    int index2 = vCount - 2;
+    int index3 = vCount - 1;
 
     std::vector<int> face1 = {index0, index1, index2};
     std::vector<int> face2 = {index1, index3, index2};
@@ -494,10 +496,12 @@ void Skydome::CreateTopCapQuads(float elev, float nextElev, float azim, float dA
     std::vector<float> pt4 = {x4, y4, z4};
     mVertices.push_back(pt4);
 
-    int index0 = mVertices.size() - 4;
-    int index1 = mVertices.size() - 3;
-    int index2 = mVertices.size() - 2;
-    int index3 = mVertices.size() - 1;
+    int vCount = (int)mVertices.size();
+
+    int index0 = vCount - 4;
+    int index1 = vCount - 3;
+    int index2 = vCount - 2;
+    int index3 = vCount - 1;
 
     std::vector<int> face1 = {index0, index1, index2};
     std::vector<int> face2 = {index2, index3, index0};
@@ -512,9 +516,9 @@ float Skydome::CalcSphereStripArea(float elev1, float elev2)
     float r = 1.0f;
     float h1 = r - r * sin(elev1);
     float h2 = r - r * sin(elev2);
-    float C1 = 2 * sqrt(h1 * (2 * r - h1));
-    float C2 = 2 * sqrt(h2 * (2 * r - h2));
-    float area1 = M_PI * (((C1 * C1) / 4) + h1 * h1);
-    float area2 = M_PI * (((C2 * C2) / 4) + h2 * h2);
+    float C1 = 2.0f * sqrt(h1 * (2.0f * r - h1));
+    float C2 = 2.0f * sqrt(h2 * (2.0f * r - h2));
+    float area1 = M_PI * (((C1 * C1) / 4.0f) + h1 * h1);
+    float area2 = M_PI * (((C2 * C2) / 4.0f) + h2 * h2);
     return area2 - area1;
 }
