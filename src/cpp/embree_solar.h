@@ -88,8 +88,8 @@ private:
     Parameters mPp; // plane parameters
     // Parameters mRp; // ray parameters
 
-    size_t mVertexCount;
-    size_t mFaceCount;
+    int mVertexCount;
+    int mFaceCount;
 
     Face *mFaces;
     Vertex *mVertices;
