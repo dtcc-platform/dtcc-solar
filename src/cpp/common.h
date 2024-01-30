@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include <algorithm>
 #define PYTHON_MODULE
 
 #ifndef M_PI

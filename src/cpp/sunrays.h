@@ -5,6 +5,7 @@
 #include <limits>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include "common.h"
 #include "logging.h"
 

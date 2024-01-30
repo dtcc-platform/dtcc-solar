@@ -6,6 +6,7 @@
 #include <iostream>
 #include <chrono>
 #include <vector>
+#include <algorithm>
 #include "common.h"
 #include "sunrays.h"
 #include "skydome.h"
