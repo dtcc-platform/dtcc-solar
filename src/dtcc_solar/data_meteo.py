@@ -51,17 +51,12 @@ def get_data(lon: float, lat: float, sunc: SunCollection):
         # direct_radiation_h = direct_radiation.json()["hourly"]["direct_radiation"]
         diffuse_radiation_h = diffuse_radiation.json()["hourly"]["diffuse_radiation"]
 
-        print(sunc.count)
-
         for i in range(len(api_dates)):
             if sun_counter < sunc.count:
                 sun_date = sunc.datetime_strs[sun_counter]
                 if date_match(api_dates[i], sun_date):
                     sunc.dni[sun_counter] = normal_irradiance_h[i]
                     sunc.dhi[sun_counter] = diffuse_radiation_h[i]
-
-                    print(sunc.dni[sun_counter])
-                    print(sunc.dhi[sun_counter])
                     # sunc.irradiance_di[sun_counter] = direct_radiation_h[i]
                     sun_counter += 1
 

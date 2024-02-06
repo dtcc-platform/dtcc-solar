@@ -254,7 +254,6 @@ class Sunpath:
             v_counter = 0
             vertices = []
             faces = []
-            vertex_colors = []
 
             for i in range(0, n_suns - 1):
                 i_next = i + 1
@@ -283,15 +282,9 @@ class Sunpath:
                     faces.append([v_counter, 0, v_counter + 1])
                     faces.append([v_counter + 1, 0, 1])
 
-                v_color = get_blended_color_yellow_red(radius, pos[i].z)
-
-                vertex_colors.append(v_color)
-                vertex_colors.append(v_color)
-
             vertices = np.array(vertices)
             faces = np.array(faces)
-            vertex_colors = np.array(vertex_colors)
-            mesh = Mesh(vertices=vertices, vertex_colors=vertex_colors, faces=faces)
+            mesh = Mesh(vertices=vertices, faces=faces)
             meshes.append(mesh)
 
         return meshes
