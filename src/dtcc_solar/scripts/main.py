@@ -1,12 +1,11 @@
 import os
 import time
 
-from dtcc_solar.utils import OutputCollection, SolarParameters, DataSource, SunApprox
+from dtcc_solar.utils import *
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
-
 from dtcc_model import Mesh
 from dtcc_io import meshes
 from pprint import pp
@@ -18,21 +17,24 @@ def run_script(solar_parameters: SolarParameters):
 
     p = solar_parameters
     mesh = meshes.load_mesh(p.file_name)
-    engine = SolarEngine(mesh)
+
+    # (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.4, 0.6], [0.4, 0.6])
+    # analysis_mesh = subdivide_mesh(analysis_mesh, 3.5)
+
+    (analysis_mesh, shading_mesh) = split_mesh_by_vertical_faces(mesh)
+    analysis_mesh = subdivide_mesh(analysis_mesh, 3.5)
+
+    engine = SolarEngine(analysis_mesh, shading_mesh)
     sunpath = Sunpath(p, engine.sunpath_radius)
     outputc = OutputCollection()
-
-    engine.set_face_mask([0.3, 0.7], [0.3, 0.7])
-    engine.subdivide_masked_mesh(3.5)
     engine.run_analysis(p, sunpath, outputc)
 
     if p.display:
         outputc.process_results(engine.face_mask)
-        mesh_1, mesh_2 = engine.split_mesh_by_face_mask()
         viewer = Viewer()
         viewer.build_sunpath_diagram(sunpath, p)
-        viewer.add_mesh("Analysed mesh", mesh=mesh_1, data=outputc.data_dict_1)
-        viewer.add_mesh("Shading mesh", mesh=mesh_2, data=outputc.data_dict_2)
+        viewer.add_mesh("Analysed mesh", mesh=analysis_mesh, data=outputc.data_dict_1)
+        viewer.add_mesh("Shading mesh", mesh=shading_mesh, data=outputc.data_dict_2)
         viewer.show()
 
 
@@ -95,4 +97,4 @@ if __name__ == "__main__":
         sun_approx=SunApprox.group,
     )
 
-    run_script(p_3)
+    run_script(p_1)

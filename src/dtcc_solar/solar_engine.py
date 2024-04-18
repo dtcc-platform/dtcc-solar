@@ -10,13 +10,14 @@ from dtcc_solar.sunpath import Sunpath
 from dtcc_model import Mesh, PointCloud
 from dtcc_model.geometry import Bounds
 from dtcc_solar.logging import info, debug, warning, error
-from dtcc_viewer import Window, Scene, MeshShading
+from dtcc_viewer import Window, Scene
 from dtcc_solar.sungroups import SunGroups
 from pprint import pp
 
 
 class SolarEngine:
-    mesh: Mesh  # Dtcc mesh
+    mesh: Mesh  # Mesh for analysis
+    shading_mesh: Mesh  # Mesh that will cast shadows but not be analysed
     origin: np.ndarray
     f_count: int
     v_count: int
@@ -34,8 +35,10 @@ class SolarEngine:
     face_areas: np.ndarray
     face_mask: np.ndarray
 
-    def __init__(self, mesh: Mesh):
-        self.mesh = mesh
+    def __init__(self, analysis_mesh: Mesh, shading_mesh: Mesh = None):
+        self.analysis_mesh = analysis_mesh
+        self.shading_mesh = shading_mesh
+        (self.mesh, self.face_mask) = self._join_meshes(analysis_mesh, shading_mesh)
         self.origin = np.array([0, 0, 0])
         self.f_count = len(self.mesh.faces)
         self.v_count = len(self.mesh.vertices)
@@ -48,9 +51,16 @@ class SolarEngine:
         self.path_width = 0
         self._preprocess_mesh(True)
 
-        # Set which faces should be included in the analysis
-        self.face_mask = np.ones(self.f_count, dtype=bool)
         info("Solar engine created")
+
+    def _join_meshes(self, analysis_mesh: Mesh, shading_mesh: Mesh = None):
+        if shading_mesh is None:
+            return analysis_mesh, np.ones(len(analysis_mesh.faces), dtype=bool)
+
+        mesh = concatenate_meshes([analysis_mesh, shading_mesh])
+        face_mask = np.ones(len(analysis_mesh.faces), dtype=bool)
+        face_mask = np.append(face_mask, np.zeros(len(shading_mesh.faces), dtype=bool))
+        return mesh, face_mask
 
     def _preprocess_mesh(self, move_to_center: bool):
         self._calc_bounds()
@@ -114,99 +124,6 @@ class SolarEngine:
 
         self.face_areas = np.array(areas)
 
-    def set_face_mask(self, xdom: list, ydom: list) -> Mesh:
-        face_mid_pts = calc_face_mid_points(self.mesh)
-        face_mask = []
-
-        if (
-            len(xdom) == 2
-            and len(ydom) == 2
-            and xdom[0] < xdom[1]
-            and ydom[0] < ydom[1]
-        ):
-            x_max = face_mid_pts[:, 0].max()
-            x_min = face_mid_pts[:, 0].min()
-            y_max = face_mid_pts[:, 1].max()
-            y_min = face_mid_pts[:, 1].min()
-
-            x_range = x_max - x_min
-            y_range = y_max - y_min
-
-            for pt in face_mid_pts:
-                xnrm = (pt[0] - x_min) / x_range
-                ynrm = (pt[1] - y_min) / y_range
-                if (xnrm > xdom[0] and xnrm < xdom[1]) and (
-                    ynrm > ydom[0] and ynrm < ydom[1]
-                ):
-                    face_mask.append(True)
-                else:
-                    face_mask.append(False)
-        else:
-            print(f"Invalid domain.")
-
-        self.face_mask = np.array(face_mask, dtype=bool)
-        true_count = self.face_mask.sum()
-        false_count = len(self.face_mask) - true_count
-        info(
-            f"Face mask set to include: {true_count} faces for analys with {false_count} faces for the shading mesh."
-        )
-
-    def subdivide_masked_mesh(self, max_edge_length: float) -> Mesh:
-        mesh_1, mesh_2 = self.split_mesh_by_face_mask()
-
-        if mesh_1 is not None:
-            try:
-                vs, fs = trimesh.remesh.subdivide_to_size(
-                    mesh_1.vertices, mesh_1.faces, max_edge=max_edge_length, max_iter=6
-                )
-                subdee_mesh = Mesh(vertices=vs, faces=fs)
-            except:
-                warning(f"Could not subdivide mesh with length {max_edge_length}.")
-                subdee_mesh = mesh_1
-
-        f_count_2 = 0
-        f_count_1 = len(mesh_1.faces)
-        f_count_sd = len(subdee_mesh.faces)
-
-        if mesh_2 is None:
-            new_mesh = subdee_mesh
-        else:
-            f_count_2 = len(mesh_2.faces)
-            new_mesh = concatenate_meshes([subdee_mesh, mesh_2])
-
-        face_mask_sd = np.ones(f_count_sd, dtype=bool)
-        face_mask_2 = np.zeros(f_count_2, dtype=bool)
-        face_mask = np.concatenate((face_mask_sd, face_mask_2))
-
-        # update mesh and face mask
-        self.mesh = new_mesh
-        self.face_mask = face_mask
-        self.f_count = len(self.mesh.faces)
-
-        info(f"Subdivided masked mesh from {f_count_1} to {f_count_sd} faces.")
-
-    def split_mesh_by_face_mask(self) -> Mesh:
-        if np.array(self.face_mask, dtype=int).sum() == 0:
-            warning("No faces selected in face mask. Returning original mesh.")
-            return None, self.mesh
-        elif np.array(self.face_mask, dtype=int).sum() == len(self.mesh.faces):
-            warning("All faces selected in face mask. Returning original mesh.")
-            return self.mesh, None
-        else:
-            mesh_tri = trimesh.Trimesh(self.mesh.vertices, self.mesh.faces)
-            mesh_tri.update_faces(self.face_mask)
-            mesh_tri.remove_unreferenced_vertices()
-            mesh_in = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
-
-            face_mask_inv = np.invert(self.face_mask)
-            mesh_tri = trimesh.Trimesh(self.mesh.vertices, self.mesh.faces)
-            mesh_tri.update_faces(face_mask_inv)
-            mesh_tri.remove_unreferenced_vertices()
-            mesh_out = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
-
-            info(f"Split mesh into {len(mesh_in.faces)}, {len(mesh_out.faces)} faces.")
-            return mesh_in, mesh_out
-
     def get_skydome_ray_count(self):
         return self.embree.get_skydome_ray_count()
 
@@ -221,14 +138,14 @@ class SolarEngine:
         # Run raytracing
         if p.sun_analysis:
             if p.sun_approx == SunApprox.quad and sunp.sundome is not None:
-                self._sun_quad_raycasting(sunp.sundome, sunp.sunc, outc)
+                self._sun_quad_raycasting(sunp.sundome, sunp.sunc)
             elif p.sun_approx == SunApprox.group and sunp.sungroups is not None:
-                self._sun_group_raycasting(sunp.sungroups, sunp.sunc, outc)
+                self._sun_group_raycasting(sunp.sungroups, sunp.sunc)
             elif p.sun_approx == SunApprox.none:
-                self._sun_raycasting(sunp.sunc, outc)
+                self._sun_raycasting(sunp.sunc)
 
         if p.sky_analysis:
-            self._sky_raycasting(sunp.sunc, outc)
+            self._sky_raycasting()
 
         # Calculate irradiance base on raytracing results and weather data
         if p.sun_approx == SunApprox.none:
@@ -251,9 +168,7 @@ class SolarEngine:
         if p.sky_analysis:
             outc.facehit_sky = self.embree.get_face_skyhit_results()
 
-    def _sun_group_raycasting(
-        self, sungroups: SunGroups, sunc: SunCollection, outc: OutputCollection
-    ):
+    def _sun_group_raycasting(self, sungroups: SunGroups, sunc: SunCollection):
         sun_vecs = sungroups.list_centers
         info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} sun groups.")
         if self.embree.sun_raytrace_occ8(sun_vecs):
@@ -261,9 +176,7 @@ class SolarEngine:
         else:
             warning(f"Something went wrong in embree solar.")
 
-    def _sun_quad_raycasting(
-        self, sundome: SunDome, sunc: SunCollection, outc: OutputCollection
-    ):
+    def _sun_quad_raycasting(self, sundome: SunDome, sunc: SunCollection):
         sundome.match_suns_and_quads(sunc)
         sun_vecs = sundome.get_active_quad_centers()
         info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} quad groups.")
@@ -272,14 +185,14 @@ class SolarEngine:
         else:
             warning(f"Something went wrong in embree solar.")
 
-    def _sun_raycasting(self, sunc: SunCollection, outc: OutputCollection):
+    def _sun_raycasting(self, sunc: SunCollection):
         info(f"Running sun raycasting")
         if self.embree.sun_raytrace_occ8(sunc.sun_vecs):
             info(f"Running sun raycasting completed successfully.")
         else:
             warning(f"Something went wrong with sun analysis in embree solar.")
 
-    def _sky_raycasting(self, sunc: SunCollection, outc: OutputCollection):
+    def _sky_raycasting(self):
         info(f"Running sky raycasting")
         if self.embree.sky_raytrace_occ8():  # Array with nFace elements
             info(f"Running sky raycasting completed succefully.")

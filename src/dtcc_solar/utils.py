@@ -10,6 +10,7 @@ from dtcc_model import Mesh
 from dtcc_io import save_mesh
 from csv import reader
 from pandas import Timestamp, DatetimeIndex
+from dtcc_solar.logging import info, debug, warning, error
 
 
 class DataSource(IntEnum):
@@ -136,7 +137,7 @@ class OutputCollection:
 
         self.data_dict_2 = None
         if face_mask is not None:
-            self.data_dict_2 = {"No data": np.ones(count)}
+            self.data_dict_2 = {"No data": np.zeros(count)}
 
 
 @dataclass
@@ -165,36 +166,6 @@ def dict_2_np_array(sun_pos_dict):
 
     arr = np.array(arr)
     return arr
-
-
-def calc_rotation_matrix(vec_from: np.ndarray, vec_to: np.ndarray):
-    # https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d
-
-    a = vec_from
-    b = vec_to
-
-    a_norm = np.linalg.norm(a)
-    b_norm = np.linalg.norm(b)
-
-    a = a / a_norm
-    b = b / b_norm
-
-    v = np.cross(a, b)
-
-    angle = math.acos(
-        ((a[0] * b[0]) + (a[1] * b[1]) + (a[2] * b[2])) / (a_norm * b_norm)
-    )
-
-    s = np.linalg.norm(v) * math.sin(angle)
-    c = (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) * math.cos(angle)
-
-    I = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-    Vx = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-    constant = 1.0 / (1.0 + c)
-
-    R = I + Vx + np.dot(Vx, Vx) * constant
-
-    return R
 
 
 def calc_face_mid_points(mesh: Mesh):
@@ -298,6 +269,74 @@ def concatenate_meshes(meshes: list[Mesh]):
     mesh = Mesh(vertices=all_vertices, faces=all_faces)
 
     return mesh
+
+
+def subdivide_mesh(mesh: Mesh, max_edge_length: float) -> Mesh:
+
+    try:
+        vs, fs = trimesh.remesh.subdivide_to_size(
+            mesh.vertices, mesh.faces, max_edge=max_edge_length, max_iter=6
+        )
+        subdee_mesh = Mesh(vertices=vs, faces=fs)
+    except:
+        warning(f"Could not subdivide mesh with length {max_edge_length}.")
+        subdee_mesh = mesh
+
+    return subdee_mesh
+
+
+def split_mesh_with_domain(mesh: Mesh, xdom: list, ydom: list):
+    pts = calc_face_mid_points(mesh)
+    x_min, y_min = pts[:, 0:2].min(axis=0)
+    x_range, y_range = pts[:, 0:2].ptp(axis=0)
+
+    if len(xdom) == len(ydom) == 2 and xdom[0] < xdom[1] and ydom[0] < ydom[1]:
+        # Normalize the x,y coordinates
+        xn = (pts[:, 0] - x_min) / x_range
+        yn = (pts[:, 1] - y_min) / y_range
+        face_mask = (xn > xdom[0]) & (xn < xdom[1]) & (yn > ydom[0]) & (yn < ydom[1])
+    else:
+        return None, None
+
+    return split_mesh_by_face_mask(mesh, face_mask)
+
+
+def split_mesh_by_vertical_faces(mesh: Mesh) -> Mesh:
+
+    face_verts = mesh.vertices[mesh.faces.flatten()]
+    c1 = face_verts[:-1]
+    c2 = face_verts[1:]
+    mask = np.ones(len(c1), dtype=bool)
+    mask[2::3] = False  # [True, True, False, True, True, False, ...]
+    cross_vecs = (c2 - c1)[mask]  # (v2 - v1), (v3 - v2)
+    cross_p = np.cross(cross_vecs[::2], cross_vecs[1::2])  # (v2 - v1) x (v3 - v2)
+    cross_p = cross_p / np.linalg.norm(cross_p, axis=1)[:, np.newaxis]  # normalize
+
+    # Check if the cross product is pointing upwards
+    mask = cross_p[:, 2] > 0
+    mesh_1, mesh_2 = split_mesh_by_face_mask(mesh, mask)
+    return mesh_2, mesh_1
+
+
+def split_mesh_by_face_mask(mesh, mask) -> Mesh:
+
+    if len(mask) != len(mesh.faces):
+        print("Invalid mask length")
+        return None, None
+
+    mask_inv = np.invert(mask)
+
+    mesh_tri = trimesh.Trimesh(mesh.vertices, mesh.faces)
+    mesh_tri.update_faces(mask)
+    mesh_tri.remove_unreferenced_vertices()
+    mesh_in = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
+
+    mesh_tri = trimesh.Trimesh(mesh.vertices, mesh.faces)
+    mesh_tri.update_faces(mask_inv)
+    mesh_tri.remove_unreferenced_vertices()
+    mesh_out = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
+
+    return mesh_in, mesh_out
 
 
 def export_results(solpos):

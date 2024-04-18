@@ -1,5 +1,5 @@
 import numpy as np
-from dtcc_viewer import Scene, Window, MeshShading
+from dtcc_viewer import Scene, Window
 from dtcc_model import Mesh, PointCloud
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
@@ -14,14 +14,8 @@ class Viewer:
         self.window = Window(1200, 800)
         self.scene = Scene()
 
-    def add_mesh(
-        self,
-        name: str,
-        mesh: Mesh,
-        data: Any = None,
-        shading: MeshShading = MeshShading.diffuse,
-    ):
-        self.scene.add_mesh(name=name, mesh=mesh, data=data, shading=shading)
+    def add_mesh(self, name: str, mesh: Mesh, data: Any = None):
+        self.scene.add_mesh(name=name, mesh=mesh, data=data)
 
     def add_pc(
         self,
@@ -43,11 +37,11 @@ class Viewer:
             centers_pc = PointCloud(points=centers)
             quads = concatenate_meshes(quads)
             self.add_pc("Quad centers", centers_pc, 1.5 * sunpath.w)
-            self.add_mesh("Sunpath mesh", mesh=quads, shading=MeshShading.wireframe)
+            self.add_mesh("Sunpath mesh", mesh=quads)
 
         day_paths = sunpath.daypath_meshes
         day_paths = concatenate_meshes(day_paths)
-        self.add_mesh("Day paths", mesh=day_paths, shading=MeshShading.ambient)
+        self.add_mesh("Day paths", mesh=day_paths)
 
         all_suns_pc = sunpath.all_suns_pc
         self.add_pc("Suns per min", all_suns_pc, 0.2 * sunpath.w)

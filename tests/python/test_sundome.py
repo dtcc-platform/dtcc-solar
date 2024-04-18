@@ -11,7 +11,7 @@ from dtcc_solar.sundome import SunDome
 
 from pprint import pp
 from dtcc_model import Mesh, PointCloud
-from dtcc_viewer import Scene, Window, MeshShading
+from dtcc_viewer import Scene, Window
 from dtcc_solar.utils import SolarParameters, SunApprox
 
 
@@ -51,7 +51,7 @@ class TestSunDome:
         scene = Scene()
         scene.add_pointcloud("Points", pc_quad_mid_pts, size=0.02)
         scene.add_pointcloud("Analemmas", pc_analemmas, size=0.08)
-        scene.add_mesh("Mesh", mesh, shading=MeshShading.wireframe)
+        scene.add_mesh("Mesh", mesh)
         window.render(scene)
 
 
