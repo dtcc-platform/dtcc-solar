@@ -3,10 +3,14 @@ import math
 import pandas as pd
 import csv
 import trimesh
+import fast_simplification as fs
 from enum import Enum, IntEnum
 from dataclasses import dataclass, field
-from typing import List, Dict
-from dtcc_model import Mesh
+from typing import List, Dict, Tuple
+from collections import defaultdict
+from dtcc_model import Mesh, GeometryType, MultiSurface, Surface
+from dtcc_model import City, Building, Terrain
+from dtcc_viewer.opengl.parts import Parts
 from csv import reader
 from pandas import Timestamp, DatetimeIndex
 from dtcc_solar.logging import info, debug, warning, error
@@ -270,6 +274,33 @@ def concatenate_meshes(meshes: list[Mesh]):
     return mesh
 
 
+def concatenate_meshes_2(meshes: list[Mesh]):
+    v_count_tot = 0
+    f_count_tot = 0
+    for mesh in meshes:
+        v_count_tot += len(mesh.vertices)
+        f_count_tot += len(mesh.faces)
+
+    all_vertices = np.zeros((v_count_tot, 3), dtype=float)
+    all_faces = np.zeros((f_count_tot, 3), dtype=int)
+
+    # Accumulative face and vertex count
+    acc_v_count = 0
+    acc_f_count = 0
+
+    for mesh in meshes:
+        v_count = len(mesh.vertices)
+        f_count = len(mesh.faces)
+        vertex_offset = acc_v_count
+        all_vertices[acc_v_count : acc_v_count + v_count, :] = mesh.vertices
+        all_faces[acc_f_count : acc_f_count + f_count, :] = mesh.faces + vertex_offset
+        acc_v_count += v_count
+        acc_f_count += f_count
+
+    mesh = Mesh(vertices=all_vertices, faces=all_faces)
+    return mesh
+
+
 def subdivide_mesh(mesh: Mesh, max_edge_length: float) -> Mesh:
 
     try:
@@ -312,12 +343,12 @@ def split_mesh_by_vertical_faces(mesh: Mesh) -> Mesh:
     cross_p = cross_p / np.linalg.norm(cross_p, axis=1)[:, np.newaxis]  # normalize
 
     # Check if the cross product is pointing upwards
-    mask = cross_p[:, 2] > 0
+    mask = cross_p[:, 2] > 0.01
     mesh_1, mesh_2 = split_mesh_by_face_mask(mesh, mask)
     return mesh_2, mesh_1
 
 
-def split_mesh_by_face_mask(mesh, mask) -> Mesh:
+def split_mesh_by_face_mask(mesh: Mesh, mask: list[bool]) -> Mesh:
 
     if len(mask) != len(mesh.faces):
         print("Invalid mask length")
@@ -336,6 +367,171 @@ def split_mesh_by_face_mask(mesh, mask) -> Mesh:
     mesh_out = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
 
     return mesh_in, mesh_out
+
+
+def get_terrain_mesh(city: City):
+    meshes = []
+    b = city.bounds
+    origin = [(b.xmin + b.xmax) / 2, (b.ymin + b.ymax) / 2, (b.zmin + b.zmax) / 2]
+    origin = np.array(origin)
+    move_vec = origin * -1
+    terrain_list = city.children[Terrain]
+    for terrain in terrain_list:
+        mesh = terrain.geometry.get(GeometryType.MESH, None)
+        if mesh is not None:
+            meshes.append(mesh)
+
+    if len(meshes) == 0:
+        info("No terrain mesh found in city model")
+        return None, None
+    else:
+        mesh = concatenate_meshes(meshes)
+        mesh.vertices += move_vec
+        info(f"Terrain mesh with {len(mesh.faces)} faces was found")
+        return mesh
+
+
+def generate_building_mesh(city: City):
+    mss = []
+    b = city.bounds
+    origin = [(b.xmin + b.xmax) / 2, (b.ymin + b.ymax) / 2, (b.zmin + b.zmax) / 2]
+    origin = np.array(origin)
+    move_vec = origin * -1
+
+    for building in city.buildings:
+        ms = get_highest_lod_building(building)
+        if isinstance(ms, MultiSurface):
+            mss.append(ms)
+        elif isinstance(ms, Surface):
+            mss.append(MultiSurface(surfaces=[ms]))
+
+    info(f"Found {len(mss)} building(s) in city model")
+
+    valid_meshes = []
+    dups_count = 0
+    for i, ms in enumerate(mss):
+        if ms.find_dups():
+            dups_count += 1
+        else:
+            # avoid meshing multi surfaces with duplicates
+            mesh = ms.mesh()
+            if is_mesh_valid(mesh):
+                valid_meshes.append(mesh)
+
+    info(f"Found {dups_count} building(s) with duplicate vertices")
+
+    if len(valid_meshes) == 0:
+        info("No building meshes found in city model")
+        return None, None
+    else:
+        parts = Parts(valid_meshes)
+        mesh = concatenate_meshes_2(valid_meshes)
+        mesh.vertices += move_vec
+        info(f"Mesh with {len(mesh.faces)} faces was retrieved from buildings")
+        return mesh, parts
+
+    return None, None
+
+
+def is_mesh_valid(mesh: Mesh) -> bool:
+    if mesh is None:
+        return False
+
+    if np.any(calc_face_areas(mesh) < 0.01):
+        return False
+
+    if len(find_dup_faces(mesh)) > 0:
+        return False
+
+    return True
+
+
+def check_mesh(mesh: Mesh):
+    if mesh is None:
+        warning("Mesh is None")
+        return
+
+    small_faces = np.where(calc_face_areas(mesh) < 0.01)[0]
+    if len(small_faces) > 0:
+        warning(f"Mesh has {len(small_faces)} number of faces with area < 0.01")
+
+    face_dups = find_dup_faces(mesh)
+    if len(face_dups) > 0:
+        warning(f"Mesh has {len(face_dups)} number of duplicate faces")
+
+    vertex_dups = find_dup_vertices(mesh)
+    if len(vertex_dups) > 0:
+        warning(f"Mesh has {len(vertex_dups)} number of duplicate vertices")
+
+
+def reduce_mesh(mesh: Mesh, reduction_rate: float = None):
+    (vertices, faces) = fs.simplify(mesh.vertices, mesh.faces, reduction_rate)
+    mesh = Mesh(vertices=vertices, faces=faces)
+    return mesh
+
+
+def get_highest_lod_building(building: Building):
+    lods = [
+        GeometryType.LOD3,
+        GeometryType.LOD2,
+        GeometryType.LOD1,
+        GeometryType.LOD0,
+    ]
+
+    for lod in lods:
+        flat_geom = building.flatten_geometry(lod)
+        if flat_geom is not None:
+            return flat_geom
+
+    return None
+
+
+def find_dup_faces(mesh: Mesh) -> List[Tuple[int, int, int]]:
+    """Find duplicate faces in the mesh."""
+    face_set = set()
+    duplicate_faces = []
+
+    for face in mesh.faces:
+        sorted_face = tuple(sorted(face))
+        if sorted_face in face_set:
+            duplicate_faces.append(face)
+        else:
+            face_set.add(sorted_face)
+
+    return duplicate_faces
+
+
+def find_dup_vertices(mesh: Mesh) -> List[int]:
+    """Find duplicate vertices in the mesh."""
+    vertex_dict = defaultdict(list)
+    duplicate_vertices = []
+
+    for index, vertex in enumerate(mesh.vertices):
+        vertex_tuple = tuple(vertex)
+        vertex_dict[vertex_tuple].append(index)
+
+    for indices in vertex_dict.values():
+        if len(indices) > 1:
+            duplicate_vertices.extend(indices[1:])
+
+    return duplicate_vertices
+
+
+def calc_face_areas(mesh: Mesh) -> np.ndarray:
+    """Calculate the area of each face in the mesh."""
+    areas = np.zeros(mesh.num_faces)
+    for i, face in enumerate(mesh.faces):
+        v0, v1, v2 = (
+            mesh.vertices[face[0]],
+            mesh.vertices[face[1]],
+            mesh.vertices[face[2]],
+        )
+        u = v1 - v0
+        v = v2 - v0
+        cross_product = np.cross(u, v)
+        area = 0.5 * np.linalg.norm(cross_product)
+        areas[i] = area
+    return areas
 
 
 def export_results(solpos):

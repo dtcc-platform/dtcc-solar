@@ -23,12 +23,9 @@ classifiers = [
 
 dependencies = [
   "trimesh >= 3.18.0",
-  "ncollpyde >= 0.19.0",
   "numpy >= 1.24.1",
   "pandas >= 1.5.2",
-  "argparse >= 1.4.0",
   "pvlib >= 0.9.4",
-  "pyglet >= 1.5.27",
   "pytest >= 7.2.0",
   "shapely >= 2.0.1",
   "timezonefinder >= 6.1.10",
@@ -36,6 +33,7 @@ dependencies = [
   "matplotlib >= 3.6.2",
   "dataclasses >= 0.6",
   "pybind11 >= 2.10.0, < 2.11.0",
+  "fast-simplification >= 0.1.7 ",
   "dtcc-model@git+https://github.com/dtcc-platform/dtcc-model.git@develop",
   "dtcc-io@git+https://github.com/dtcc-platform/dtcc-io.git@develop",
   "dtcc-viewer@git+https://github.com/dtcc-platform/dtcc-viewer.git@develop",  

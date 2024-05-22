@@ -1,10 +1,9 @@
 import math
 import numpy as np
-import trimesh
 from dtcc_solar.utils import SolarParameters, calc_face_mid_points, concatenate_meshes
 from dtcc_solar import py_embree_solar as embree
 from dtcc_solar.sundome import SunDome
-from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox, MeshType
+from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox
 
 from dtcc_solar.sunpath import Sunpath
 from dtcc_model import Mesh, PointCloud

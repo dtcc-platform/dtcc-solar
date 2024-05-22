@@ -4,7 +4,7 @@ import pandas as pd
 import math
 import os
 
-from dtcc_solar.scripts.main import run_script
+from dtcc_solar.scripts.main import analyse_mesh
 from dtcc_solar.sunpath import Sunpath, SunpathVis, SunpathUtils
 
 from pprint import pp
