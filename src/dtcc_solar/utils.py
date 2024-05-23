@@ -122,10 +122,11 @@ class OutputCollection:
 
     def process_results(self, face_mask: np.ndarray = None):
         fsa_masked = self.face_sun_angles[face_mask]
-        occ_masked = 1.0 - self.occlusion[face_mask]
         dni_masked = self.dni[face_mask]
         dhi_masked = self.dhi[face_mask]
         tot_masked = dni_masked + dhi_masked
+        occ_masked = self.occlusion[face_mask]
+        inv_occ_masked = 1.0 - self.occlusion[face_mask]
 
         face_mask_inv = np.invert(face_mask)
         count = np.array(face_mask_inv, dtype=int).sum()
@@ -135,7 +136,8 @@ class OutputCollection:
             "direct normal irradiance (W/m2)": dni_masked,
             "diffuse irradiance (W/m2)": dhi_masked,
             "face sun angles (rad)": fsa_masked,
-            "inverse occlusion (0-1)": occ_masked,
+            "occlusion (0-1)": occ_masked,
+            "inverse occlusion (0-1)": inv_occ_masked,
         }
 
         self.data_dict_2 = None

@@ -64,6 +64,7 @@ def analyse_mesh(solar_parameters: SolarParameters):
 
     if p.display:
         outputc.process_results(engine.face_mask)
+        print(outputc.face_sun_angles)
         viewer = Viewer()
         viewer.build_sunpath_diagram(sunpath, p)
         viewer.add_mesh("Analysed mesh", mesh=analysis_mesh, data=outputc.data_dict_1)

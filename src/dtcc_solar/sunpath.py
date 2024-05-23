@@ -10,7 +10,6 @@ from dtcc_solar.utils import SolarParameters
 from pvlib import solarposition
 from dtcc_solar import data_clm, data_epw, data_meteo, data_smhi
 from dtcc_model import Mesh, PointCloud
-from dtcc_solar.colors import get_blended_color_yellow_red
 from dtcc_solar.utils import concatenate_meshes
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sungroups import SunGroups

@@ -159,10 +159,11 @@ class SolarEngine:
 
         # Save results to output collection
         if p.sun_analysis:
+            n_suns = sunp.sunc.count
             outc.dni = self.embree.get_results_dni()
             outc.dhi = self.embree.get_results_dhi()
-            outc.face_sun_angles = np.pi - self.embree.get_accumulated_angles()
-            outc.occlusion = self.embree.get_accumulated_occlusion()
+            outc.face_sun_angles = self.embree.get_accumulated_angles() / n_suns
+            outc.occlusion = self.embree.get_accumulated_occlusion() / n_suns
 
         if p.sky_analysis:
             outc.facehit_sky = self.embree.get_face_skyhit_results()
