@@ -13,6 +13,8 @@ htmlcov/
 
 *.coverage
 
+*.city.json
+*.json
 *.3dm.rhl
 *.3dm
 *.so

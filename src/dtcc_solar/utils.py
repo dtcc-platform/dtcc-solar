@@ -3,6 +3,7 @@ import math
 import pandas as pd
 import csv
 import trimesh
+import json
 import fast_simplification as fs
 from enum import Enum, IntEnum
 from dataclasses import dataclass, field
@@ -393,19 +394,23 @@ def get_terrain_mesh(city: City):
         return mesh
 
 
-def generate_building_mesh(city: City):
+def generate_building_mesh(city: City, limit: int = None, subdee_length: int = None):
     mss = []
     b = city.bounds
     origin = [(b.xmin + b.xmax) / 2, (b.ymin + b.ymax) / 2, (b.zmin + b.zmax) / 2]
     origin = np.array(origin)
     move_vec = origin * -1
 
-    for building in city.buildings:
+    if limit is None:
+        limit = len(city.buildings)
+
+    for i, building in enumerate(city.buildings):
         ms = get_highest_lod_building(building)
-        if isinstance(ms, MultiSurface):
-            mss.append(ms)
-        elif isinstance(ms, Surface):
-            mss.append(MultiSurface(surfaces=[ms]))
+        if i < limit:
+            if isinstance(ms, MultiSurface):
+                mss.append(ms)
+            elif isinstance(ms, Surface):
+                mss.append(MultiSurface(surfaces=[ms]))
 
     info(f"Found {len(mss)} building(s) in city model")
 
@@ -418,6 +423,8 @@ def generate_building_mesh(city: City):
             # avoid meshing multi surfaces with duplicates
             mesh = ms.mesh()
             if is_mesh_valid(mesh):
+                if subdee_length is not None:
+                    mesh = subdivide_mesh(mesh, subdee_length)
                 valid_meshes.append(mesh)
 
     info(f"Found {dups_count} building(s) with duplicate vertices")
@@ -540,6 +547,38 @@ def export_results(solpos):
     with open("sunpath.txt", "w") as f:
         for item in solpos["zenith"].values:
             f.write(str(item[0]) + "\n")
+
+
+def export_mesh_to_json(mesh: Mesh, parts: Parts, data1, data2, data3, filename):
+    """Export a mesh and its associated data to a JSON file."""
+
+    info(f"Exporting mesh to {filename}")
+
+    face_start_indices = parts.face_start_indices.tolist()
+    face_end_indices = parts.face_end_indices.tolist()
+
+    # Ensure the length of data lists matches the number of faces
+    assert len(data1) == len(mesh.faces)
+    assert len(data2) == len(mesh.faces)
+    assert len(data3) == len(mesh.faces)
+
+    # Create the structure to hold the mesh data
+    mesh_data = {
+        "vertices": mesh.vertices.tolist(),
+        "faces": mesh.faces.tolist(),
+        "parts": [],
+        "data1": data1.tolist(),
+        "data2": data2.tolist(),
+        "data3": data3.tolist(),
+    }
+
+    # Add parts information
+    for start_idx, end_idx in zip(face_start_indices, face_end_indices):
+        mesh_data["parts"].append({"start_index": start_idx, "end_index": end_idx})
+
+    # Write the data to a JSON file
+    with open(filename, "w") as json_file:
+        json.dump(mesh_data, json_file, indent=4)
 
 
 def print_list(listToPrint, path):

@@ -17,12 +17,12 @@ def analyse_city(solar_parameters: SolarParameters):
     print("-------- Solar City Analysis Started -------")
 
     p = solar_parameters
-    p.file_name = "../../../data/models/lozenets_citygml2cityjson_lod1_replaced.json"
+    p.file_name = "../../../data/models/denhaag.city.json"
     city = dtcc_io.load_cityjson(p.file_name)
 
     building_mesh, parts = generate_building_mesh(city)
     terrain_mesh = get_terrain_mesh(city)
-    terrain_mesh = reduce_mesh(terrain_mesh, 0.95)
+    # terrain_mesh = reduce_mesh(terrain_mesh, 0.95)
 
     # Analyse the meshes for duplicates and small faces
     check_mesh(building_mesh)
@@ -41,6 +41,16 @@ def analyse_city(solar_parameters: SolarParameters):
         viewer.add_mesh("Analysed mesh", mesh=building_mesh, data=outputc.data_dict_1)
         viewer.add_mesh("Shading mesh", mesh=terrain_mesh, data=outputc.data_dict_2)
         viewer.show()
+
+    filename = "../../../data/output/test.json"
+    export_mesh_to_json(
+        building_mesh,
+        parts,
+        outputc.data_dict_1["total irradiance (W/m2)"],
+        outputc.data_dict_1["face sun angles (rad)"],
+        outputc.data_dict_1["inverse occlusion (0-1)"],
+        filename,
+    )
 
 
 def analyse_mesh(solar_parameters: SolarParameters):
@@ -64,12 +74,14 @@ def analyse_mesh(solar_parameters: SolarParameters):
 
     if p.display:
         outputc.process_results(engine.face_mask)
-        print(outputc.face_sun_angles)
         viewer = Viewer()
         viewer.build_sunpath_diagram(sunpath, p)
         viewer.add_mesh("Analysed mesh", mesh=analysis_mesh, data=outputc.data_dict_1)
         viewer.add_mesh("Shading mesh", mesh=shading_mesh, data=outputc.data_dict_2)
         viewer.show()
+
+    # filename = "../../../data/output/building_mesh.obj"
+    # dtcc_io.save_mesh(analysis_mesh, filename)
 
 
 if __name__ == "__main__":
@@ -129,5 +141,5 @@ if __name__ == "__main__":
         sun_approx=SunApprox.group,
     )
 
-    analyse_mesh(p_1)
-    # analyse_city(p_1)
+    # analyse_mesh(p_1)
+    analyse_city(p_1)
