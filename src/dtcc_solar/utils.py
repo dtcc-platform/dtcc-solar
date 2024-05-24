@@ -11,7 +11,6 @@ from typing import List, Dict, Tuple
 from collections import defaultdict
 from dtcc_model import Mesh, GeometryType, MultiSurface, Surface
 from dtcc_model import City, Building, Terrain
-from dtcc_viewer.opengl.parts import Parts
 from csv import reader
 from pandas import Timestamp, DatetimeIndex
 from dtcc_solar.logging import info, debug, warning, error
