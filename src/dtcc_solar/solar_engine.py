@@ -164,6 +164,8 @@ class SolarEngine:
             outc.dhi = self.embree.get_results_dhi()
             outc.face_sun_angles = self.embree.get_accumulated_angles() / n_suns
             outc.occlusion = self.embree.get_accumulated_occlusion() / n_suns
+            outc.sun_hours = n_suns - self.embree.get_accumulated_occlusion()
+            outc.shadow_hours = self.embree.get_accumulated_occlusion()
 
         if p.sky_analysis:
             outc.facehit_sky = self.embree.get_face_skyhit_results()

@@ -20,7 +20,7 @@ def analyse_city(solar_parameters: SolarParameters):
     p.file_name = "../../../data/models/denhaag.city.json"
     city = dtcc_io.load_cityjson(p.file_name)
 
-    building_mesh, parts = generate_building_mesh(city)
+    building_mesh, parts = generate_building_mesh(city, limit=10)
     terrain_mesh = get_terrain_mesh(city)
     # terrain_mesh = reduce_mesh(terrain_mesh, 0.95)
 
@@ -42,15 +42,18 @@ def analyse_city(solar_parameters: SolarParameters):
         viewer.add_mesh("Shading mesh", mesh=terrain_mesh, data=outputc.data_dict_2)
         viewer.show()
 
-    filename = "../../../data/output/test.json"
-    export_mesh_to_json(
-        building_mesh,
-        parts,
-        outputc.data_dict_1["total irradiance (W/m2)"],
-        outputc.data_dict_1["face sun angles (rad)"],
-        outputc.data_dict_1["inverse occlusion (0-1)"],
-        filename,
-    )
+    p.export = True
+
+    if p.export:
+        filename = "../../../data/output/test.json"
+        export_mesh_to_json(
+            building_mesh,
+            parts,
+            outputc.data_dict_1["total irradiance (W/m2)"],
+            outputc.data_dict_1["face sun angles (rad)"],
+            outputc.data_dict_1["sun hours [h]"],
+            filename,
+        )
 
 
 def analyse_mesh(solar_parameters: SolarParameters):

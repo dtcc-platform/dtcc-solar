@@ -108,7 +108,7 @@ class OutputCollection:
     time_stamps: List[Timestamp] = field(default_factory=list)
     # Angle between face normal an sun vector
     face_sun_angles: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Angle between face normal an sun vector
+    # Value between 0-1 for each face to determine how much of the face is occluded by other faces for given sun positions
     occlusion: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
     dni: np.ndarray = field(default_factory=lambda: np.empty(0))
@@ -120,6 +120,10 @@ class OutputCollection:
     visible_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Results for face and each sky raytracing intersection
     facehit_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Number of hours of direct sun per face
+    sun_hours: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Number of hours of shaded sun per face
+    shadow_hours: np.ndarray = field(default_factory=lambda: np.empty(0))
 
     def process_results(self, face_mask: np.ndarray = None):
         fsa_masked = self.face_sun_angles[face_mask]
@@ -128,6 +132,8 @@ class OutputCollection:
         tot_masked = dni_masked + dhi_masked
         occ_masked = self.occlusion[face_mask]
         inv_occ_masked = 1.0 - self.occlusion[face_mask]
+        sun_hours_masked = self.sun_hours[face_mask]
+        shadow_hours_masked = self.shadow_hours[face_mask]
 
         face_mask_inv = np.invert(face_mask)
         count = np.array(face_mask_inv, dtype=int).sum()
@@ -139,6 +145,8 @@ class OutputCollection:
             "face sun angles (rad)": fsa_masked,
             "occlusion (0-1)": occ_masked,
             "inverse occlusion (0-1)": inv_occ_masked,
+            "sun hours [h]": sun_hours_masked,
+            "shadow hours [h]": shadow_hours_masked,
         }
 
         self.data_dict_2 = None
@@ -579,6 +587,8 @@ def export_mesh_to_json(mesh: Mesh, parts: Parts, data1, data2, data3, filename)
     # Write the data to a JSON file
     with open(filename, "w") as json_file:
         json.dump(mesh_data, json_file, indent=4)
+
+    info(f"Export completed successfully")
 
 
 def print_list(listToPrint, path):

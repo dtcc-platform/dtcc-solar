@@ -28,6 +28,7 @@ public:
     EmbreeSolar();
     EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces);
     EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<bool> face_mask);
+    EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<std::vector<float>> samplingPts);
     virtual ~EmbreeSolar();
 
     void CreateDevice();

@@ -69,7 +69,6 @@ EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<s
 EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<bool> faceMask)
 {
     info("Creating embree instance with mesh geometry.");
-
     set_log_level(INFO);
 
     mVertexCount = (int)vertices.size();
@@ -82,6 +81,35 @@ EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<s
     for (int i = 0; i < mFaceCount; i++)
         if (mFaceMask[i])
             mMaskCount++;
+
+    CreateDevice();
+    CreateScene();
+    CreateGeom(vertices, faces);
+    CalcFaceMidPoints();
+    CalcFaceNormals();
+
+    mSkydome = new Skydome(10);
+    mSunrays = new Sunrays(mFaceMidPts, mFaceCount, mFaceMask);
+
+    mHasSunResults = false;
+    mHasSkyResults = false;
+    mHasIrrResults = false;
+
+    info("Model setup with mesh geometry complete.");
+}
+
+EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<std::vector<float>> samplingPts)
+{
+    info("Creating embree instance with mesh geometry.");
+    set_log_level(INFO);
+
+    mVertexCount = (int)vertices.size();
+    mFaceCount = (int)faces.size();
+    mFaceNormals = new Vector[mFaceCount];
+
+    mApplyMask = false;
+    mMaskCount = 0;
+    mFaceMask = std::vector<bool>(mFaceCount, true);
 
     CreateDevice();
     CreateScene();
