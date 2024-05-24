@@ -14,6 +14,7 @@ from dtcc_model import City, Building, Terrain
 from csv import reader
 from pandas import Timestamp, DatetimeIndex
 from dtcc_solar.logging import info, debug, warning, error
+from dtcc_solar.city import Parts
 
 
 class DataSource(IntEnum):
