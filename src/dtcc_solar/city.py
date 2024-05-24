@@ -1,4 +1,5 @@
 import numpy as np
+import json
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
 from dtcc_model import Mesh, GeometryType, MultiSurface, Surface
@@ -143,3 +144,37 @@ def concatenate_city_meshes(meshes: list[Mesh]):
 
     mesh = Mesh(vertices=all_vertices, faces=all_faces)
     return mesh
+
+
+def export_mesh_to_json(mesh: Mesh, parts: Parts, data1, data2, data3, filename):
+    """Export a mesh and its associated data to a JSON file."""
+
+    info(f"Exporting mesh to {filename}")
+
+    face_start_indices = parts.face_start_indices.tolist()
+    face_end_indices = parts.face_end_indices.tolist()
+
+    # Ensure the length of data lists matches the number of faces
+    assert len(data1) == len(mesh.faces)
+    assert len(data2) == len(mesh.faces)
+    assert len(data3) == len(mesh.faces)
+
+    # Create the structure to hold the mesh data
+    mesh_data = {
+        "vertices": mesh.vertices.tolist(),
+        "faces": mesh.faces.tolist(),
+        "parts": [],
+        "data1": data1.tolist(),
+        "data2": data2.tolist(),
+        "data3": data3.tolist(),
+    }
+
+    # Add parts information
+    for start_idx, end_idx in zip(face_start_indices, face_end_indices):
+        mesh_data["parts"].append({"start_index": start_idx, "end_index": end_idx})
+
+    # Write the data to a JSON file
+    with open(filename, "w") as json_file:
+        json.dump(mesh_data, json_file, indent=4)
+
+    info(f"Export completed successfully")

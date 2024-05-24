@@ -9,12 +9,10 @@ from enum import Enum, IntEnum
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
 from collections import defaultdict
-from dtcc_model import Mesh, GeometryType, MultiSurface, Surface
-from dtcc_model import City, Building, Terrain
+from dtcc_model import Mesh
 from csv import reader
 from pandas import Timestamp, DatetimeIndex
 from dtcc_solar.logging import info, debug, warning, error
-from dtcc_solar.city import Parts
 
 
 class DataSource(IntEnum):
@@ -442,40 +440,6 @@ def export_results(solpos):
     with open("sunpath.txt", "w") as f:
         for item in solpos["zenith"].values:
             f.write(str(item[0]) + "\n")
-
-
-def export_mesh_to_json(mesh: Mesh, parts: Parts, data1, data2, data3, filename):
-    """Export a mesh and its associated data to a JSON file."""
-
-    info(f"Exporting mesh to {filename}")
-
-    face_start_indices = parts.face_start_indices.tolist()
-    face_end_indices = parts.face_end_indices.tolist()
-
-    # Ensure the length of data lists matches the number of faces
-    assert len(data1) == len(mesh.faces)
-    assert len(data2) == len(mesh.faces)
-    assert len(data3) == len(mesh.faces)
-
-    # Create the structure to hold the mesh data
-    mesh_data = {
-        "vertices": mesh.vertices.tolist(),
-        "faces": mesh.faces.tolist(),
-        "parts": [],
-        "data1": data1.tolist(),
-        "data2": data2.tolist(),
-        "data3": data3.tolist(),
-    }
-
-    # Add parts information
-    for start_idx, end_idx in zip(face_start_indices, face_end_indices):
-        mesh_data["parts"].append({"start_index": start_idx, "end_index": end_idx})
-
-    # Write the data to a JSON file
-    with open(filename, "w") as json_file:
-        json.dump(mesh_data, json_file, indent=4)
-
-    info(f"Export completed successfully")
 
 
 def print_list(listToPrint, path):
