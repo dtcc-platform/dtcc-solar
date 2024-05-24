@@ -10,6 +10,7 @@ from dtcc_viewer.opengl.parts import Parts
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
 from dtcc_model import Mesh, PointCloud
 from dtcc_io import meshes
+from dtcc_solar.city import *
 from pprint import pp
 
 
@@ -20,11 +21,10 @@ def analyse_city(solar_parameters: SolarParameters):
     p.file_name = "../../../data/models/denhaag.city.json"
     city = dtcc_io.load_cityjson(p.file_name)
 
-    building_mesh, parts = generate_building_mesh(city, limit=10)
+    building_mesh, parts = generate_building_mesh(city, limit=10, subdee_length=3.5)
     terrain_mesh = get_terrain_mesh(city)
     # terrain_mesh = reduce_mesh(terrain_mesh, 0.95)
 
-    # Analyse the meshes for duplicates and small faces
     check_mesh(building_mesh)
     check_mesh(terrain_mesh)
 

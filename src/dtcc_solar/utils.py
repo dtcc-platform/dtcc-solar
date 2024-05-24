@@ -285,33 +285,6 @@ def concatenate_meshes(meshes: list[Mesh]):
     return mesh
 
 
-def concatenate_meshes_2(meshes: list[Mesh]):
-    v_count_tot = 0
-    f_count_tot = 0
-    for mesh in meshes:
-        v_count_tot += len(mesh.vertices)
-        f_count_tot += len(mesh.faces)
-
-    all_vertices = np.zeros((v_count_tot, 3), dtype=float)
-    all_faces = np.zeros((f_count_tot, 3), dtype=int)
-
-    # Accumulative face and vertex count
-    acc_v_count = 0
-    acc_f_count = 0
-
-    for mesh in meshes:
-        v_count = len(mesh.vertices)
-        f_count = len(mesh.faces)
-        vertex_offset = acc_v_count
-        all_vertices[acc_v_count : acc_v_count + v_count, :] = mesh.vertices
-        all_faces[acc_f_count : acc_f_count + f_count, :] = mesh.faces + vertex_offset
-        acc_v_count += v_count
-        acc_f_count += f_count
-
-    mesh = Mesh(vertices=all_vertices, faces=all_faces)
-    return mesh
-
-
 def subdivide_mesh(mesh: Mesh, max_edge_length: float) -> Mesh:
 
     try:
@@ -380,76 +353,6 @@ def split_mesh_by_face_mask(mesh: Mesh, mask: list[bool]) -> Mesh:
     return mesh_in, mesh_out
 
 
-def get_terrain_mesh(city: City):
-    meshes = []
-    b = city.bounds
-    origin = [(b.xmin + b.xmax) / 2, (b.ymin + b.ymax) / 2, (b.zmin + b.zmax) / 2]
-    origin = np.array(origin)
-    move_vec = origin * -1
-    terrain_list = city.children[Terrain]
-    for terrain in terrain_list:
-        mesh = terrain.geometry.get(GeometryType.MESH, None)
-        if mesh is not None:
-            meshes.append(mesh)
-
-    if len(meshes) == 0:
-        info("No terrain mesh found in city model")
-        return None, None
-    else:
-        mesh = concatenate_meshes(meshes)
-        mesh.vertices += move_vec
-        info(f"Terrain mesh with {len(mesh.faces)} faces was found")
-        return mesh
-
-
-def generate_building_mesh(city: City, limit: int = None, subdee_length: int = None):
-    mss = []
-    b = city.bounds
-    origin = [(b.xmin + b.xmax) / 2, (b.ymin + b.ymax) / 2, (b.zmin + b.zmax) / 2]
-    origin = np.array(origin)
-    move_vec = origin * -1
-
-    if limit is None:
-        limit = len(city.buildings)
-
-    for i, building in enumerate(city.buildings):
-        ms = get_highest_lod_building(building)
-        if i < limit:
-            if isinstance(ms, MultiSurface):
-                mss.append(ms)
-            elif isinstance(ms, Surface):
-                mss.append(MultiSurface(surfaces=[ms]))
-
-    info(f"Found {len(mss)} building(s) in city model")
-
-    valid_meshes = []
-    dups_count = 0
-    for i, ms in enumerate(mss):
-        if ms.find_dups():
-            dups_count += 1
-        else:
-            # avoid meshing multi surfaces with duplicates
-            mesh = ms.mesh()
-            if is_mesh_valid(mesh):
-                if subdee_length is not None:
-                    mesh = subdivide_mesh(mesh, subdee_length)
-                valid_meshes.append(mesh)
-
-    info(f"Found {dups_count} building(s) with duplicate vertices")
-
-    if len(valid_meshes) == 0:
-        info("No building meshes found in city model")
-        return None, None
-    else:
-        parts = Parts(valid_meshes)
-        mesh = concatenate_meshes_2(valid_meshes)
-        mesh.vertices += move_vec
-        info(f"Mesh with {len(mesh.faces)} faces was retrieved from buildings")
-        return mesh, parts
-
-    return None, None
-
-
 def is_mesh_valid(mesh: Mesh) -> bool:
     if mesh is None:
         return False
@@ -485,22 +388,6 @@ def reduce_mesh(mesh: Mesh, reduction_rate: float = None):
     (vertices, faces) = fs.simplify(mesh.vertices, mesh.faces, reduction_rate)
     mesh = Mesh(vertices=vertices, faces=faces)
     return mesh
-
-
-def get_highest_lod_building(building: Building):
-    lods = [
-        GeometryType.LOD3,
-        GeometryType.LOD2,
-        GeometryType.LOD1,
-        GeometryType.LOD0,
-    ]
-
-    for lod in lods:
-        flat_geom = building.flatten_geometry(lod)
-        if flat_geom is not None:
-            return flat_geom
-
-    return None
 
 
 def find_dup_faces(mesh: Mesh) -> List[Tuple[int, int, int]]:
