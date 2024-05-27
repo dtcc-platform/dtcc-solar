@@ -6,6 +6,13 @@ from dtcc_model import Mesh, GeometryType, MultiSurface, Surface
 from dtcc_model import City, Building, Terrain
 from dtcc_solar.utils import subdivide_mesh, is_mesh_valid
 from dtcc_solar.logging import info, debug, warning, error
+from enum import Enum, IntEnum
+
+
+class BuildingPart(IntEnum):
+    wall = 1
+    roof = 2
+    floor = 3
 
 
 class Parts:
@@ -16,10 +23,10 @@ class Parts:
     face_count_per_part: np.ndarray
     f_count: int
 
-    def __init__(self, meshes: List[Mesh]):
+    def __init__(self, meshes: List[Mesh], all_face_types: List[int] = None):
         self._setup_parts(meshes)
 
-    def _setup_parts(self, meshes: List[Mesh]):
+    def _setup_parts(self, meshes: List[Mesh], all_face_types: List[int] = None):
         face_start_indices = []
         face_end_indices = []
         face_count_per_part = []
@@ -77,6 +84,63 @@ def generate_building_mesh(city: City, limit: int = None, subdee_length: int = N
         parts = Parts(valid_meshes)
         mesh = concatenate_city_meshes(valid_meshes)
         mesh.vertices += move_vec
+        info(f"Mesh with {len(mesh.faces)} faces was retrieved from buildings")
+        return mesh, parts
+
+
+def generate_building_mesh_2(city: City, limit: int = None, subdee_length: int = None):
+    mss = []
+    b = city.bounds
+    origin = [(b.xmin + b.xmax) / 2, (b.ymin + b.ymax) / 2, (b.zmin + b.zmax) / 2]
+    origin = np.array(origin)
+    move_vec = origin * -1
+
+    if limit is None:
+        limit = len(city.buildings)
+
+    for i, building in enumerate(city.buildings):
+        ms = get_highest_lod_building(building)
+        if i < limit:
+            if isinstance(ms, MultiSurface):
+                mss.append(ms)
+            elif isinstance(ms, Surface):
+                mss.append(MultiSurface(surfaces=[ms]))
+
+    info(f"Found {len(mss)} building(s) in city model")
+
+    valid_meshes = []
+    all_face_types = []
+
+    for i, ms in enumerate(mss):
+        srfs = ms.surfaces
+        building_face_types = []
+        building_meshes = []
+        for j, srf in enumerate(srfs):
+            mesh = srf.mesh()
+            normal = srf.calculate_normal()
+            srf_is_wall = True
+            if len(normal > 1):
+                if normal[2] > 0.01 or normal[2] < -0.01:
+                    srf_is_wall = False
+                if is_mesh_valid(mesh):
+                    if subdee_length is not None and srf_is_wall:
+                        mesh = subdivide_mesh(mesh, subdee_length)
+
+                    building_face_types.extend(np.repeat(srf_is_wall, len(mesh.faces)))
+                    building_meshes.append(mesh)
+
+        all_face_types.append(building_face_types)
+        building_mesh = concatenate_city_meshes(building_meshes)
+        valid_meshes.append(building_mesh)
+
+    if len(valid_meshes) == 0:
+        info("No building meshes found in city model")
+        return None, None
+    else:
+        parts = Parts(valid_meshes, all_face_types)
+        mesh = concatenate_city_meshes(valid_meshes)
+        mesh.vertices += move_vec
+        mesh.view()
         info(f"Mesh with {len(mesh.faces)} faces was retrieved from buildings")
         return mesh, parts
 

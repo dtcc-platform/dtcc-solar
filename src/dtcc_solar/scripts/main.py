@@ -20,7 +20,7 @@ def analyse_city(solar_parameters: SolarParameters):
     p.file_name = "../../../data/models/denhaag.city.json"
     city = dtcc_io.load_cityjson(p.file_name)
 
-    building_mesh, parts = generate_building_mesh(city, limit=10)
+    building_mesh, parts = generate_building_mesh_2(city, subdee_length=3.5)
     terrain_mesh = get_terrain_mesh(city)
     # terrain_mesh = reduce_mesh(terrain_mesh, 0.95)
 
@@ -48,7 +48,7 @@ def analyse_city(solar_parameters: SolarParameters):
         export_mesh_to_json(
             building_mesh,
             parts,
-            outputc.data_dict_1["total irradiance (W/m2)"],
+            outputc.data_dict_1["total irradiance (kWh/m2)"],
             outputc.data_dict_1["face sun angles (rad)"],
             outputc.data_dict_1["sun hours [h]"],
             filename,
@@ -105,12 +105,12 @@ if __name__ == "__main__":
     # Gothenburg
     p_1 = SolarParameters(
         file_name=inputfile_L,
-        weather_file=path + gbg_clm,
+        weather_file=path + gbg_epw,
         start_date="2019-01-01 00:00:00",
         end_date="2019-12-31 00:00:00",
         longitude=11.97,
         latitude=57.71,
-        data_source=DataSource.smhi,
+        data_source=DataSource.epw,
         sun_analysis=True,
         sky_analysis=True,
         sun_approx=SunApprox.group,

@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar import utils
 from dtcc_solar.utils import Vec3, Sun
-from dtcc_solar.colors import *
 from dtcc_solar.sunpath import SunpathUtils
 from dtcc_solar.sunpath import Sunpath
 

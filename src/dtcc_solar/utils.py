@@ -137,9 +137,9 @@ class OutputCollection:
         count = np.array(face_mask_inv, dtype=int).sum()
 
         self.data_dict_1 = {
-            "total irradiance (W/m2)": tot_masked,
-            "direct normal irradiance (W/m2)": dni_masked,
-            "diffuse irradiance (W/m2)": dhi_masked,
+            "global horizontal irradiation (kWh/m2)": tot_masked / 1000.0,
+            "direct normal irradiation (kWh/m2)": dni_masked / 1000.0,
+            "diffuse horizontal irradiation (kWh/m2)": dhi_masked / 1000.0,
             "face sun angles (rad)": fsa_masked,
             "occlusion (0-1)": occ_masked,
             "inverse occlusion (0-1)": inv_occ_masked,
