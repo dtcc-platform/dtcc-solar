@@ -80,7 +80,7 @@ def create_tregenza_sky_model():
     surfaces = []
 
     for num_patches, altitude in tregenza_divisions:
-        altitude_next = altitude + altitude_step if altitude != 84 else 90
+        altitude_next = altitude + altitude_step
         azimuth_step = 360 / num_patches
 
         if altitude != 84:
@@ -138,7 +138,7 @@ def create_reinhart_sky_model():
     surfaces = []
 
     for num_patches, altitude in tregenza_divisions:
-        altitude_next = altitude + altitude_step if altitude != 84 else 90
+        altitude_next = altitude + altitude_step
         azimuth_step = 360 / num_patches
 
         if altitude != 84:
@@ -176,23 +176,106 @@ def create_reinhart_sky_model():
     return multi_surface
 
 
+def create_reinhart_sky_model_fine():
+
+    altitude_step = 3
+    tregenza_divisions = [
+        (120, 0.0),
+        (120, 3.0),
+        (120, 6.0),
+        (120, 9.0),
+        (120, 12.0),
+        (120, 15.0),
+        (120, 18.0),
+        (120, 21.0),
+        (96, 24.0),
+        (96, 27.0),
+        (96, 30.0),
+        (96, 33.0),
+        (96, 36.0),
+        (96, 39.0),
+        (96, 42.0),
+        (96, 45.0),
+        (72, 48.0),
+        (72, 51.0),
+        (72, 54.0),
+        (72, 57.0),
+        (48, 60.0),
+        (48, 63.0),
+        (48, 66.0),
+        (48, 69.0),
+        (24, 72.0),
+        (24, 75.0),
+        (24, 78.0),
+        (24, 81.0),
+        (1, 84.0),
+    ]
+
+    surfaces = []
+
+    for num_patches, altitude in tregenza_divisions:
+        altitude_next = altitude + altitude_step
+        azimuth_step = 360 / num_patches
+
+        if altitude != 84:
+            for i in range(num_patches):
+                azimuth = i * azimuth_step
+                azimuth_next = (i + 1) * azimuth_step
+
+                # Create vertices for each patch
+                v1 = sph2cart(1, 90 - altitude, azimuth)
+                v2 = sph2cart(1, 90 - altitude, azimuth_next)
+                v3 = sph2cart(1, 90 - altitude_next, azimuth_next)
+                v4 = sph2cart(1, 90 - altitude_next, azimuth)
+
+                # Create the surface
+                vertices = np.array([v1, v2, v3, v4])
+                surface = Surface(vertices=vertices)
+                surface.calculate_normal()
+                surfaces.append(surface)
+        else:
+            # Create 4 top patch surfaces
+            vertices = []
+            for i in range(4):
+                vertices.append(sph2cart(1, 90 - altitude, i * 90))
+                vertices.append(sph2cart(1, 90 - altitude, i * 90 + 30))
+                vertices.append(sph2cart(1, 90 - altitude, i * 90 + 60))
+                # vertices.append(sph2cart(1, 90 - altitude, i * 90 + 90))
+            vertices = np.array(vertices)
+            surface = Surface(vertices=vertices)
+            surface.calculate_normal()
+            surfaces.append(surface)
+
+        multi_surface = MultiSurface(surfaces=surfaces)
+
+    return multi_surface
+
+
 if __name__ == "__main__":
 
     # Create the Tregenza sky model
     tregenza = create_tregenza_sky_model()
-    reinhart = create_reinhart_sky_model()
+    reinhart_1 = create_reinhart_sky_model()
+    reinhart_2 = create_reinhart_sky_model_fine()
 
-    print("Quad count: " + str(len(tregenza)))
+    print("Tregenza quad count: " + str(len(tregenza.surfaces)))
+    print("Reinhart 1 quad count: " + str(len(reinhart_1.surfaces)))
+    print("Reinhart 2 quad count: " + str(len(reinhart_2.surfaces)))
+
     window = Window(1200, 800)
     scene = Scene()
 
     field = Field(name="id", values=np.random.rand(len(tregenza.surfaces)), dim=1)
     tregenza.add_field(field)
 
-    field = Field(name="id", values=np.random.rand(len(reinhart.surfaces)), dim=1)
-    reinhart.add_field(field)
+    field = Field(name="id", values=np.random.rand(len(reinhart_1.surfaces)), dim=1)
+    reinhart_1.add_field(field)
+
+    field = Field(name="id", values=np.random.rand(len(reinhart_2.surfaces)), dim=1)
+    reinhart_2.add_field(field)
 
     scene.add_multisurface("Tregenza", tregenza)
-    scene.add_multisurface("Reinhart", reinhart)
+    scene.add_multisurface("Reinhart", reinhart_1)
+    scene.add_multisurface("Reinhart", reinhart_2)
 
     window.render(scene)
