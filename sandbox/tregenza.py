@@ -63,7 +63,7 @@ def sph2cart(r, theta, phi):
     return np.array([x, y, z])
 
 
-def generate_tregenza_sky_model_2(subdee: bool = False):
+def create_tregenza_sky_model():
 
     altitude_step = 12
     tregenza_divisions = [
@@ -76,25 +76,6 @@ def generate_tregenza_sky_model_2(subdee: bool = False):
         (6, 72.0),
         (1, 84.0),
     ]
-    if subdee:
-        altitude_step = 6
-        tregenza_divisions = [
-            (60, 0.0),
-            (60, 6.0),
-            (60, 12.0),
-            (60, 18.0),
-            (48, 24.0),
-            (48, 30.0),
-            (48, 36.0),
-            (48, 42.0),
-            (36, 48.0),
-            (36, 54.0),
-            (24, 60.0),
-            (24, 66.0),
-            (12, 72.0),
-            (12, 78.0),
-            (4, 84.0),
-        ]
 
     surfaces = []
 
@@ -118,7 +99,7 @@ def generate_tregenza_sky_model_2(subdee: bool = False):
                 surface = Surface(vertices=vertices)
                 surface.calculate_normal()
                 surfaces.append(surface)
-        elif not subdee:
+        else:
             # Create 1 top patch surface
             vertices = []
             for i in range(6):
@@ -127,7 +108,56 @@ def generate_tregenza_sky_model_2(subdee: bool = False):
             surface = Surface(vertices=vertices)
             surface.calculate_normal()
             surfaces.append(surface)
-        elif subdee:
+
+        multi_surface = MultiSurface(surfaces=surfaces)
+
+    return multi_surface
+
+
+def create_reinhart_sky_model():
+
+    altitude_step = 6
+    tregenza_divisions = [
+        (60, 0.0),
+        (60, 6.0),
+        (60, 12.0),
+        (60, 18.0),
+        (48, 24.0),
+        (48, 30.0),
+        (48, 36.0),
+        (48, 42.0),
+        (36, 48.0),
+        (36, 54.0),
+        (24, 60.0),
+        (24, 66.0),
+        (12, 72.0),
+        (12, 78.0),
+        (4, 84.0),
+    ]
+
+    surfaces = []
+
+    for num_patches, altitude in tregenza_divisions:
+        altitude_next = altitude + altitude_step if altitude != 84 else 90
+        azimuth_step = 360 / num_patches
+
+        if altitude != 84:
+            for i in range(num_patches):
+                azimuth = i * azimuth_step
+                azimuth_next = (i + 1) * azimuth_step
+
+                # Create vertices for each patch
+                v1 = sph2cart(1, 90 - altitude, azimuth)
+                v2 = sph2cart(1, 90 - altitude, azimuth_next)
+                v3 = sph2cart(1, 90 - altitude_next, azimuth_next)
+                v4 = sph2cart(1, 90 - altitude_next, azimuth)
+
+                # Create the surface
+                vertices = np.array([v1, v2, v3, v4])
+                surface = Surface(vertices=vertices)
+                surface.calculate_normal()
+                surfaces.append(surface)
+        else:
             # Create 4 top patch surfaces
             for i in range(4):
                 vertices = []
@@ -149,11 +179,20 @@ def generate_tregenza_sky_model_2(subdee: bool = False):
 if __name__ == "__main__":
 
     # Create the Tregenza sky model
-    dome = generate_tregenza_sky_model_2(subdee=False)
-    print("Quad count: " + str(len(dome)))
+    tregenza = create_tregenza_sky_model()
+    reinhart = create_reinhart_sky_model()
+
+    print("Quad count: " + str(len(tregenza)))
     window = Window(1200, 800)
     scene = Scene()
-    field = Field(name="id", values=np.random.rand(len(dome.surfaces)), dim=1)
-    dome.add_field(field)
-    scene.add_multisurface("Ms Dome", dome)
+
+    field = Field(name="id", values=np.random.rand(len(tregenza.surfaces)), dim=1)
+    tregenza.add_field(field)
+
+    field = Field(name="id", values=np.random.rand(len(reinhart.surfaces)), dim=1)
+    reinhart.add_field(field)
+
+    scene.add_multisurface("Tregenza", tregenza)
+    scene.add_multisurface("Reinhart", reinhart)
+
     window.render(scene)
