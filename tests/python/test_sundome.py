@@ -44,8 +44,8 @@ class TestSunDome:
         mesh = self.sunpath.sundome.mesh
         pc_quad_mid_pts = self.sunpath.sundome.pc
 
-        sun_pos_dict = self.sunpath.get_analemmas(2019, 2)
-        pc_analemmas = self.sunpath.create_sunpath_pc(sun_pos_dict)
+        sun_pos_dict = self.sunpath._calc_analemmas(2019, 2)
+        pc_analemmas = self.sunpath._create_sunpath_pc(sun_pos_dict)
 
         window = Window(1200, 800)
         scene = Scene()

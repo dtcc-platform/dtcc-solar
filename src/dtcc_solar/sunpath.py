@@ -45,20 +45,20 @@ class Sunpath:
         self.origin = np.array([0, 0, 0])
         self.sungroups = None
         self.sundome = None
-        self.create_suns(p, include_night)
+        self._create_suns(p, include_night)
 
         if p.display:
             self._build_sunpath_mesh()
 
         if p.sun_approx == SunApprox.group:
-            sun_pos_dict = self.get_analemmas(2019, p.suns_per_group)
+            sun_pos_dict = self._calc_analemmas(2019, p.suns_per_group)
             self.sungroups = SunGroups(sun_pos_dict, self.sunc)
         elif p.sun_approx == SunApprox.quad:
             dates = pd.date_range(start="2019-01-01", end="2019-12-31", freq="1D")
-            sun_pos_dict = self.get_daypaths(dates, 10)
+            sun_pos_dict = self._calc_daypaths(dates, 10)
             self.sundome = SunDome(sun_pos_dict, self.r, p.sundome_div)
 
-    def get_analemmas(self, year: int, sample_rate: int):
+    def _calc_analemmas(self, year: int, sample_rate: int):
         start_date = str(year) + "-01-01 12:00:00"
         end_date = str(year + 1) + "-01-01 11:00:00"
         times = pd.date_range(start=start_date, end=end_date, freq="H")
@@ -105,7 +105,7 @@ class Sunpath:
 
         return sun_pos_dict
 
-    def get_daypaths(self, dates: pd.DatetimeIndex, minute_step: float):
+    def _calc_daypaths(self, dates: pd.DatetimeIndex, minute_step: float):
         n = len(dates.values)
         n_evaluation = int(math.ceil(24 * 60 / minute_step))
         elev = np.zeros((n, n_evaluation + 1))
@@ -134,11 +134,11 @@ class Sunpath:
 
         return days_dict
 
-    def create_suns(self, p: SolarParameters, include_night: bool = False):
+    def _create_suns(self, p: SolarParameters, include_night: bool = False):
         over_horizon = []
         self.sunc = SunCollection()
         self._create_sun_timestamps(p.start_date, p.end_date)
-        self._get_suns_positions(over_horizon)
+        self._calc_suns_positions(over_horizon)
         self._append_weather_data(p)
         if not include_night:
             self._remove_suns_below_horizon(over_horizon)
@@ -153,7 +153,7 @@ class Sunpath:
             self.sunc.time_stamps.append(time_stamp)
             self.sunc.datetime_strs.append(str(time_stamp))
 
-    def _get_suns_positions(self, over_horizon: list[bool]):
+    def _calc_suns_positions(self, over_horizon: list[bool]):
         date_from_str = self.sunc.datetime_strs[0]
         date_to_str = self.sunc.datetime_strs[-1]
         dates = pd.date_range(start=date_from_str, end=date_to_str, freq="1H")
@@ -218,19 +218,19 @@ class Sunpath:
         self.w = self.r / 300
 
         # Get analemmas mesh and sun positions represented as a point cloud
-        sun_pos_dict = self.get_analemmas(2019, 2)
-        self.analemmas_meshes = self.create_mesh_strip(sun_pos_dict, self.r, self.w)
-        self.analemmas_pc = self.create_sunpath_pc(sun_pos_dict)
+        sun_pos_dict = self._calc_analemmas(2019, 2)
+        self.analemmas_meshes = self._create_mesh_strip(sun_pos_dict, self.r, self.w)
+        self.analemmas_pc = self._create_sunpath_pc(sun_pos_dict)
 
         # Get every sun position for each minute in a year as points in a point cloud
         dates = pd.date_range(start="2019-01-01", end="2019-12-31", freq="1D")
-        sun_pos_dict = self.get_daypaths(dates, 1)
-        self.all_suns_pc = self.create_sunpath_pc(sun_pos_dict)
+        sun_pos_dict = self._calc_daypaths(dates, 1)
+        self.all_suns_pc = self._create_sunpath_pc(sun_pos_dict)
 
         # Get day path loops as mesh strips
         days = pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"])
-        days_dict = self.get_daypaths(days, 2)
-        self.daypath_meshes = self.create_mesh_strip(days_dict, self.r, self.w)
+        days_dict = self._calc_daypaths(days, 2)
+        self.daypath_meshes = self._create_mesh_strip(days_dict, self.r, self.w)
 
         # Create pc representation of current sun positions
         self.sun_pc = self._create_sun_spheres()
@@ -241,7 +241,7 @@ class Sunpath:
 
         info("Sunpath mesh representation created")
 
-    def create_mesh_strip(self, sun_pos_dict, radius: float, width: float):
+    def _create_mesh_strip(self, sun_pos_dict, radius: float, width: float):
         meshes = []
 
         for h in sun_pos_dict:
@@ -295,7 +295,7 @@ class Sunpath:
         pc = PointCloud(points=points)
         return pc
 
-    def create_sunpath_pc(self, sun_pos_dict):
+    def _create_sunpath_pc(self, sun_pos_dict):
         points = []
         for h in sun_pos_dict:
             pos_list = sun_pos_dict[h]

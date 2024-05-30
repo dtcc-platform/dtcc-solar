@@ -142,7 +142,7 @@ class SunpathVisualTest:
         radius = 1.0
         # Create sunpath
         sunpath = Sunpath(lat, lon, radius)
-        [x, y, z, all_sun_pos] = sunpath.get_analemmas(2019, 5)
+        [x, y, z, all_sun_pos] = sunpath._calc_analemmas(2019, 5)
 
         # Import sunpath for the same location
         loop_pts = read_analemmas_from_csv_file(filename)

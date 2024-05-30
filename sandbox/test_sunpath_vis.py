@@ -29,7 +29,7 @@ class TestSunpathVisual:
 
     def test_analemmas(self):
         year = 2018
-        sun_pos_dict = self.sunpath.get_analemmas(year, 5)
+        sun_pos_dict = self.sunpath._calc_analemmas(year, 5)
         ax = self.sunvis.initialise_plot(self.radius, "Analemmas")
         self.sunvis.plot_analemmas(sun_pos_dict, self.radius, ax, True, "autumn_r", 0)
         plt.show()
@@ -37,7 +37,7 @@ class TestSunpathVisual:
 
     def test_daypath(self):
         dates = pd.date_range(start="2019-01-01", end="2019-09-30", freq="10D")
-        sun_pos_dict = self.sunpath.get_daypaths(dates, 10)
+        sun_pos_dict = self.sunpath._calc_daypaths(dates, 10)
         ax = self.sunvis.initialise_plot(self.radius, "Day paths")
         self.sunvis.plot_daypath(sun_pos_dict, self.radius, ax, True)
         plt.show()
@@ -46,7 +46,7 @@ class TestSunpathVisual:
     def test_single_sun_pos(self):
         self.p.start_date = "2019-05-30 12:20:00"
         self.p.end_date = "2019-05-30 12:20:00"
-        suns = self.sunpath.create_suns(self.p)
+        suns = self.sunpath._create_suns(self.p)
         if len(suns) > 0:
             pos = suns[0].position
             ax = self.sunvis.initialise_plot(self.radius, "Single sun")
@@ -57,7 +57,7 @@ class TestSunpathVisual:
     def test_multiple_sun_pos(self):
         self.p.start_date = "2019-02-21 12:20:00"
         self.p.end_date = "2019-02-22 12:20:00"
-        suns = self.sunpath.create_suns(self.p)
+        suns = self.sunpath._create_suns(self.p)
         suns_pos = []
         for sun in suns:
             suns_pos.append([sun.position.x, sun.position.y, sun.position.z])

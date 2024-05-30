@@ -22,11 +22,17 @@ class DataSource(IntEnum):
     epw = 4
 
 
-class SkydomeType(IntEnum):
+class Sky(IntEnum):
     EqualArea320 = 1
     Tregenza145 = 2
     Reinhart580 = 3
-    Reinhart2305 = 4
+
+
+class Rays(IntEnum):
+    Bundle1 = 1
+    Bundle4 = 2
+    Bundle8 = 3
+    Bundle16 = 4
 
 
 class MeshType(IntEnum):
@@ -154,7 +160,7 @@ class OutputCollection:
             fsa_masked = self.face_sun_angles[face_mask]
             sun_hours_masked = self.sun_hours[face_mask]
             shadow_hours_masked = self.shadow_hours[face_mask]
-            self.data_1["direct normal irradiation (kWh/m2)"] = dni_masked
+            self.data_1["direct irradiation (kWh/m2)"] = dni_masked
             self.data_1["sun hours [h]"] = sun_hours_masked
             self.data_1["shadow hours [h]"] = shadow_hours_masked
             self.data_1["average face sun angles (rad)"] = fsa_masked

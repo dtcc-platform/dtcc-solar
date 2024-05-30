@@ -3,14 +3,15 @@ import numpy as np
 from dtcc_solar.utils import SolarParameters, calc_face_mid_points, concatenate_meshes
 from dtcc_solar import py_embree_solar as embree
 from dtcc_solar.sundome import SunDome
-from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox, SkydomeType
-
+from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox, Sky
+from dtcc_solar.utils import Rays
 from dtcc_solar.sunpath import Sunpath
 from dtcc_model import Mesh, PointCloud
 from dtcc_model.geometry import Bounds
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_viewer import Window, Scene
 from dtcc_solar.sungroups import SunGroups
+from dtcc_solar.viewer import Viewer
 from pprint import pp
 
 
@@ -28,17 +29,20 @@ class SolarEngine:
     bby: np.ndarray
     bbz: np.ndarray
     face_mask: np.ndarray
-    sky: SkydomeType
+    sky: Sky
+    rays: Rays
 
     def __init__(
         self,
         analysis_mesh: Mesh,
         shading_mesh: Mesh = None,
-        sky: SkydomeType = None,
+        sky: Sky = None,
+        rays: Rays = None,
     ):
         self.analysis_mesh = analysis_mesh
         self.shading_mesh = shading_mesh
         self.sky = sky
+        self.rays = rays
         (self.mesh, self.face_mask) = self._join_meshes(analysis_mesh, shading_mesh)
         self.origin = np.array([0, 0, 0])
         self.horizon_z = 0
@@ -49,7 +53,10 @@ class SolarEngine:
         self._preprocess_mesh(True)
 
         if sky is None:
-            self.sky = SkydomeType.EqualArea320
+            self.sky = Sky.EqualArea320
+
+        if rays is None:
+            self.rays = Rays.Bundle8
 
         info("Solar engine created")
 
@@ -162,30 +169,64 @@ class SolarEngine:
     def _sun_group_raycasting(self, sungroups: SunGroups, sunc: SunCollection):
         sun_vecs = sungroups.list_centers
         info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} sun groups.")
-        if self.embree.sun_raytrace_occ8(sun_vecs):
+        if self._sun_raycasting_embree(sun_vecs):
             info(f"Raytracing sun groups completed successfully.")
-        else:
-            warning(f"Something went wrong in embree solar.")
 
     def _sun_quad_raycasting(self, sundome: SunDome, sunc: SunCollection):
         sundome.match_suns_and_quads(sunc)
         sun_vecs = sundome.get_active_quad_centers()
         info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} quad groups.")
-        if self.embree.sun_raytrace_occ8(sun_vecs):
+        if self._sun_raycasting_embree(sun_vecs):
             info(f"Raytracing sun groups completed successfully.")
-        else:
-            warning(f"Something went wrong in embree solar.")
 
     def _sun_raycasting(self, sunc: SunCollection):
         info(f"Running sun raycasting")
-        if self.embree.sun_raytrace_occ8(sunc.sun_vecs):
+        if self._sun_raycasting_embree(sunc.sun_vecs):
             info(f"Running sun raycasting completed successfully.")
-        else:
-            warning(f"Something went wrong with sun analysis in embree solar.")
 
     def _sky_raycasting(self):
         info(f"Running sky raycasting")
-        if self.embree.sky_raytrace_occ8():  # Array with nFace elements
+        if self._sky_raycasting_embree():
             info(f"Running sky raycasting completed succefully.")
-        else:
-            warning(f"Something went wrong with sky analysis in embree solar.")
+
+    def _sun_raycasting_embree(self, sun_vecs) -> bool:
+        success = False
+        if self.rays == Rays.Bundle1:
+            success = self.embree.sun_raytrace_occ1(sun_vecs)
+        elif self.rays == Rays.Bundle4:
+            success = self.embree.sun_raytrace_occ4(sun_vecs)
+        elif self.rays == Rays.Bundle8:
+            success = self.embree.sun_raytrace_occ8(sun_vecs)
+        elif self.rays == Rays.Bundle16:
+            success = self.embree.sun_raytrace_occ16(sun_vecs)
+
+        if not success:
+            error("Something went wrong with sun raycasting in embree.")
+
+        return success
+
+    def _sky_raycasting_embree(self) -> bool:
+        success = False
+        if self.rays == Rays.Bundle1:
+            success = self.embree.sky_raytrace_occ1()
+        elif self.rays == Rays.Bundle4:
+            success = self.embree.sky_raytrace_occ4()
+        elif self.rays == Rays.Bundle8:
+            success = self.embree.sky_raytrace_occ8()
+        elif self.rays == Rays.Bundle16:
+            success = self.embree.sky_raytrace_occ16()
+
+        if not success:
+            error("Something went wrong with sky raycasting in embree.")
+
+        return success
+
+    def view_results(
+        self, p: SolarParameters, sunpath: Sunpath, outc: OutputCollection
+    ):
+        viewer = Viewer()
+        viewer.build_sunpath_diagram(sunpath, p)
+        viewer.add_mesh("Analysed mesh", mesh=self.analysis_mesh, data=outc.data_1)
+        if self.shading_mesh is not None:
+            viewer.add_mesh("Shading mesh", mesh=self.shading_mesh, data=outc.data_2)
+        viewer.show()

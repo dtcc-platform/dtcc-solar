@@ -2,11 +2,11 @@ import numpy as np
 import pprint
 import copy
 from dtcc_io import meshes
-from dtcc_solar import py_embree_solar
+from dtcc_solar import py_embree_solar as embree
 from dtcc_model import Mesh, PointCloud
 from pprint import pp
 from dtcc_viewer import Scene, Window
-from dtcc_solar.utils import calc_face_mid_points, calc_face_incircle
+from dtcc_solar.utils import calc_face_mid_points, calc_face_incircle, Sky
 
 
 class TestEmbreeSolar:
@@ -16,7 +16,7 @@ class TestEmbreeSolar:
     def setup_method(self):
         self.file_name = "../data/models/CitySurfaceS.stl"
         self.mesh = meshes.load_mesh(self.file_name)
-        self.embree = py_embree_solar.PyEmbreeSolar(self.mesh.vertices, self.mesh.faces)
+        self.embree = embree.PyEmbreeSolar(self.mesh.vertices, self.mesh.faces)
 
     def test_skydome(self):
         faces = self.embree.get_skydome_faces()
@@ -34,8 +34,6 @@ class TestEmbreeSolar:
 
     def test_sky_raytrace(self):
         success = self.embree.sky_raytrace_occ8()
-
-        skyhit = self.embree.get_face_skyhit_results()
         svf = self.embree.get_sky_view_factor_results()
 
         window = Window(1200, 800)
@@ -65,11 +63,11 @@ class TestEmbreeSolar:
 
         rays_pcs = PointCloud(points=all_skydome_rays)
 
-        # window = Window(1200, 800)
-        # scene = Scene()
-        # scene.add_pointcloud("Skydome rays", rays_pcs, size=0.07, data=all_skydome_data)
-        # scene.add_mesh("Mesh diffuse", self.mesh, data=skyprt)
-        # window.render(scene)
+        window = Window(1200, 800)
+        scene = Scene()
+        scene.add_pointcloud("Skydome rays", rays_pcs, size=0.07, data=all_skydome_data)
+        scene.add_mesh("Mesh diffuse", self.mesh, data=svf)
+        window.render(scene)
 
 
 if __name__ == "__main__":
