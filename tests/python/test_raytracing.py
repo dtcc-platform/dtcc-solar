@@ -73,10 +73,10 @@ class TestRaytracing:
         self.solar_engine.run_analysis(p, sunpath, outputc)
 
         nfaces = len(self.solar_engine.mesh.faces)
-        nocc = len(outputc.occlusion)
         nang = len(outputc.face_sun_angles)
+        ndni = len(outputc.dni)
 
-        assert nocc == nfaces and nang == nfaces
+        assert ndni == nfaces and nang == nfaces
 
     def test_raytracing_sun_quad_iterative(self):
         p = copy.deepcopy(self.p)
@@ -91,10 +91,12 @@ class TestRaytracing:
         self.solar_engine.run_analysis(p, sunpath, outputc)
 
         nfaces = len(self.solar_engine.mesh.faces)
-        nocc = len(outputc.occlusion)
         nang = len(outputc.face_sun_angles)
+        nsvf = len(outputc.sky_view_factor)
 
-        assert nocc == nfaces and nang == nfaces
+        print(nfaces, nang, nsvf)
+
+        assert nang == nfaces and nsvf == nfaces
 
     def test_raytracing_sky_instant(self):
         p = copy.deepcopy(self.p)
@@ -125,5 +127,5 @@ if __name__ == "__main__":
     test.setup_method()
     # test.test_raytracing_sun_instant()
     # test.test_raytracing_sun_iterative()
-    # test.test_raytracing_sun_quad_iterative()
-    test.test_raytracing_sky_instant()
+    test.test_raytracing_sun_quad_iterative()
+    # test.test_raytracing_sky_instant()
