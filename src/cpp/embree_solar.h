@@ -28,7 +28,7 @@ public:
     EmbreeSolar();
     EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces);
     EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<bool> face_mask);
-    EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<std::vector<float>> samplingPts);
+    EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<bool> face_mask, int skyType);
     virtual ~EmbreeSolar();
 
     void CreateDevice();
@@ -47,7 +47,7 @@ public:
     std::vector<std::vector<float>> GetAngleResults();
 
     std::vector<std::vector<int>> GetFaceSkyHitResults();
-    std::vector<float> GetFaceSkyPortionResults();
+    std::vector<float> GetSkyViewFactorResults();
 
     std::vector<std::vector<int>> GetSkydomeFaces();
     std::vector<std::vector<float>> GetSkydomeVertices();
@@ -117,5 +117,5 @@ private:
     std::vector<float> mAccumOcclud;
 
     std::vector<std::vector<int>> mFaceSkyHit;
-    std::vector<float> mFaceSkyPortion;
+    std::vector<float> mSkyViewFactor;
 };

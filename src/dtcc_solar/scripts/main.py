@@ -27,63 +27,95 @@ def analyse_city(solar_parameters: SolarParameters):
     check_mesh(building_mesh)
     check_mesh(terrain_mesh)
 
-    engine = SolarEngine(building_mesh, terrain_mesh)
+    engine = SolarEngine(building_mesh, terrain_mesh, sky=SkydomeType.Tregenza145)
     sunpath = Sunpath(p, engine.sunpath_radius)
     outputc = OutputCollection()
-
     engine.run_analysis(p, sunpath, outputc)
 
     if p.display:
-        outputc.process_results(engine.face_mask)
         viewer = Viewer()
         viewer.build_sunpath_diagram(sunpath, p)
-        viewer.add_mesh("Analysed mesh", mesh=building_mesh, data=outputc.data_dict_1)
-        viewer.add_mesh("Shading mesh", mesh=terrain_mesh, data=outputc.data_dict_2)
+        viewer.add_mesh("Analysed mesh", mesh=building_mesh, data=outputc.data_1)
+        viewer.add_mesh("Shading mesh", mesh=terrain_mesh, data=outputc.data_2)
         viewer.show()
 
-    p.export = True
+    p.export = False
 
     if p.export:
         filename = "../../../data/output/test.json"
         export_mesh_to_json(
             building_mesh,
             parts,
-            outputc.data_dict_1["total irradiance (kWh/m2)"],
-            outputc.data_dict_1["face sun angles (rad)"],
-            outputc.data_dict_1["sun hours [h]"],
+            outputc.data_1["total irradiation (kWh/m2)"],
+            outputc.data_1["face sun angles (rad)"],
+            outputc.data_1["sun hours [h]"],
             filename,
         )
 
 
-def analyse_mesh(solar_parameters: SolarParameters):
+def analyse_mesh_1(solar_parameters: SolarParameters):
 
     print("-------- Solar Mesh Analysis Started -------")
 
     p = solar_parameters
-    mesh1 = meshes.load_mesh(p.file_name)
+    mesh = meshes.load_mesh(p.file_name)
+    engine = SolarEngine(mesh, sky=SkydomeType.EqualArea320)
+    sunpath = Sunpath(p, engine.sunpath_radius)
+    outputc = OutputCollection()
+    engine.run_analysis(p, sunpath, outputc)
 
-    # (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.4, 0.6], [0.4, 0.6])
-    # analysis_mesh = subdivide_mesh(analysis_mesh, 3.5)
+    if p.display:
+        viewer = Viewer()
+        viewer.build_sunpath_diagram(sunpath, p)
+        viewer.add_mesh("Analysed mesh", mesh=mesh, data=outputc.data_1)
+        viewer.show()
 
-    (analysis_mesh, shading_mesh) = split_mesh_by_vertical_faces(mesh1)
+
+def analyse_mesh_2(solar_parameters: SolarParameters):
+
+    print("-------- Solar Mesh Analysis Started -------")
+
+    p = solar_parameters
+    mesh = meshes.load_mesh(p.file_name)
+
+    (analysis_mesh, shading_mesh) = split_mesh_by_vertical_faces(mesh)
     analysis_mesh = subdivide_mesh(analysis_mesh, 3.5)
 
-    engine = SolarEngine(analysis_mesh, shading_mesh)
+    engine = SolarEngine(analysis_mesh, shading_mesh, sky=SkydomeType.Tregenza145)
     sunpath = Sunpath(p, engine.sunpath_radius)
     outputc = OutputCollection()
 
     engine.run_analysis(p, sunpath, outputc)
 
     if p.display:
-        outputc.process_results(engine.face_mask)
         viewer = Viewer()
         viewer.build_sunpath_diagram(sunpath, p)
-        viewer.add_mesh("Analysed mesh", mesh=analysis_mesh, data=outputc.data_dict_1)
-        viewer.add_mesh("Shading mesh", mesh=shading_mesh, data=outputc.data_dict_2)
+        viewer.add_mesh("Analysed mesh", mesh=analysis_mesh, data=outputc.data_1)
+        viewer.add_mesh("Shading mesh", mesh=shading_mesh, data=outputc.data_2)
         viewer.show()
 
-    # filename = "../../../data/output/building_mesh.obj"
-    # dtcc_io.save_mesh(analysis_mesh, filename)
+
+def analyse_mesh_3(solar_parameters: SolarParameters):
+
+    print("-------- Solar Mesh Analysis Started -------")
+
+    p = solar_parameters
+    mesh = meshes.load_mesh(p.file_name)
+
+    (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.3, 0.7], [0.3, 0.7])
+    analysis_mesh = subdivide_mesh(analysis_mesh, 3.0)
+
+    engine = SolarEngine(analysis_mesh, shading_mesh, sky=SkydomeType.Reinhart580)
+    sunpath = Sunpath(p, engine.sunpath_radius)
+    outputc = OutputCollection()
+    engine.run_analysis(p, sunpath, outputc)
+
+    if p.display:
+        viewer = Viewer()
+        viewer.build_sunpath_diagram(sunpath, p)
+        viewer.add_mesh("Analysed mesh", mesh=analysis_mesh, data=outputc.data_1)
+        viewer.add_mesh("Shading mesh", mesh=shading_mesh, data=outputc.data_2)
+        viewer.show()
 
 
 if __name__ == "__main__":
@@ -104,7 +136,7 @@ if __name__ == "__main__":
 
     # Gothenburg
     p_1 = SolarParameters(
-        file_name=inputfile_L,
+        file_name=inputfile_S,
         weather_file=path + gbg_epw,
         start_date="2019-01-01 00:00:00",
         end_date="2019-12-31 00:00:00",
@@ -143,5 +175,8 @@ if __name__ == "__main__":
         sun_approx=SunApprox.group,
     )
 
-    # analyse_mesh(p_1)
+    # analyse_mesh_1(p_1)
+    # analyse_mesh_2(p_1)
+    # analyse_mesh_3(p_1)
+
     analyse_city(p_1)

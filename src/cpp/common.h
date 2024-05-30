@@ -37,6 +37,12 @@ enum class ResType
     angle,
 };
 
+static inline Vertex CreateVertex(std::vector<float> v)
+{
+    Vertex vertex = {v[0], v[1], v[2]};
+    return vertex;
+};
+
 static inline Vector CreateVector(Vertex from, Vertex to)
 {
     float x, y, z;
@@ -45,6 +51,11 @@ static inline Vector CreateVector(Vertex from, Vertex to)
     z = to.z - from.z;
     Vector v = {x, y, z};
     return v;
+};
+
+static inline float VectorLength(Vector v)
+{
+    return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 };
 
 static inline Vector UnitizeVector(Vector v)
@@ -105,4 +116,22 @@ static inline float CalcAngle2(Vector ray, Vector nml)
 
     float angleInRadians = std::acos(cosTheta);
     return angleInRadians;
+}
+
+static inline float Deg2Rad(float deg)
+{
+    return deg * M_PI / 180.0;
+}
+
+static inline float Rad2Deg(float rad)
+{
+    return rad * 180.0 / M_PI;
+}
+
+static inline std::vector<float> Spherical2Cartesian(float r, float elevation, float azimuth)
+{
+    float x = r * cos(elevation) * cos(azimuth);
+    float y = r * cos(elevation) * sin(azimuth);
+    float z = r * sin(elevation);
+    return {x, y, z};
 }

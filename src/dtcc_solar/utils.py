@@ -22,6 +22,13 @@ class DataSource(IntEnum):
     epw = 4
 
 
+class SkydomeType(IntEnum):
+    EqualArea320 = 1
+    Tregenza145 = 2
+    Reinhart580 = 3
+    Reinhart2305 = 4
+
+
 class MeshType(IntEnum):
     analysis = 1
     shading = 2
@@ -118,38 +125,46 @@ class OutputCollection:
     visible_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Results for face and each sky raytracing intersection
     facehit_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Value for each face between 0-1 to indicate how much of the sky is visible from the face. 0 = no sky, 1 = all sky
+    sky_view_factor: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Number of hours of direct sun per face
     sun_hours: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Number of hours of shaded sun per face
     shadow_hours: np.ndarray = field(default_factory=lambda: np.empty(0))
 
-    def process_results(self, face_mask: np.ndarray = None):
-        fsa_masked = self.face_sun_angles[face_mask]
-        dni_masked = self.dni[face_mask]
-        dhi_masked = self.dhi[face_mask]
-        tot_masked = dni_masked + dhi_masked
-        occ_masked = self.occlusion[face_mask]
-        inv_occ_masked = 1.0 - self.occlusion[face_mask]
-        sun_hours_masked = self.sun_hours[face_mask]
-        shadow_hours_masked = self.shadow_hours[face_mask]
+    def process_results(
+        self, sun_analysis: bool, sky_analysis: bool, face_mask: np.ndarray = None
+    ):
+        self.data_1 = {}
+
+        if sun_analysis and sky_analysis:
+            dhi_masked = self.dhi[face_mask] / 1000.0
+            dni_masked = self.dni[face_mask] / 1000.0
+            tot_masked = dni_masked + dhi_masked
+            self.data_1["total irradiation (kWh/m2)"] = tot_masked
+
+        if sky_analysis:
+            dhi_masked = self.dhi[face_mask] / 1000.0
+            svf_masked = self.sky_view_factor[face_mask]
+            self.data_1["diffuse irradiation (kWh/m2)"] = dhi_masked
+            self.data_1["sky view factor"] = svf_masked
+
+        if sun_analysis:
+            dni_masked = self.dni[face_mask] / 1000.0
+            fsa_masked = self.face_sun_angles[face_mask]
+            sun_hours_masked = self.sun_hours[face_mask]
+            shadow_hours_masked = self.shadow_hours[face_mask]
+            self.data_1["direct normal irradiation (kWh/m2)"] = dni_masked
+            self.data_1["sun hours [h]"] = sun_hours_masked
+            self.data_1["shadow hours [h]"] = shadow_hours_masked
+            self.data_1["average face sun angles (rad)"] = fsa_masked
 
         face_mask_inv = np.invert(face_mask)
         count = np.array(face_mask_inv, dtype=int).sum()
 
-        self.data_dict_1 = {
-            "total irradiation (kWh/m2)": tot_masked / 1000.0,
-            "direct normal irradiation (kWh/m2)": dni_masked / 1000.0,
-            "diffuse horizontal irradiation (kWh/m2)": dhi_masked / 1000.0,
-            "face sun angles (rad)": fsa_masked,
-            "occlusion (0-1)": occ_masked,
-            "inverse occlusion (0-1)": inv_occ_masked,
-            "sun hours [h]": sun_hours_masked,
-            "shadow hours [h]": shadow_hours_masked,
-        }
-
-        self.data_dict_2 = None
+        self.data_2 = None
         if face_mask is not None:
-            self.data_dict_2 = {"No data": np.zeros(count)}
+            self.data_2 = {"No data": np.zeros(count)}
 
 
 @dataclass

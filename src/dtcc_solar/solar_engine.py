@@ -3,7 +3,7 @@ import numpy as np
 from dtcc_solar.utils import SolarParameters, calc_face_mid_points, concatenate_meshes
 from dtcc_solar import py_embree_solar as embree
 from dtcc_solar.sundome import SunDome
-from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox
+from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox, SkydomeType
 
 from dtcc_solar.sunpath import Sunpath
 from dtcc_model import Mesh, PointCloud
@@ -16,10 +16,9 @@ from pprint import pp
 
 class SolarEngine:
     mesh: Mesh  # Mesh for analysis
+    analysis_mesh: Mesh  # Mesh that will be analysed
     shading_mesh: Mesh  # Mesh that will cast shadows but not be analysed
     origin: np.ndarray
-    f_count: int
-    v_count: int
     horizon_z: float
     sunpath_radius: float
     sun_size: float
@@ -28,27 +27,29 @@ class SolarEngine:
     bbx: np.ndarray
     bby: np.ndarray
     bbz: np.ndarray
-    city_mesh_faces: np.ndarray
-    city_mesh_points: np.ndarray
-    city_mesh_face_mid_points: np.ndarray
-    face_areas: np.ndarray
     face_mask: np.ndarray
+    sky: SkydomeType
 
-    def __init__(self, analysis_mesh: Mesh, shading_mesh: Mesh = None):
+    def __init__(
+        self,
+        analysis_mesh: Mesh,
+        shading_mesh: Mesh = None,
+        sky: SkydomeType = None,
+    ):
         self.analysis_mesh = analysis_mesh
         self.shading_mesh = shading_mesh
+        self.sky = sky
         (self.mesh, self.face_mask) = self._join_meshes(analysis_mesh, shading_mesh)
         self.origin = np.array([0, 0, 0])
-        self.f_count = len(self.mesh.faces)
-        self.v_count = len(self.mesh.vertices)
-        info(f"Mesh has {self.f_count} faces and {self.v_count} vertices.")
-
         self.horizon_z = 0
         self.sunpath_radius = 0
         self.sun_size = 0
         self.dome_radius = 0
         self.path_width = 0
         self._preprocess_mesh(True)
+
+        if sky is None:
+            self.sky = SkydomeType.EqualArea320
 
         info("Solar engine created")
 
@@ -92,7 +93,6 @@ class SolarEngine:
         self.dome_radius = self.sunpath_radius / 40
         self.tolerance = self.sunpath_radius / 1.0e7
 
-        self._calc_face_areas()
         if move_to_center:
             info(f"Mesh has been moved to origin.")
 
@@ -110,19 +110,6 @@ class SolarEngine:
 
         self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
-    def _calc_face_areas(self):
-        areas = []
-        for face in self.mesh.faces:
-            v1 = self.mesh.vertices[face[0]]
-            v2 = self.mesh.vertices[face[1]]
-            v3 = self.mesh.vertices[face[2]]
-            v1v2 = v2 - v1
-            v1v3 = v3 - v1
-            area = 0.5 * np.linalg.norm(np.cross(v1v2, v1v3))
-            areas.append(area)
-
-        self.face_areas = np.array(areas)
-
     def get_skydome_ray_count(self):
         return self.embree.get_skydome_ray_count()
 
@@ -130,7 +117,7 @@ class SolarEngine:
         # Creating instance of embree solar
         info(f"Creating embree instance")
         self.embree = embree.PyEmbreeSolar(
-            self.mesh.vertices, self.mesh.faces, self.face_mask
+            self.mesh.vertices, self.mesh.faces, self.face_mask, int(self.sky)
         )
         info(f"Running analysis...")
 
@@ -161,14 +148,16 @@ class SolarEngine:
         if p.sun_analysis:
             n_suns = sunp.sunc.count
             outc.dni = self.embree.get_results_dni()
-            outc.dhi = self.embree.get_results_dhi()
             outc.face_sun_angles = self.embree.get_accumulated_angles() / n_suns
-            outc.occlusion = self.embree.get_accumulated_occlusion() / n_suns
             outc.sun_hours = n_suns - self.embree.get_accumulated_occlusion()
             outc.shadow_hours = self.embree.get_accumulated_occlusion()
 
         if p.sky_analysis:
+            outc.dhi = self.embree.get_results_dhi()
             outc.facehit_sky = self.embree.get_face_skyhit_results()
+            outc.sky_view_factor = self.embree.get_sky_view_factor_results()
+
+        outc.process_results(p.sun_analysis, p.sky_analysis, self.face_mask)
 
     def _sun_group_raycasting(self, sungroups: SunGroups, sunc: SunCollection):
         sun_vecs = sungroups.list_centers

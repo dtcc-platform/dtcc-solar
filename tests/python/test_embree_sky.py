@@ -36,17 +36,17 @@ class TestEmbreeSolar:
         success = self.embree.sky_raytrace_occ8()
 
         skyhit = self.embree.get_face_skyhit_results()
-        skyprt = self.embree.get_face_skyportion_results()
+        svf = self.embree.get_sky_view_factor_results()
 
         window = Window(1200, 800)
         scene = Scene()
-        scene.add_mesh("Mesh diffuse", self.mesh, data=skyprt)
+        scene.add_mesh("Mesh diffuse", self.mesh, data=svf)
         window.render(scene)
 
     def test_sky_raytrace2(self):
         success = self.embree.sky_raytrace_occ8()
         skyhit = self.embree.get_face_skyhit_results()
-        skyprt = self.embree.get_face_skyportion_results()
+        svf = self.embree.get_sky_view_factor_results()
         skydome_rays = self.embree.get_skydome_rays()
 
         all_skydome_rays = []

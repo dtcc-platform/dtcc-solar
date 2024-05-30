@@ -98,7 +98,7 @@ EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<s
     info("Model setup with mesh geometry complete.");
 }
 
-EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<std::vector<float>> samplingPts)
+EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<bool> faceMask, int skyType)
 {
     info("Creating embree instance with mesh geometry.");
     set_log_level(INFO);
@@ -110,6 +110,10 @@ EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<s
     mApplyMask = false;
     mMaskCount = 0;
     mFaceMask = std::vector<bool>(mFaceCount, true);
+    mMaskCount = 0;
+    for (int i = 0; i < mFaceCount; i++)
+        if (mFaceMask[i])
+            mMaskCount++;
 
     CreateDevice();
     CreateScene();
@@ -117,7 +121,7 @@ EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<s
     CalcFaceMidPoints();
     CalcFaceNormals();
 
-    mSkydome = new Skydome(10);
+    mSkydome = new Skydome(skyType);
     mSunrays = new Sunrays(mFaceMidPts, mFaceCount, mFaceMask);
 
     mHasSunResults = false;
@@ -218,9 +222,9 @@ std::vector<std::vector<int>> EmbreeSolar::GetFaceSkyHitResults()
     return mFaceSkyHit;
 }
 
-std::vector<float> EmbreeSolar::GetFaceSkyPortionResults()
+std::vector<float> EmbreeSolar::GetSkyViewFactorResults()
 {
-    return mFaceSkyPortion;
+    return mSkyViewFactor;
 }
 
 std::vector<float> EmbreeSolar::GetIrradianceResultsDNI()
@@ -680,7 +684,7 @@ bool EmbreeSolar::SkyRaytrace_Occ1()
     float hitPortion = 0.0f;
     // Compute diffuse sky portion by iterating over all faces in the mesh
     mFaceSkyHit = std::vector<std::vector<int>>(mFaceCount, std::vector<int>(mSkydome->GetRayCount(), 0));
-    mFaceSkyPortion = std::vector<float>(mFaceCount, 0);
+    mSkyViewFactor = std::vector<float>(mFaceCount, 0);
     auto start = std::chrono::high_resolution_clock::now();
     info("Running diffuse rtcOccluded1 for " + str(mMaskCount) + " faces and " + str(mSkydome->GetRayCount()) + " skydome rays.");
     for (int i = 0; i < mFaceCount; i++)
@@ -702,7 +706,7 @@ bool EmbreeSolar::SkyRaytrace_Occ1()
                 }
                 hitAttempts++;
             }
-            mFaceSkyPortion[i] = hitPortion;
+            mSkyViewFactor[i] = 1.0 - hitPortion;
             if (i > 0 && i % 10000 == 0)
                 info("Sky raytracing for " + str(i) + " faces completed.");
         }
@@ -723,7 +727,7 @@ bool EmbreeSolar::SkyRaytrace_Occ4()
     float hitPortion = 0.0f;
     // Compute diffuse sky portion by iterating over all faces in the mesh
     mFaceSkyHit = std::vector<std::vector<int>>(mFaceCount, std::vector<int>(mSkydome->GetRayCount(), 0));
-    mFaceSkyPortion = std::vector<float>(mFaceCount, 0);
+    mSkyViewFactor = std::vector<float>(mFaceCount, 0);
     auto start = std::chrono::high_resolution_clock::now();
     info("Running diffuse rtcOccluded4 for " + str(mMaskCount) + " faces and " + str(mSkydome->GetRayCount()) + " skydome rays.");
     for (int i = 0; i < mFaceCount; i++)
@@ -750,7 +754,7 @@ bool EmbreeSolar::SkyRaytrace_Occ4()
                     hitAttempts++;
                 }
             }
-            mFaceSkyPortion[i] = hitPortion;
+            mSkyViewFactor[i] = 1.0 - hitPortion;
             if (i > 0 && i % 10000 == 0)
                 info("Sky raytracing for " + str(i) + " faces completed.");
         }
@@ -771,7 +775,7 @@ bool EmbreeSolar::SkyRaytrace_Occ8()
     float hitPortion = 0.0f;
     // Compute diffuse sky portion by iterating over all faces in the mesh
     mFaceSkyHit = std::vector<std::vector<int>>(mFaceCount, std::vector<int>(mSkydome->GetRayCount(), 0));
-    mFaceSkyPortion = std::vector<float>(mFaceCount, 0);
+    mSkyViewFactor = std::vector<float>(mFaceCount, 0);
     auto start = std::chrono::high_resolution_clock::now();
     info("Running diffuse rtcOccluded8 for " + str(mMaskCount) + " faces and " + str(mSkydome->GetRayCount()) + " skydome rays.");
     for (int i = 0; i < mFaceCount; i++)
@@ -798,7 +802,7 @@ bool EmbreeSolar::SkyRaytrace_Occ8()
                     hitAttempts++;
                 }
             }
-            mFaceSkyPortion[i] = hitPortion;
+            mSkyViewFactor[i] = 1.0 - hitPortion;
             if (i > 0 && i % 10000 == 0)
                 info("Sky raytracing for " + str(i) + " faces completed.");
         }
@@ -819,7 +823,7 @@ bool EmbreeSolar::SkyRaytrace_Occ16()
     float hitPortion = 0.0f;
     // Compute diffuse sky portion by iterating over all faces in the mesh
     mFaceSkyHit = std::vector<std::vector<int>>(mFaceCount, std::vector<int>(mSkydome->GetRayCount(), 0));
-    mFaceSkyPortion = std::vector<float>(mFaceCount, 0);
+    mSkyViewFactor = std::vector<float>(mFaceCount, 0);
     auto start = std::chrono::high_resolution_clock::now();
     info("Running diffuse rtcOccluded16 for " + str(mMaskCount) + " faces and " + str(mSkydome->GetRayCount()) + " skydome rays.");
     for (int i = 0; i < mFaceCount; i++)
@@ -846,7 +850,7 @@ bool EmbreeSolar::SkyRaytrace_Occ16()
                     hitAttempts++;
                 }
             }
-            mFaceSkyPortion[i] = hitPortion;
+            mSkyViewFactor[i] = 1.0 - hitPortion;
             if (i > 0 && i % 10000 == 0)
                 info("Sky raytracing for " + str(i) + " faces completed.");
         }
@@ -901,8 +905,8 @@ bool EmbreeSolar::CalcIrradiance(std::vector<float> dni, std::vector<float> dhi)
                 }
                 if (mHasSkyResults)
                 {
-                    float visible_sky = mFaceSkyPortion[faceIndex];
-                    float irradianceDHI = weatherDHI * (1.0f - visible_sky);
+                    float svf = mSkyViewFactor[faceIndex];
+                    float irradianceDHI = weatherDHI * svf;
                     mIrradianceDHI[faceIndex] += irradianceDHI;
                 }
             }
@@ -947,11 +951,9 @@ bool EmbreeSolar::CalcIrradianceGroup(std::vector<float> dni, std::vector<float>
 
                 if (mHasSkyResults)
                 {
-                    float visible_sky = mFaceSkyPortion[faceIndex];
-                    float irradianceDHI = weatherDHI * (1.0f - visible_sky);
+                    float svf = mSkyViewFactor[faceIndex];
+                    float irradianceDHI = weatherDHI * svf;
                     mIrradianceDHI[faceIndex] += irradianceDHI;
-                    // std::cout << "Visible sky: " << visible_sky << std::endl;
-                    // std::cout << "DHI: " << weatherDHI << std::endl;
                 }
             }
         }
@@ -971,6 +973,7 @@ PYBIND11_MODULE(py_embree_solar, m)
         .def(py::init<>())
         .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>>())
         .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>, std::vector<bool>>())
+        .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>, std::vector<bool>, int>())
         .def("get_mesh_faces", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetMeshFaces()); return out; })
         .def("get_mesh_vertices", [](EmbreeSolar &self)
@@ -1011,8 +1014,8 @@ PYBIND11_MODULE(py_embree_solar, m)
              { py::array out = py::cast(self.GetOccludedResults()); return out; })
         .def("get_face_skyhit_results", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetFaceSkyHitResults()); return out; })
-        .def("get_face_skyportion_results", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.GetFaceSkyPortionResults()); return out; })
+        .def("get_sky_view_factor_results", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetSkyViewFactorResults()); return out; })
         .def("get_results_dni", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetIrradianceResultsDNI()); return out; })
         .def("get_results_dhi", [](EmbreeSolar &self)

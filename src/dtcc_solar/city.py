@@ -140,7 +140,6 @@ def generate_building_mesh_2(city: City, limit: int = None, subdee_length: int =
         parts = Parts(valid_meshes, all_face_types)
         mesh = concatenate_city_meshes(valid_meshes)
         mesh.vertices += move_vec
-        mesh.view()
         info(f"Mesh with {len(mesh.faces)} faces was retrieved from buildings")
         return mesh, parts
 

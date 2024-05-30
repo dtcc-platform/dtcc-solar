@@ -14,11 +14,13 @@ class Skydome
 
 public:
     Skydome();
-    Skydome(int rayCount);
+    Skydome(int skyType);
     ~Skydome();
 
     void InitRays(int rayCount);
-    void CreateMesh(int nStrips);
+    void CreateEqualAreaMesh(int nStrips);
+    void CreateTregenzaMesh();
+    void CreateReinhartMesh();
     void CreateRays();
     void BundleRays();
 
@@ -31,10 +33,14 @@ public:
     float CalcHemisphereArea();
 
     void GetTopCap(float maxElev, float elev, float maxAzim, int nAzim, float faceAreaPart);
-    void CreateTopCapQuads(float elev, float nextElev, float azim, float d_azim);
-    void CreateDomeMeshQuad(float azim, float nextAzim, float elev, float nextElev);
+    void CreateMeshQuad(float azim, float nextAzim, float elev, float nextElev);
+
+    void CreateEqualAreaZenithPatch(float elev, float nextElev, float azim, float d_azim);
+    void CreateTregenzaZenithPatch(float elevation);
+    void CreateReinhartZenithPatch(float elevation);
 
     float CalcSphereStripArea(float elev1, float elev2);
+    float CalcSpherePatchArea(float r, float elev1, float elev2, float azim1, float azim2);
 
     int GetFaceCount();
     int GetRayCount();
