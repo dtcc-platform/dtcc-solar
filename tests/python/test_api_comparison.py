@@ -14,13 +14,13 @@ class TestWeatherDataComparison:
     lon: float
 
     def setup_method(self):
-        self.lon = 16.158
-        self.lat = 58.5812
+        self.lon = 11.974560
+        self.lat = 57.708870
         self.w_file_clm = (
-            "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
+            "../data/weather/SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.clm"
         )
         self.w_file_epw = (
-            "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+            "../data/weather/SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.epw"
         )
         self.file_name = "../data/models/CitySurfaceS.stl"
 
@@ -414,7 +414,7 @@ if __name__ == "__main__":
     test = TestWeatherDataComparison()
     test.setup_method()
     # test.test_compare_dict_keys()
-    test.test_calculate_monthly_average_data()
-    # test.test_compare_weather_data()
+    # test.test_calculate_monthly_average_data()
+    test.test_compare_weather_data()
 
     pass

@@ -12,11 +12,15 @@ from dtcc_solar.logging import info, debug, warning, error
 def get_data(lon: float, lat: float, sunc: SunCollection):
     [lon, lat] = check_geo_data(lon, lat)
     strong_data_path = "https://opendata-download-metanalys.smhi.se/api/category/strang1g/version/1/geotype/point/"
+
+    # The parameter 118 = Direct normal irradiance [W/m²]
     point_data_path_ni = (
         "lon/" + str(lon) + "/lat/" + str(lat) + "/parameter/118/data.json"
     )
+
+    # The parameter 122 = Diffuse irradiance [W/m²]
     point_data_path_hi = (
-        "lon/" + str(lon) + "/lat/" + str(lat) + "/parameter/121/data.json"
+        "lon/" + str(lon) + "/lat/" + str(lat) + "/parameter/122/data.json"
     )
 
     date_from_str = timestamp_str(sunc.time_stamps[0])
