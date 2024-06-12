@@ -9,6 +9,35 @@ from dtcc_solar.logging import info, debug, warning, error
 
 
 class SunDome:
+    """
+    Class for creating a mesh representation of the entire a sun path diagram. The quads
+    in the mesh can then be used to group sun positions for faster analysis.
+
+
+    Attributes
+    ----------
+    radius : float
+        Radius of the sun dome.
+    div_tangent : int
+        Number of divisions along the tangent.
+    div_height : int
+        Number of divisions along the height.
+    center : np.ndarray
+        Center of the sun dome.
+    mesh : Mesh
+        Mesh representing the sun dome.
+    submesh : Mesh
+        Submesh containing only active quads.
+    pc : PointCloud
+        Point cloud of vertices in the sun dome mesh.
+    all_quads : list[SunQuad]
+        List of all quads in the sun dome mesh.
+    active_quads : list[SunQuad]
+        List of active quads with suns.
+    quad_mid_pts : np.ndarray
+        Midpoints of all quads in the sun dome mesh.
+    """
+
     radius: float
     div_tangent: int
     div_height: int
@@ -21,6 +50,18 @@ class SunDome:
     quad_mid_pts: np.ndarray  # [n_quads * 3] mid points for all quads
 
     def __init__(self, sun_pos_dict: dict, radius: float, div: tuple[int, int]):
+        """
+        Initialize the SunDome object with sun positions, radius, and divisions.
+
+        Parameters
+        ----------
+        sun_pos_dict : dict
+            Dictionary containing sun positions indexed by day.
+        radius : float
+            Radius of the sun dome.
+        div : tuple[int, int]
+            Number of divisions along the tangent and height.
+        """
         self.center = np.array([0, 0, 0])
         self.all_quads = []
         self.active_quads = []
@@ -29,7 +70,19 @@ class SunDome:
         self._process_quads()
 
     def _calc_outermost_day_loops(self, sun_pos_dict: dict):
-        """Returns the outermost day path loops"""
+        """
+        Returns the outermost day path loops.
+
+        Parameters
+        ----------
+        sun_pos_dict : dict
+            Dictionary containing sun positions indexed by day.
+
+        Returns
+        -------
+        tuple[LineString, LineString]
+            The outermost day loops.
+        """
         day_loops = []
         avrg_pts = []
 
@@ -56,7 +109,21 @@ class SunDome:
         return day_loops[index1], day_loops[index2]
 
     def _get_pt_index_far_from_other_pt(self, pts: np.ndarray, far_from_pt: np.ndarray):
-        """Returns the index of the point that is the furtherst from the far_from_pt"""
+        """
+        Returns the index of the point that is the farthest from the given point.
+
+        Parameters
+        ----------
+        pts : np.ndarray
+            Array of points.
+        far_from_pt : np.ndarray
+            Point to compare the distance from.
+
+        Returns
+        -------
+        int
+            Index of the farthest point.
+        """
         dmax = -10000000000
         index = None
         for i, pt in enumerate(pts):
@@ -70,7 +137,22 @@ class SunDome:
     def _create_mesh(
         self, radius: float, loop_1: LineString, loop_2: LineString, n: int, m: int
     ):
-        """Creates a sunpath diagram mesh inbetween the outermost day path loops"""
+        """
+        Creates a sun path diagram mesh between the outermost day path loops.
+
+        Parameters
+        ----------
+        radius : float
+            Radius of the sun dome.
+        loop_1 : LineString
+            First outermost day path loop.
+        loop_2 : LineString
+            Second outermost day path loop.
+        n : int
+            Number of divisions along the tangent.
+        m : int
+            Number of divisions along the height.
+        """
         points = []
         avrg_length = (loop_1.length + loop_2.length) / 2
         step_n = avrg_length / n
@@ -124,7 +206,7 @@ class SunDome:
         self.mesh = Mesh(vertices=points, faces=faces)
 
     def _process_quads(self):
-        """Calculates the center and area of each quad"""
+        """Calculates the center and area of each quad."""
         for sun_quad in self.all_quads:
             face_a = self.mesh.faces[sun_quad.face_index_a]
             face_b = self.mesh.faces[sun_quad.face_index_b]
@@ -153,7 +235,14 @@ class SunDome:
             sun_quad.area = area_a + area_b
 
     def calc_sub_sundome_mesh(self, tolerance: float):
-        """Returns a sub sundome with the quads that have suns"""
+        """
+        Returns a sub sun dome mesh with the quads that have suns.
+
+        Parameters
+        ----------
+        tolerance : float
+            Tolerance for vertex comparison.
+        """
         new_faces = []
         new_vertices = []
         v_index = 0
@@ -196,6 +285,23 @@ class SunDome:
         self.submesh = mesh
 
     def _vertex_exists(self, vertices, vertex, tolerance):
+        """
+        Checks if a vertex exists within a given tolerance.
+
+        Parameters
+        ----------
+        vertices : list
+            List of existing vertices.
+        vertex : np.ndarray
+            Vertex to check.
+        tolerance : float
+            Tolerance for distance comparison.
+
+        Returns
+        -------
+        int
+            Index of the existing vertex or -1 if not found.
+        """
         for i, v in enumerate(vertices):
             d = distance(v, vertex)
             if d < tolerance:
@@ -204,6 +310,21 @@ class SunDome:
         return -1
 
     def _create_sun_quad_mesh(self, face1, face2):
+        """
+        Creates a mesh for a sun quad.
+
+        Parameters
+        ----------
+        face1 : list[int]
+            Indices of the first face vertices.
+        face2 : list[int]
+            Indices of the second face vertices.
+
+        Returns
+        -------
+        Mesh
+            Mesh representing the sun quad.
+        """
         v1 = self.mesh.vertices[face1[0]]
         v2 = self.mesh.vertices[face1[1]]
         v3 = self.mesh.vertices[face1[2]]
@@ -220,6 +341,14 @@ class SunDome:
         return quad_mesh
 
     def match_suns_and_quads(self, sunc: SunCollection):
+        """
+        Matches the suns with the nearest quads.
+
+        Parameters
+        ----------
+        sunc : SunCollection
+            Collection of sun data including positions and timestamps.
+        """
         for i, sun_pos in enumerate(sunc.positions):
             dmin = 1000000000
             quad_index = None
@@ -239,12 +368,33 @@ class SunDome:
                 self.active_quads.append(quad)
 
     def active_quad_exists(self, quad_index):
+        """
+        Checks if an active quad exists by its index.
+
+        Parameters
+        ----------
+        quad_index : int
+            Index of the quad.
+
+        Returns
+        -------
+        bool
+            True if the active quad exists, False otherwise.
+        """
         for q in self.active_quads:
             if q.id == quad_index:
                 return True
         return False
 
     def get_active_quad_centers(self):
+        """
+        Returns the centers of active quads.
+
+        Returns
+        -------
+        np.ndarray
+            Array of centers of active quads.
+        """
         centers = []
         for quad in self.active_quads:
             centers.append(quad.center)
@@ -252,6 +402,14 @@ class SunDome:
         return np.array(centers)
 
     def get_active_quad_meshes(self):
+        """
+        Returns the meshes of active quads.
+
+        Returns
+        -------
+        list[Mesh]
+            List of meshes of active quads.
+        """
         meshes = []
         for quad in self.active_quads:
             meshes.append(quad.mesh)

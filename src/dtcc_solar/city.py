@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
 from dtcc_model import Mesh, GeometryType, MultiSurface, Surface
 from dtcc_model import City, Building, Terrain
-from dtcc_solar.utils import subdivide_mesh, is_mesh_valid
+from dtcc_solar.utils import subdivide_mesh, is_mesh_valid, SolarParameters
 from dtcc_solar.logging import info, debug, warning, error
 from enum import Enum, IntEnum
 
@@ -241,3 +241,52 @@ def export_mesh_to_json(mesh: Mesh, parts: Parts, data1, data2, data3, filename)
         json.dump(mesh_data, json_file, indent=4)
 
     info(f"Export completed successfully")
+
+
+def export_results_to_json(
+    face_count,
+    p: SolarParameters,
+    svf,
+    sun_hours,
+    direct,
+    diffuse,
+    filename,
+):
+    """Export a mesh and its associated data to a JSON file."""
+
+    info(f"Exporting mesh to {filename}")
+
+    # Ensure the length of data lists matches the number of faces
+    assert len(svf) == face_count
+    assert len(sun_hours) == face_count
+    assert len(direct) == face_count
+    assert len(diffuse) == face_count
+
+    parameters = {
+        "sun_analysis": p.sun_analysis,
+        "sky_analysis": p.sky_analysis,
+        "sun_approx": p.sun_approx,
+        "start_date": p.start_date,
+        "end_date": p.end_date,
+        "data_source": p.data_source,
+        "sun_approximation": p.sun_approx,
+        "latitude": p.latitude,
+        "longitude": p.longitude,
+        "data_source": p.data_source,
+        "weather_data": p.weather_file,
+    }
+
+    # Create the structure to hold the mesh data
+    results_data = {
+        "SkyViewFactor": svf.tolist(),
+        "SunHours": sun_hours.tolist(),
+        "DirectIrradiation": direct.tolist(),
+        "DiffuseIrradiation": diffuse.tolist(),
+        "Parameters": parameters,
+    }
+
+    # Write the data to a JSON file
+    with open(filename, "w") as json_file:
+        json.dump(results_data, json_file, indent=4)
+
+    info(f"Results exported successfully")

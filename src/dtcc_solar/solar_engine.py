@@ -16,9 +16,46 @@ from pprint import pp
 
 
 class SolarEngine:
-    mesh: Mesh  # Mesh for analysis
-    analysis_mesh: Mesh  # Mesh that will be analysed
-    shading_mesh: Mesh  # Mesh that will cast shadows but not be analysed
+    """
+    Class for performing solar analysis on 3D meshes.
+
+    Attributes
+    ----------
+    mesh : Mesh
+        The combined mesh for analysis including both analysis and shading meshes.
+    analysis_mesh : Mesh
+        The mesh that will be analyzed for solar exposure.
+    shading_mesh : Mesh
+        The mesh that will cast shadows but not be analyzed.
+    origin : np.ndarray
+        The origin point of the mesh.
+    horizon_z : float
+        The z-coordinate of the horizon.
+    sunpath_radius : float
+        The radius of the sun path.
+    sun_size : float
+        The size of the sun for analysis purposes.
+    path_width : float
+        The width of the sun path.
+    bb : Bounds
+        The bounding box of the mesh.
+    bbx : np.ndarray
+        The x-coordinates of the bounding box.
+    bby : np.ndarray
+        The y-coordinates of the bounding box.
+    bbz : np.ndarray
+        The z-coordinates of the bounding box.
+    face_mask : np.ndarray
+        A mask indicating which faces of the mesh are to be analyzed.
+    sky : Sky
+        The sky model used for analysis.
+    rays : Rays
+        The rays model used for ray tracing.
+    """
+
+    mesh: Mesh
+    analysis_mesh: Mesh
+    shading_mesh: Mesh
     origin: np.ndarray
     horizon_z: float
     sunpath_radius: float
@@ -38,7 +75,25 @@ class SolarEngine:
         shading_mesh: Mesh = None,
         sky: Sky = None,
         rays: Rays = None,
+        center_mesh: bool = False,
     ):
+        """
+        Initialize the SolarEngine with the provided meshes and parameters.
+
+        Parameters
+        ----------
+        analysis_mesh : Mesh
+            The mesh that will be analyzed for solar exposure.
+        shading_mesh : Mesh, optional
+            The mesh that will cast shadows but not be analyzed.
+        sky : Sky, optional
+            The sky model used for analysis.
+        rays : Rays, optional
+            The rays model used for ray tracing.
+        center_mesh : bool, optional
+            If True, the mesh will be centered based on x and y coordinates.
+        """
+
         self.analysis_mesh = analysis_mesh
         self.shading_mesh = shading_mesh
         self.sky = sky
@@ -50,7 +105,7 @@ class SolarEngine:
         self.sun_size = 0
         self.dome_radius = 0
         self.path_width = 0
-        self._preprocess_mesh(True)
+        self._preprocess_mesh(center_mesh)
 
         if sky is None:
             self.sky = Sky.EqualArea320
@@ -61,6 +116,23 @@ class SolarEngine:
         info("Solar engine created")
 
     def _join_meshes(self, analysis_mesh: Mesh, shading_mesh: Mesh = None):
+        """
+        Join the analysis mesh and shading mesh into a single mesh.
+
+        Parameters
+        ----------
+        analysis_mesh : Mesh
+            The mesh that will be analyzed for solar exposure.
+        shading_mesh : Mesh, optional
+            The mesh that will cast shadows but not be analyzed.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the combined mesh and a face mask indicating
+            which faces of the mesh are to be analyzed.
+        """
+
         if shading_mesh is None:
             return analysis_mesh, np.ones(len(analysis_mesh.faces), dtype=bool)
 
@@ -70,6 +142,14 @@ class SolarEngine:
         return mesh, face_mask
 
     def _preprocess_mesh(self, move_to_center: bool):
+        """
+        Preprocess the mesh, including calculating bounds and optionally moving the mesh to the center.
+
+        Parameters
+        ----------
+        move_to_center : bool
+            If True, the mesh will be centered based on x and y coordinates.
+        """
         self._calc_bounds()
         # Center mesh based on x and y coordinates only
         center_bb = np.array(
@@ -80,12 +160,13 @@ class SolarEngine:
         # Move the mesh to the centre of the model
         if move_to_center:
             self.mesh.vertices += centerVec
+            info(f"Mesh has been moved to origin.")
 
         # Update bounding box after the mesh has been moved
         self._calc_bounds()
 
         # Assumption: The horizon is the avrage z height in the mesh
-        self.horizon_z = np.average(self.mesh.vertices[:, 2])
+        self.horizon_z = 0.0  # np.average(self.mesh.vertices[:, 2])
 
         # Calculating sunpath radius
         dx = self.bb.width
@@ -100,10 +181,8 @@ class SolarEngine:
         self.dome_radius = self.sunpath_radius / 40
         self.tolerance = self.sunpath_radius / 1.0e7
 
-        if move_to_center:
-            info(f"Mesh has been moved to origin.")
-
     def _calc_bounds(self):
+        """Calculate the bounding box of the mesh and set related attributes."""
         self.xmin = self.mesh.vertices[:, 0].min()
         self.xmax = self.mesh.vertices[:, 0].max()
         self.ymin = self.mesh.vertices[:, 1].min()
@@ -118,13 +197,36 @@ class SolarEngine:
         self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
     def get_skydome_ray_count(self):
+        """
+        Get the count of skydome rays.
+
+        Returns
+        -------
+        int
+            The count of skydome rays.
+        """
         return self.embree.get_skydome_ray_count()
 
     def run_analysis(self, p: SolarParameters, sunp: Sunpath, outc: OutputCollection):
+        """
+        Run the solar analysis with the provided parameters and sunpath.
+
+        Parameters
+        ----------
+        p : SolarParameters
+            Parameters for the solar analysis.
+        sunp : Sunpath
+            Sunpath data for the analysis.
+        outc : OutputCollection
+            Output collection for storing the results.
+        """
         # Creating instance of embree solar
         info(f"Creating embree instance")
         self.embree = embree.PyEmbreeSolar(
-            self.mesh.vertices, self.mesh.faces, self.face_mask, int(self.sky)
+            self.mesh.vertices,
+            self.mesh.faces,
+            self.face_mask,
+            int(self.sky),
         )
         info(f"Running analysis...")
 
@@ -167,12 +269,32 @@ class SolarEngine:
         outc.process_results(p.sun_analysis, p.sky_analysis, self.face_mask)
 
     def _sun_group_raycasting(self, sungroups: SunGroups, sunc: SunCollection):
+        """
+        Perform sun group raycasting analysis.
+
+        Parameters
+        ----------
+        sungroups : SunGroups
+            Sun groups data for the analysis.
+        sunc : SunCollection
+            Sun collection data for the analysis.
+        """
         sun_vecs = sungroups.list_centers
         info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} sun groups.")
         if self._sun_raycasting_embree(sun_vecs):
             info(f"Raytracing sun groups completed successfully.")
 
     def _sun_quad_raycasting(self, sundome: SunDome, sunc: SunCollection):
+        """
+        Perform sun quad raycasting analysis.
+
+        Parameters
+        ----------
+        sundome : SunDome
+            Sundome data for the analysis.
+        sunc : SunCollection
+            Sun collection data for the analysis.
+        """
         sundome.match_suns_and_quads(sunc)
         sun_vecs = sundome.get_active_quad_centers()
         info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} quad groups.")
@@ -180,16 +302,38 @@ class SolarEngine:
             info(f"Raytracing sun groups completed successfully.")
 
     def _sun_raycasting(self, sunc: SunCollection):
+        """
+        Perform sun raycasting analysis.
+
+        Parameters
+        ----------
+        sunc : SunCollection
+            Sun collection data for the analysis.
+        """
         info(f"Running sun raycasting")
         if self._sun_raycasting_embree(sunc.sun_vecs):
             info(f"Running sun raycasting completed successfully.")
 
     def _sky_raycasting(self):
+        """Perform sky raycasting analysis."""
         info(f"Running sky raycasting")
         if self._sky_raycasting_embree():
             info(f"Running sky raycasting completed succefully.")
 
     def _sun_raycasting_embree(self, sun_vecs) -> bool:
+        """
+        Perform sun raycasting using the Embree library.
+
+        Parameters
+        ----------
+        sun_vecs : list
+            List of sun vectors for the analysis.
+
+        Returns
+        -------
+        bool
+            True if the raycasting was successful, False otherwise.
+        """
         success = False
         if self.rays == Rays.Bundle1:
             success = self.embree.sun_raytrace_occ1(sun_vecs)
@@ -206,6 +350,14 @@ class SolarEngine:
         return success
 
     def _sky_raycasting_embree(self) -> bool:
+        """
+        Perform sky raycasting using the Embree library.
+
+        Returns
+        -------
+        bool
+            True if the raycasting was successful, False otherwise.
+        """
         success = False
         if self.rays == Rays.Bundle1:
             success = self.embree.sky_raytrace_occ1()
@@ -222,8 +374,23 @@ class SolarEngine:
         return success
 
     def view_results(
-        self, p: SolarParameters, sunpath: Sunpath, outc: OutputCollection
+        self,
+        p: SolarParameters,
+        sunpath: Sunpath,
+        outc: OutputCollection,
     ):
+        """
+        View the results of the solar analysis.
+
+        Parameters
+        ----------
+        p : SolarParameters
+            Parameters for the solar analysis.
+        sunpath : Sunpath
+            Sunpath data for the analysis.
+        outc : OutputCollection
+            Output collection containing the results.
+        """
         viewer = Viewer()
         viewer.build_sunpath_diagram(sunpath, p)
         viewer.add_mesh("Analysed mesh", mesh=self.analysis_mesh, data=outc.data_1)

@@ -40,7 +40,7 @@ class Viewer:
         day_paths = concatenate_meshes(day_paths)
         self.add_mesh("Day paths", mesh=day_paths)
 
-        all_suns_pc = sunpath.all_suns_pc
+        all_suns_pc = sunpath.suns_pc_minute
         self.add_pc("Suns per min", all_suns_pc, 0.2 * sunpath.w)
 
         sun_pc = sunpath.sun_pc

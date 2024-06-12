@@ -15,6 +15,17 @@ from pandas import Timestamp, DatetimeIndex
 from dtcc_solar.logging import info, debug, warning, error
 
 
+class ResultsType(Enum):
+    face_sun_angle = 1
+    occlusion = 2
+    irradiance_dn = 3
+    irradiance_dh = 4
+    irradiance_tot = 6
+    sky_view_factor = 8
+    sun_hours = 10
+    shadow_hours = 11
+
+
 class DataSource(IntEnum):
     smhi = 1
     meteo = 2
@@ -44,15 +55,6 @@ class SunApprox(IntEnum):
     none = 1
     group = 2
     quad = 3
-
-
-class ColorBy(IntEnum):
-    face_sun_angle = 1
-    occlusion = 2
-    irradiance_dn = 3
-    irradiance_dh = 4
-    irradiance_di = 5
-    irradiance_tot = 6
 
 
 class Mode(IntEnum):

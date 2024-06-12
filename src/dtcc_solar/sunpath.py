@@ -14,22 +14,54 @@ from dtcc_solar.utils import concatenate_meshes
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sungroups import SunGroups
 from dtcc_solar.sundome import SunDome
-
-# from timezonefinder import TimezoneFinder
 from pprint import pp
 
 
 class Sunpath:
+    """
+    Represents a sunpath diagram and associated calculations.
+
+    Attributes
+    ----------
+    lat : float
+        Latitude of the location.
+    lon : float
+        Longitude of the location.
+    origin : np.ndarray
+        Origin point for the sunpath diagram.
+    r : float
+        Radius of the sunpath diagram should be larger than the model.
+    w : float
+        Width of paths (anlemmas, daypaths) in the sunpath diagram.
+    sunc : SunCollection
+        Collection of sun data.
+    sun_pc : list[PointCloud]
+        List of point clouds representing sun positions.
+    sun_pc_minute : PointCloud
+        Point cloud of sun positions per minute for a full year.
+    mesh : Mesh
+        Combination of analemmas and day paths.
+    analemmas_meshes : list[Mesh]
+        List of meshes for analemmas for each hour in a year.
+    daypath_meshes : list[Mesh]
+        List of meshes for day paths for three dates in a year.
+    analemmas_pc : PointCloud
+        Point cloud for analemmas for each hour in a year.
+    sungroups : SunGroups
+        Groups of suns based on positions and times.
+    sundome : SunDome
+        Sundome representing sun positions."""
+
     lat: float
     lon: float
     origin: np.ndarray
-    r: float  # Radius of sunpath diagram
-    w: float  # Width of paths in sunpath diagram
+    r: float
+    w: float
 
     sunc: SunCollection
     origin: np.ndarray
     sun_pc: list[PointCloud]
-    all_suns_pc: PointCloud
+    suns_pc_minute: PointCloud
     mesh: Mesh  # Combination of annalemmas and day paths
     analemmas_meshes: list[Mesh]  # Analemmas for each hour in a year
     daypath_meshes: list[Mesh]  # Day paths for three dates in a year
@@ -39,6 +71,18 @@ class Sunpath:
     sundome: SunDome
 
     def __init__(self, p: SolarParameters, radius: float, include_night: bool = False):
+        """
+        Initializes the Sunpath object with given parameters.
+
+        Parameters
+        ----------
+        p : SolarParameters
+            Solar parameters for sunpath calculations.
+        radius : float
+            Radius of the sunpath diagram.
+        include_night : bool, optional
+            Whether to include night time in the sunpath (default is False).
+        """
         self.lat = p.latitude
         self.lon = p.longitude
         self.r = radius
@@ -59,6 +103,21 @@ class Sunpath:
             self.sundome = SunDome(sun_pos_dict, self.r, p.sundome_div)
 
     def _calc_analemmas(self, year: int, sample_rate: int):
+        """
+        Calculates analemmas for a given year and sample rate.
+
+        Parameters
+        ----------
+        year : int
+            Year for which to calculate analemmas.
+        sample_rate : int
+            Rate at which to sample sun positions.
+
+        Returns
+        -------
+        dict
+            Dictionary of sun positions for each hour.
+        """
         start_date = str(year) + "-01-01 12:00:00"
         end_date = str(year + 1) + "-01-01 11:00:00"
         times = pd.date_range(start=start_date, end=end_date, freq="H")
@@ -89,7 +148,7 @@ class Sunpath:
         for h in loop_hours:
             subset = sol_pos_hour.loc[sol_pos_hour.index.hour == h, :]
             rad_elev = np.radians(subset.elevation)
-            rad_azim = np.radians(subset.azimuth)
+            rad_azim = np.radians(subset.azimuth + 90.0)
             rad_zeni = np.radians(subset.zenith)
             elev[h, :] = rad_elev.values[0 : len(rad_elev.values) : sample_rate]
             azim[h, :] = rad_azim.values[0 : len(rad_azim.values) : sample_rate]
@@ -106,6 +165,21 @@ class Sunpath:
         return sun_pos_dict
 
     def _calc_daypaths(self, dates: pd.DatetimeIndex, minute_step: float):
+        """
+        Calculate sun positions for day paths used to visualise days.
+
+        Parameters
+        ----------
+        dates : pd.DatetimeIndex
+            Dates for the calculation.
+        minute_step : float
+            Time step in minutes for the calculation.
+
+        Returns
+        -------
+        dict
+            Dictionary of sun positions for each day.
+        """
         n = len(dates.values)
         n_evaluation = int(math.ceil(24 * 60 / minute_step))
         elev = np.zeros((n, n_evaluation + 1))
@@ -120,7 +194,7 @@ class Sunpath:
             times = pd.date_range(date, date + day_step, freq=min_step_str)
             sol_pos_day = solarposition.get_solarposition(times, self.lat, self.lon)
             rad_elev_day = np.radians(sol_pos_day.elevation)
-            rad_azim_day = np.radians(sol_pos_day.azimuth)
+            rad_azim_day = np.radians(sol_pos_day.azimuth + 90.0)
             elev[date_counter, :] = rad_elev_day.values
             azim[date_counter, :] = rad_azim_day.values
             date_counter = date_counter + 1
@@ -135,6 +209,16 @@ class Sunpath:
         return days_dict
 
     def _create_suns(self, p: SolarParameters, include_night: bool = False):
+        """
+        Create sun positions and append weather data.
+
+        Parameters
+        ----------
+        p : SolarParameters
+            Parameters for solar calculations.
+        include_night : bool, optional
+            Flag to include night times in the sunpath (default is False).
+        """
         over_horizon = []
         self.sunc = SunCollection()
         self._create_sun_timestamps(p.start_date, p.end_date)
@@ -144,6 +228,16 @@ class Sunpath:
             self._remove_suns_below_horizon(over_horizon)
 
     def _create_sun_timestamps(self, start_date: str, end_date: str):
+        """
+        Create sun timestamps for the given date range.
+
+        Parameters
+        ----------
+        start_date : str
+            Start date for the timestamps.
+        end_date : str
+            End date for the timestamps.
+        """
         time_from = pd.to_datetime(start_date)
         time_to = pd.to_datetime(end_date)
         times = pd.date_range(start=time_from, end=time_to, freq="H")
@@ -154,13 +248,21 @@ class Sunpath:
             self.sunc.datetime_strs.append(str(time_stamp))
 
     def _calc_suns_positions(self, over_horizon: list[bool]):
+        """
+        Calculate sun positions for the timestamps.
+
+        Parameters
+        ----------
+        over_horizon : list[bool]
+            List to store whether each sun position is over the horizon.
+        """
         date_from_str = self.sunc.datetime_strs[0]
         date_to_str = self.sunc.datetime_strs[-1]
         dates = pd.date_range(start=date_from_str, end=date_to_str, freq="1H")
         self.sunc.date_times = dates
         solpos = solarposition.get_solarposition(dates, self.lat, self.lon)
         elev = np.radians(solpos.elevation.to_list())
-        azim = np.radians(solpos.azimuth.to_list())
+        azim = np.radians(solpos.azimuth.to_list()) + np.radians(90.0)
         zeni = np.radians(solpos.zenith.to_list())
         x_sun = self.r * np.cos(elev) * np.cos(-azim) + self.origin[0]
         y_sun = self.r * np.cos(elev) * np.sin(-azim) + self.origin[1]
@@ -170,8 +272,6 @@ class Sunpath:
         zeniths = []
         for i in range(self.sunc.count):
             sun_vec = unitize(np.array([x_sun[i], y_sun[i], z_sun[i]]))
-            # length = np.linalg.norm(sun_vec)
-            # print(length)
             sun_vecs.append(sun_vec)
             positions.append(np.array([x_sun[i], y_sun[i], z_sun[i]]))
             zeniths.append(zeni[i])
@@ -185,7 +285,14 @@ class Sunpath:
         self.sunc.dni = np.zeros(self.sunc.count)
 
     def _remove_suns_below_horizon(self, over_horizon: list[bool]):
-        # Remove data where the sun is below the horizon
+        """
+        Remove sun positions below the horizon.
+
+        Parameters
+        ----------
+        over_horizon : list[bool]
+            List indicating whether each sun position is over the horizon.
+        """
         self.sunc.sun_vecs = self.sunc.sun_vecs[over_horizon, :]
         self.sunc.positions = self.sunc.positions[over_horizon, :]
         self.sunc.date_times = self.sunc.date_times[over_horizon]
@@ -205,6 +312,14 @@ class Sunpath:
         self.sunc.datetime_strs = datestrings
 
     def _append_weather_data(self, p: SolarParameters):
+        """
+        Append weather data to the sun positions.
+
+        Parameters
+        ----------
+        p : SolarParameters
+            Parameters for solar calculations.
+        """
         if p.data_source == DataSource.smhi:
             data_smhi.get_data(p.longitude, p.latitude, self.sunc)
         if p.data_source == DataSource.meteo:
@@ -215,22 +330,23 @@ class Sunpath:
             data_epw.import_data(self.sunc, p.weather_file)
 
     def _build_sunpath_mesh(self):
+        """Build sunpath mesh by combining analemmas and day paths."""
         self.w = self.r / 300
 
         # Get analemmas mesh and sun positions represented as a point cloud
         sun_pos_dict = self._calc_analemmas(2019, 2)
-        self.analemmas_meshes = self._create_mesh_strip(sun_pos_dict, self.r, self.w)
+        self.analemmas_meshes = self._create_mesh_strip(sun_pos_dict, self.w)
         self.analemmas_pc = self._create_sunpath_pc(sun_pos_dict)
 
         # Get every sun position for each minute in a year as points in a point cloud
         dates = pd.date_range(start="2019-01-01", end="2019-12-31", freq="1D")
         sun_pos_dict = self._calc_daypaths(dates, 1)
-        self.all_suns_pc = self._create_sunpath_pc(sun_pos_dict)
+        self.suns_pc_minute = self._create_sunpath_pc(sun_pos_dict)
 
         # Get day path loops as mesh strips
         days = pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"])
         days_dict = self._calc_daypaths(days, 2)
-        self.daypath_meshes = self._create_mesh_strip(days_dict, self.r, self.w)
+        self.daypath_meshes = self._create_mesh_strip(days_dict, self.w)
 
         # Create pc representation of current sun positions
         self.sun_pc = self._create_sun_spheres()
@@ -241,7 +357,17 @@ class Sunpath:
 
         info("Sunpath mesh representation created")
 
-    def _create_mesh_strip(self, sun_pos_dict, radius: float, width: float):
+    def _create_mesh_strip(self, sun_pos_dict, width: float):
+        """
+        Create mesh strip for visualizing analemmas
+
+        Parameters
+        ----------
+        sun_pos_dict : Dict
+            Dictionary with sunpositions for each hour from 0 - 23.
+        width : float
+            Width of the mesh strip.
+        """
         meshes = []
 
         for h in sun_pos_dict:
@@ -289,6 +415,7 @@ class Sunpath:
         return meshes
 
     def _create_sun_spheres(self):
+        """Create point clouds for sun positions."""
         points = []
         points = self.sunc.positions
         points = np.array(points)
@@ -296,6 +423,7 @@ class Sunpath:
         return pc
 
     def _create_sunpath_pc(self, sun_pos_dict):
+        """Create point cloud representation of sun positions."""
         points = []
         for h in sun_pos_dict:
             pos_list = sun_pos_dict[h]
@@ -350,7 +478,3 @@ class SunpathUtils:
         h_offset = np.min([h_offset_1, h_offset_2])
 
         return h_offset
-
-
-if __name__ == "__main__":
-    pass
