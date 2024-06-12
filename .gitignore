@@ -13,6 +13,8 @@ htmlcov/
 
 *.coverage
 
+*.gh
+*.obj
 *.city.json
 *.json
 *.3dm.rhl
