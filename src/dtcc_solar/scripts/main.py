@@ -60,14 +60,8 @@ def analyse_mesh_1(solar_parameters: SolarParameters):
     engine.run_analysis(p, sunpath, outputc)
     engine.view_results(p, sunpath, outputc)
 
-    f_count = len(mesh.faces)
     filename = "../../../data/validation/boxes_soft_f5248_results.json"
-    svf = outputc.data_1["sky view factor"]
-    sun_hours = outputc.data_1["sun hours [h]"]
-    direct = outputc.data_1["direct irradiation (kWh/m2)"]
-    diffuse = outputc.data_1["diffuse irradiation (kWh/m2)"]
-
-    export_results_to_json(f_count, p, svf, sun_hours, direct, diffuse, filename)
+    export_results_to_json(len(mesh.faces), p, outputc, filename)
 
 
 def analyse_mesh_2(solar_parameters: SolarParameters):
@@ -79,8 +73,6 @@ def analyse_mesh_2(solar_parameters: SolarParameters):
     (analysis_mesh, shading_mesh) = split_mesh_by_vertical_faces(mesh)
     analysis_mesh = subdivide_mesh(analysis_mesh, 3.5)
 
-    print(len(analysis_mesh.faces))
-    print(len(shading_mesh.faces))
     # Setup model, run analysis and view results
     engine = SolarEngine(analysis_mesh, shading_mesh, sky=Sky.Tregenza145)
     sunpath = Sunpath(p, engine.sunpath_radius)
@@ -139,7 +131,7 @@ if __name__ == "__main__":
         data_source=DataSource.epw,
         sun_analysis=True,
         sky_analysis=True,
-        sun_approx=SunApprox.none,
+        sun_approx=SunApprox.group,
     )
 
     # Stockholm
@@ -169,7 +161,7 @@ if __name__ == "__main__":
         sun_approx=SunApprox.group,
     )
 
-    # analyse_mesh_1(p_1)
-    analyse_mesh_2(p_1)
+    analyse_mesh_1(p_1)
+    # analyse_mesh_2(p_1)
     # analyse_mesh_3(p_1)
     # analyse_city(p_1)

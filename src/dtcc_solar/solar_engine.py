@@ -266,7 +266,7 @@ class SolarEngine:
             outc.facehit_sky = self.embree.get_face_skyhit_results()
             outc.sky_view_factor = self.embree.get_sky_view_factor_results()
 
-        outc.process_results(p.sun_analysis, p.sky_analysis, self.face_mask)
+        outc.data_mask = self.face_mask
 
     def _sun_group_raycasting(self, sungroups: SunGroups, sunc: SunCollection):
         """
@@ -392,8 +392,10 @@ class SolarEngine:
             Output collection containing the results.
         """
         viewer = Viewer()
+        analysis_data = viewer.process_data(outc, p)
         viewer.build_sunpath_diagram(sunpath, p)
-        viewer.add_mesh("Analysed mesh", mesh=self.analysis_mesh, data=outc.data_1)
+        viewer.add_mesh("Analysed mesh", mesh=self.analysis_mesh, data=analysis_data)
         if self.shading_mesh is not None:
-            viewer.add_mesh("Shading mesh", mesh=self.shading_mesh, data=outc.data_2)
+            shading_data = np.zeros(len(self.shading_mesh.faces))
+            viewer.add_mesh("Shading mesh", mesh=self.shading_mesh, data=shading_data)
         viewer.show()

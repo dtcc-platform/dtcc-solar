@@ -5,6 +5,7 @@ from typing import List, Dict, Tuple
 from dtcc_model import Mesh, GeometryType, MultiSurface, Surface
 from dtcc_model import City, Building, Terrain
 from dtcc_solar.utils import subdivide_mesh, is_mesh_valid, SolarParameters
+from dtcc_solar.utils import OutputCollection
 from dtcc_solar.logging import info, debug, warning, error
 from enum import Enum, IntEnum
 
@@ -246,15 +247,17 @@ def export_mesh_to_json(mesh: Mesh, parts: Parts, data1, data2, data3, filename)
 def export_results_to_json(
     face_count,
     p: SolarParameters,
-    svf,
-    sun_hours,
-    direct,
-    diffuse,
+    outputc: OutputCollection,
     filename,
 ):
     """Export a mesh and its associated data to a JSON file."""
 
     info(f"Exporting mesh to {filename}")
+
+    svf = outputc.sky_view_factor[outputc.data_mask]
+    sun_hours = outputc.sun_hours[outputc.data_mask]
+    direct = outputc.dni[outputc.data_mask] / 1000.0
+    diffuse = outputc.dhi[outputc.data_mask] / 1000.0
 
     # Ensure the length of data lists matches the number of faces
     assert len(svf) == face_count

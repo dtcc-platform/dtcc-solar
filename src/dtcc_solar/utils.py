@@ -139,40 +139,8 @@ class OutputCollection:
     sun_hours: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Number of hours of shaded sun per face
     shadow_hours: np.ndarray = field(default_factory=lambda: np.empty(0))
-
-    def process_results(
-        self, sun_analysis: bool, sky_analysis: bool, face_mask: np.ndarray = None
-    ):
-        self.data_1 = {}
-
-        if sun_analysis and sky_analysis:
-            dhi_masked = self.dhi[face_mask] / 1000.0
-            dni_masked = self.dni[face_mask] / 1000.0
-            tot_masked = dni_masked + dhi_masked
-            self.data_1["total irradiation (kWh/m2)"] = tot_masked
-
-        if sky_analysis:
-            dhi_masked = self.dhi[face_mask] / 1000.0
-            svf_masked = self.sky_view_factor[face_mask]
-            self.data_1["diffuse irradiation (kWh/m2)"] = dhi_masked
-            self.data_1["sky view factor"] = svf_masked
-
-        if sun_analysis:
-            dni_masked = self.dni[face_mask] / 1000.0
-            fsa_masked = self.face_sun_angles[face_mask]
-            sun_hours_masked = self.sun_hours[face_mask]
-            shadow_hours_masked = self.shadow_hours[face_mask]
-            self.data_1["direct irradiation (kWh/m2)"] = dni_masked
-            self.data_1["sun hours [h]"] = sun_hours_masked
-            self.data_1["shadow hours [h]"] = shadow_hours_masked
-            self.data_1["average face sun angles (rad)"] = fsa_masked
-
-        face_mask_inv = np.invert(face_mask)
-        count = np.array(face_mask_inv, dtype=int).sum()
-
-        self.data_2 = None
-        if face_mask is not None:
-            self.data_2 = {"No data": np.zeros(count)}
+    # Data mask
+    data_mask: np.ndarray = field(default_factory=lambda: np.empty(0))
 
 
 @dataclass

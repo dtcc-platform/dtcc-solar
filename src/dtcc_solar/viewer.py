@@ -3,6 +3,7 @@ from dtcc_viewer import Scene, Window
 from dtcc_model import Mesh, PointCloud
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import concatenate_meshes, SolarParameters, SunApprox
+from dtcc_solar.utils import OutputCollection
 from typing import Any
 
 
@@ -22,6 +23,44 @@ class Viewer:
         data: np.ndarray = None,
     ):
         self.scene.add_pointcloud(name, pc=pc, size=size, data=data)
+
+    def process_data(self, outc: OutputCollection, p: SolarParameters):
+        """
+        Restructure the data to a dictionary to be passed to the viewer.
+
+        Parameters
+        ----------
+        outc : OutputCollection
+            Collection of analysis resutls.
+        p : SolarParameters
+            Parameter settings.
+        """
+        data_dict = {}
+        data_mask = outc.data_mask
+
+        if p.sun_analysis and p.sky_analysis:
+            dhi_masked = outc.dhi[data_mask] / 1000.0
+            dni_masked = outc.dni[data_mask] / 1000.0
+            tot_masked = dni_masked + dhi_masked
+            data_dict["total irradiation (kWh/m2)"] = tot_masked
+
+        if p.sky_analysis:
+            dhi_masked = outc.dhi[data_mask] / 1000.0
+            svf_masked = outc.sky_view_factor[data_mask]
+            data_dict["diffuse irradiation (kWh/m2)"] = dhi_masked
+            data_dict["sky view factor"] = svf_masked
+
+        if p.sun_analysis:
+            dni_masked = outc.dni[data_mask] / 1000.0
+            fsa_masked = outc.face_sun_angles[data_mask]
+            sun_hours_masked = outc.sun_hours[data_mask]
+            shadow_hours_masked = outc.shadow_hours[data_mask]
+            data_dict["direct irradiation (kWh/m2)"] = dni_masked
+            data_dict["sun hours [h]"] = sun_hours_masked
+            data_dict["shadow hours [h]"] = shadow_hours_masked
+            data_dict["average face sun angles (rad)"] = fsa_masked
+
+        return data_dict
 
     def build_sunpath_diagram(self, sunpath: Sunpath, p: SolarParameters):
         if p.sun_approx == SunApprox.group:
