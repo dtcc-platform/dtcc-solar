@@ -2,7 +2,7 @@ import math
 import numpy as np
 from dtcc_solar.utils import SolarParameters, calc_face_mid_points, concatenate_meshes
 from dtcc_solar import py_embree_solar as embree
-from dtcc_solar.sundome import SunDome
+from dtcc_solar.sunquads import SunQuads
 from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox, Sky
 from dtcc_solar.utils import Rays
 from dtcc_solar.sunpath import Sunpath
@@ -284,7 +284,7 @@ class SolarEngine:
         if self._sun_raycasting_embree(sun_vecs):
             info(f"Raytracing sun groups completed successfully.")
 
-    def _sun_quad_raycasting(self, sundome: SunDome, sunc: SunCollection):
+    def _sun_quad_raycasting(self, sundome: SunQuads, sunc: SunCollection):
         """
         Perform sun quad raycasting analysis.
 

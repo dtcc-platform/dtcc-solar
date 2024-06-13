@@ -13,13 +13,19 @@ from dtcc_model import Mesh, PointCloud
 from dtcc_solar.utils import concatenate_meshes
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sungroups import SunGroups
-from dtcc_solar.sundome import SunDome
+from dtcc_solar.sunquads import SunQuads
 from pprint import pp
 
 
 class Sunpath:
     """
-    Represents a sunpath diagram and associated calculations.
+    The Sunpath class represents a sunpath diagram and associated calculations. It
+    contains various attributes and methods for calculating sun positions, building
+    sunpath meshes, and more.
+
+    Sun positions are stored in the SunCollection object which also contains the
+    weather data. There are also two different approaches for approximating sun
+    positions with SunGroups or SunQuads.
 
     Attributes
     ----------
@@ -68,7 +74,7 @@ class Sunpath:
     analemmas_pc: PointCloud  # Analemmas for each hour in a year as a point cloud
 
     sungroups: SunGroups
-    sundome: SunDome
+    sundome: SunQuads
 
     def __init__(self, p: SolarParameters, radius: float, include_night: bool = False):
         """
@@ -100,7 +106,7 @@ class Sunpath:
         elif p.sun_approx == SunApprox.quad:
             dates = pd.date_range(start="2019-01-01", end="2019-12-31", freq="1D")
             sun_pos_dict = self._calc_daypaths(dates, 10)
-            self.sundome = SunDome(sun_pos_dict, self.r, p.sundome_div)
+            self.sundome = SunQuads(sun_pos_dict, self.r, p.sundome_div)
 
     def _calc_analemmas(self, year: int, sample_rate: int):
         """
@@ -148,7 +154,7 @@ class Sunpath:
         for h in loop_hours:
             subset = sol_pos_hour.loc[sol_pos_hour.index.hour == h, :]
             rad_elev = np.radians(subset.elevation)
-            rad_azim = np.radians(subset.azimuth + 90.0)
+            rad_azim = np.radians(subset.azimuth - 90.0)
             rad_zeni = np.radians(subset.zenith)
             elev[h, :] = rad_elev.values[0 : len(rad_elev.values) : sample_rate]
             azim[h, :] = rad_azim.values[0 : len(rad_azim.values) : sample_rate]
@@ -194,7 +200,7 @@ class Sunpath:
             times = pd.date_range(date, date + day_step, freq=min_step_str)
             sol_pos_day = solarposition.get_solarposition(times, self.lat, self.lon)
             rad_elev_day = np.radians(sol_pos_day.elevation)
-            rad_azim_day = np.radians(sol_pos_day.azimuth + 90.0)
+            rad_azim_day = np.radians(sol_pos_day.azimuth - 90.0)
             elev[date_counter, :] = rad_elev_day.values
             azim[date_counter, :] = rad_azim_day.values
             date_counter = date_counter + 1
@@ -261,9 +267,11 @@ class Sunpath:
         dates = pd.date_range(start=date_from_str, end=date_to_str, freq="1H")
         self.sunc.date_times = dates
         solpos = solarposition.get_solarposition(dates, self.lat, self.lon)
-        elev = np.radians(solpos.elevation.to_list())
-        azim = np.radians(solpos.azimuth.to_list()) + np.radians(90.0)
-        zeni = np.radians(solpos.zenith.to_list())
+        # elev = np.radians(solpos.elevation.to_list())
+        elev = np.radians(solpos.apparent_elevation.to_list())
+        azim = np.radians(solpos.azimuth.to_list()) - np.radians(90.0)
+        # zeni = np.radians(solpos.zenith.to_list())
+        zeni = np.radians(solpos.apparent_zenith.to_list())
         x_sun = self.r * np.cos(elev) * np.cos(-azim) + self.origin[0]
         y_sun = self.r * np.cos(elev) * np.sin(-azim) + self.origin[1]
         z_sun = self.r * np.sin(elev) + self.origin[2]
@@ -275,7 +283,7 @@ class Sunpath:
             sun_vecs.append(sun_vec)
             positions.append(np.array([x_sun[i], y_sun[i], z_sun[i]]))
             zeniths.append(zeni[i])
-            over_horizon.append(zeni[i] < math.pi / 2)
+            over_horizon.append(zeni[i] < math.pi / 2.0)
 
         self.sunc.sun_vecs = np.array(sun_vecs)
         self.sunc.positions = np.array(positions)
@@ -291,8 +299,13 @@ class Sunpath:
         Parameters
         ----------
         over_horizon : list[bool]
-            List indicating whether each sun position is over the horizon.
+            List of bool indicating whether each sun position is over the horizon.
         """
+        count = over_horizon.count(False)
+        info(f"Date range resulting in {len(over_horizon)} total sun positions")
+        info(f"Removing {count} suns that are below the horizon.")
+        info(f"Remaining suns for analysis: {len(over_horizon) - count}")
+
         self.sunc.sun_vecs = self.sunc.sun_vecs[over_horizon, :]
         self.sunc.positions = self.sunc.positions[over_horizon, :]
         self.sunc.date_times = self.sunc.date_times[over_horizon]

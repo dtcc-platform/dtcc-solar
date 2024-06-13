@@ -10,9 +10,7 @@ from dtcc_model import Mesh, PointCloud
 
 class SunGroups:
     """
-    Class for grouping sun positions based on cont along the analemmas.
-
-
+    Class for grouping sun positions based on count along the analemmas.
 
     Attributes
     ----------

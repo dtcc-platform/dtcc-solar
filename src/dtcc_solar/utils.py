@@ -77,19 +77,6 @@ class Vec3:
 
 
 @dataclass
-class SunQuad:
-    face_index_a: int
-    face_index_b: int
-    id: int
-    area: float = 0.0
-    has_sun: bool = False
-    over_horizon = False
-    center: np.ndarray = field(default_factory=lambda: np.empty(0))
-    sun_indices: List[int] = field(default_factory=list)
-    mesh: Mesh = None
-
-
-@dataclass
 class SunCollection:
     # Number of suns
     count: int = 0

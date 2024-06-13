@@ -266,6 +266,7 @@ def export_results_to_json(
     assert len(diffuse) == face_count
 
     parameters = {
+        "file_name": p.file_name,
         "sun_analysis": p.sun_analysis,
         "sky_analysis": p.sky_analysis,
         "sun_approx": p.sun_approx,

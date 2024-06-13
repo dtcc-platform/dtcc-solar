@@ -1,17 +1,31 @@
 import numpy as np
 import pandas as pd
 from dtcc_model import Mesh, PointCloud
-from dtcc_solar.utils import SunQuad, SunCollection
+from dtcc_solar.utils import SunCollection
 from shapely import LineString
 from pprint import pp
 from dtcc_solar.utils import distance, unitize
 from dtcc_solar.logging import info, debug, warning, error
+from dataclasses import dataclass, field
 
 
-class SunDome:
+@dataclass
+class SunQuad:
+    face_index_a: int
+    face_index_b: int
+    id: int
+    area: float = 0.0
+    has_sun: bool = False
+    over_horizon = False
+    center: np.ndarray = field(default_factory=lambda: np.empty(0))
+    sun_indices: list[int] = field(default_factory=list)
+    mesh: Mesh = None
+
+
+class SunQuads:
     """
     Class for creating a mesh representation of the entire a sun path diagram. The quads
-    in the mesh can then be used to group sun positions for faster analysis.
+    in the mesh are then used to group sun positions for faster analysis.
 
 
     Attributes

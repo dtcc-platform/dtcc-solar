@@ -3,23 +3,20 @@ import trimesh
 import numpy as np
 import pandas as pd
 import math
-
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.sundome import SunDome
-
-
+from dtcc_solar.sunquads import SunQuads
 from pprint import pp
 from dtcc_model import Mesh, PointCloud
 from dtcc_viewer import Scene, Window
 from dtcc_solar.utils import SolarParameters, SunApprox
 
 
-class TestSunDome:
+class TestSunQuads:
     lon: float
     lat: float
     solar_engine: SolarEngine
-    sundome: SunDome
+    sunquads: SunQuads
 
     def setup_method(self):
         self.lon = -0.12
@@ -59,6 +56,6 @@ if __name__ == "__main__":
     os.system("clear")
     print("--------------------- Skycylinder test started -----------------------")
 
-    test = TestSunDome()
+    test = TestSunQuads()
     test.setup_method()
     test.test_sundome_day_loops()

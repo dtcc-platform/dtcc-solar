@@ -60,7 +60,8 @@ def analyse_mesh_1(solar_parameters: SolarParameters):
     engine.run_analysis(p, sunpath, outputc)
     engine.view_results(p, sunpath, outputc)
 
-    filename = "../../../data/validation/boxes_soft_f5248_results.json"
+    filename = os.path.splitext(p.file_name)[0]
+    filename = filename + "_results.json"
     export_results_to_json(len(mesh.faces), p, outputc, filename)
 
 
@@ -125,13 +126,13 @@ if __name__ == "__main__":
         file_name=boxes_sharp_f5248,
         weather_file=path + gbg_epw,
         start_date="2019-01-01 00:00:00",
-        end_date="2019-12-31 00:00:00",
+        end_date="2019-12-31 23:00:00",
         longitude=11.97,
         latitude=57.71,
         data_source=DataSource.epw,
         sun_analysis=True,
         sky_analysis=True,
-        sun_approx=SunApprox.group,
+        sun_approx=SunApprox.none,
     )
 
     # Stockholm
@@ -161,7 +162,7 @@ if __name__ == "__main__":
         sun_approx=SunApprox.group,
     )
 
-    analyse_mesh_1(p_1)
+    # analyse_mesh_1(p_1)
     # analyse_mesh_2(p_1)
     # analyse_mesh_3(p_1)
-    # analyse_city(p_1)
+    analyse_city(p_1)

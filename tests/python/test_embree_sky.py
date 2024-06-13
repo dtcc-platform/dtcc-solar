@@ -16,7 +16,10 @@ class TestEmbreeSolar:
     def setup_method(self):
         self.file_name = "../data/models/CitySurfaceS.stl"
         self.mesh = meshes.load_mesh(self.file_name)
-        self.embree = embree.PyEmbreeSolar(self.mesh.vertices, self.mesh.faces)
+        self.mask = np.ones(len(self.mesh.faces), dtype=bool)
+        self.embree = embree.PyEmbreeSolar(
+            self.mesh.vertices, self.mesh.faces, self.mask, Sky.Tregenza145
+        )
 
     def test_skydome(self):
         faces = self.embree.get_skydome_faces()
@@ -61,6 +64,8 @@ class TestEmbreeSolar:
         all_skydome_rays = np.array(all_skydome_rays)
         all_skydome_data = np.array(all_skydome_data)
 
+        print(all_skydome_data.shape)
+
         rays_pcs = PointCloud(points=all_skydome_rays)
 
         window = Window(1200, 800)
@@ -73,4 +78,5 @@ class TestEmbreeSolar:
 if __name__ == "__main__":
     test = TestEmbreeSolar()
     test.setup_method()
-    test.test_sky_raytrace2()
+    test.test_skydome()
+    # test.test_sky_raytrace2()
