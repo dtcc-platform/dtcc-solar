@@ -1,9 +1,9 @@
 import numpy as np
 import pprint
 import copy
-from dtcc_io import meshes
+from dtcc_core.io import meshes
 from dtcc_solar import py_embree_solar as embree
-from dtcc_model import Mesh, PointCloud
+from dtcc_core.model import Mesh, PointCloud
 from pprint import pp
 from dtcc_viewer import Scene, Window
 from dtcc_solar.utils import calc_face_mid_points, calc_face_incircle, Sky

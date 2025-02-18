@@ -1,6 +1,6 @@
 import numpy as np
 from dtcc_viewer import Scene, Window
-from dtcc_model import Mesh, PointCloud
+from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import concatenate_meshes, SolarParameters, SunApprox
 from dtcc_solar.utils import OutputCollection

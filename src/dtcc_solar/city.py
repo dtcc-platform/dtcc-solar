@@ -2,8 +2,8 @@ import numpy as np
 import json
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
-from dtcc_model import Mesh, GeometryType, MultiSurface, Surface
-from dtcc_model import City, Building, Terrain
+from dtcc_core.model import Mesh, GeometryType, MultiSurface, Surface
+from dtcc_core.model import City, Building, Terrain
 from dtcc_solar.utils import subdivide_mesh, is_mesh_valid, SolarParameters
 from dtcc_solar.utils import OutputCollection
 from dtcc_solar.logging import info, debug, warning, error

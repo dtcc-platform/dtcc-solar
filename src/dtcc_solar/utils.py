@@ -9,7 +9,7 @@ from enum import Enum, IntEnum
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
 from collections import defaultdict
-from dtcc_model import Mesh
+from dtcc_core.model import Mesh
 from csv import reader
 from pandas import Timestamp, DatetimeIndex
 from dtcc_solar.logging import info, debug, warning, error

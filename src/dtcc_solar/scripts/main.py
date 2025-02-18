@@ -1,14 +1,14 @@
 import os
 import time
-import dtcc_io
+import dtcc_core.io
 
 from dtcc_solar.utils import *
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
-from dtcc_model import Mesh, PointCloud
-from dtcc_io import meshes
+from dtcc_core.model import Mesh, PointCloud
+from dtcc_core.io import meshes
 from dtcc_solar.city import *
 from pprint import pp
 
@@ -18,7 +18,7 @@ def analyse_city(solar_parameters: SolarParameters):
 
     p = solar_parameters
     p.file_name = "../../../data/models/denhaag.city.json"
-    city = dtcc_io.load_cityjson(p.file_name)
+    city = dtcc_core.io.load_cityjson(p.file_name)
 
     bld_mesh, parts = generate_building_mesh_2(city, subdee_length=3.5)
     ter_mesh = get_terrain_mesh(city)
