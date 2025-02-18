@@ -34,8 +34,7 @@ dependencies = [
   "dataclasses >= 0.6",
   "pybind11 >= 2.10.0, < 2.11.0",
   "fast-simplification >= 0.1.7 ",
-  "dtcc-model@git+https://github.com/dtcc-platform/dtcc-model.git@develop",
-  "dtcc-io@git+https://github.com/dtcc-platform/dtcc-io.git@develop",
+   "dtcc-core@git+https://github.com/dtcc-platform/dtcc-core.git@develop",  
   "dtcc-viewer@git+https://github.com/dtcc-platform/dtcc-viewer.git@develop",  
 ]
 
