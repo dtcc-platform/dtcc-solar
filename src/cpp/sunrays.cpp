@@ -207,7 +207,7 @@ void Sunrays::BundleRays()
         if (mFaceMask[faceIndex8])
             mRays8ValidMask[bundleIndex8][rayIndex8] = -1;
     }
-    info("Rays sorted in bundles of 4, 8 and 16.");
+    info("Rays sorted in bundles of 8");
 }
 
 void Sunrays::UpdateRay1Directions(std::vector<float> new_sun_vec, bool applyMask)

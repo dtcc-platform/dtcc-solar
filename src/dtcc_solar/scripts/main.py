@@ -32,7 +32,6 @@ def skydome_test():
         data_source=DataSource.epw,
         sun_analysis=True,
         sky_analysis=True,
-        sun_approx=SunApprox.none,
     )
 
     skydome = Skydome()
@@ -166,7 +165,6 @@ if __name__ == "__main__":
         data_source=DataSource.epw,
         sun_analysis=True,
         sky_analysis=True,
-        sun_approx=SunApprox.none,
     )
 
     # Stockholm
@@ -180,7 +178,6 @@ if __name__ == "__main__":
         data_source=DataSource.clm,
         sun_analysis=True,
         sky_analysis=True,
-        sun_approx=SunApprox.quad,
     )
 
     # Rio de Janeiro
@@ -193,11 +190,10 @@ if __name__ == "__main__":
         data_source=DataSource.meteo,
         sun_analysis=True,
         sky_analysis=True,
-        sun_approx=SunApprox.group,
     )
 
-    # analyse_mesh_1(p_1)
+    analyse_mesh_1(p_1)
     # analyse_mesh_2(p_1)
     # analyse_mesh_3(p_1)
     # analyse_city(p_1)
-    skydome_test()
+    # skydome_test()

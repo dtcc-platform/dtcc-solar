@@ -53,10 +53,10 @@ public:
     std::vector<std::vector<float>> GetSkydomeVertices();
     std::vector<std::vector<float>> GetSkydomeRayDirections();
 
-    std::vector<float> GetIrradianceResultsDNI();
-    std::vector<float> GetIrradianceResultsDHI();
     std::vector<float> GetAccumulatedAngles();
     std::vector<float> GetAccumulatedOcclusion();
+
+    bool Accumulate();
 
     void Raytrace_occ1(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
     void Raytrace_occ8(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
@@ -66,9 +66,6 @@ public:
 
     bool SkyRaytrace_Occ1();
     bool SkyRaytrace_Occ8();
-
-    bool CalcIrradiance(std::vector<float> dni, std::vector<float> dhi);
-    bool CalcIrradianceGroup(std::vector<float> dni, std::vector<float> dhi, std::vector<std::vector<int>> sunGroups);
 
     void CalcFaceNormals();
     void ErrorFunction(void *userPtr, enum RTCError error, const char *str);
@@ -105,8 +102,6 @@ private:
     std::vector<std::vector<float>> mAngles;
 
     // Results from analysis mapped onto all sun positions
-    std::vector<float> mIrradianceDNI;
-    std::vector<float> mIrradianceDHI;
     std::vector<float> mAccumAngles;
     std::vector<float> mAccumOcclud;
 

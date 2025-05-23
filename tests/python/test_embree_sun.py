@@ -27,9 +27,7 @@ class TestEmbreeSolar:
 
     def test_skydome_raytrace(self):
         results1 = self.embree.sun_raytrace_occ1(self.sun_vecs)
-        results2 = self.embree.sun_raytrace_occ4(self.sun_vecs)
         results3 = self.embree.sun_raytrace_occ8(self.sun_vecs)
-        results4 = self.embree.sun_raytrace_occ16(self.sun_vecs)
 
         angles = self.embree.get_angle_results()
         occlusion = self.embree.get_occluded_results()

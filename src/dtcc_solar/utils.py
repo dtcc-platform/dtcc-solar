@@ -34,27 +34,18 @@ class DataSource(IntEnum):
 
 
 class Sky(IntEnum):
-    EqualArea320 = 1
-    Tregenza145 = 2
-    Reinhart580 = 3
+    Tregenza145 = 1
+    Reinhart580 = 2
 
 
 class Rays(IntEnum):
     Bundle1 = 1
-    Bundle4 = 2
-    Bundle8 = 3
-    Bundle16 = 4
+    Bundle8 = 2
 
 
 class MeshType(IntEnum):
     analysis = 1
     shading = 2
-
-
-class SunApprox(IntEnum):
-    none = 1
-    group = 2
-    quad = 3
 
 
 class Mode(IntEnum):
@@ -108,12 +99,6 @@ class OutputCollection:
     face_sun_angles: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Value between 0-1 for each face to determine how much of the face is occluded by other faces for given sun positions
     occlusion: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    dni: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    dhi: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
-    irradiance_di: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Percentage of the sky dome that is visible from the face
     visible_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Results for face and each sky raytracing intersection
@@ -139,7 +124,6 @@ class SolarParameters:
     export: bool = False
     start_date: str = "2019-06-03 07:00:00"
     end_date: str = "2019-06-03 21:00:00"
-    sun_approx: SunApprox = SunApprox.group
     sun_analysis: bool = True
     sky_analysis: bool = False
     suns_per_group: int = 8

@@ -227,16 +227,6 @@ std::vector<float> EmbreeSolar::GetSkyViewFactorResults()
     return mSkyViewFactor;
 }
 
-std::vector<float> EmbreeSolar::GetIrradianceResultsDNI()
-{
-    return mIrradianceDNI;
-}
-
-std::vector<float> EmbreeSolar::GetIrradianceResultsDHI()
-{
-    return mIrradianceDHI;
-}
-
 std::vector<float> EmbreeSolar::GetAccumulatedAngles()
 {
     return mAccumAngles;
@@ -633,101 +623,24 @@ bool EmbreeSolar::SkyRaytrace_Occ8()
     return true;
 }
 
-bool EmbreeSolar::CalcIrradiance(std::vector<float> dni, std::vector<float> dhi)
+bool EmbreeSolar::Accumulate()
 {
-    mIrradianceDNI = std::vector<float>(mFaceCount, 0.0);
-    mIrradianceDHI = std::vector<float>(mFaceCount, 0.0);
     mAccumAngles = std::vector<float>(mFaceCount, 0.0);
     mAccumOcclud = std::vector<float>(mFaceCount, 0.0);
 
-    int nDNI = (int)dni.size();
-    int nDHI = (int)dhi.size();
-
-    if (nDNI < 1 || nDHI < 1)
+    for (long unsigned int sunIndex = 0; sunIndex < mAngles.size(); sunIndex++)
     {
-        error("Invalid weather data count in EmbreeSolar::CalcIrradiance.");
-        return false;
-    }
-    else if (mHasSunResults && (nDNI != (int)mAngles.size()))
-    {
-        error("Weather data does not match number of suns used for raytracing in EmbreeSolar::CalcIrradiance.");
-        return false;
-    }
-    else // Data size is correct
-    {
-        for (long unsigned int sunIndex = 0; sunIndex < mAngles.size(); sunIndex++)
+        for (long unsigned int faceIndex = 0; faceIndex < mAngles[sunIndex].size(); faceIndex++)
         {
-            float weatherDNI = dni[sunIndex]; // Direct normal irradiance
-            float weatherDHI = dhi[sunIndex]; // Direct horizontal irradiance
-
-            for (long unsigned int faceIndex = 0; faceIndex < mAngles[sunIndex].size(); faceIndex++)
+            if (mHasSunResults)
             {
-                if (mHasSunResults)
-                {
-                    float angle = M_PI - mAngles[sunIndex][faceIndex];
-                    float angleFraction = angle / M_PI;
-                    float faceInSun = 1.0f - mOccluded[sunIndex][faceIndex];
-                    float irradianceDNI = weatherDNI * faceInSun * angleFraction;
-                    mIrradianceDNI[faceIndex] += irradianceDNI;
-                    mAccumAngles[faceIndex] += mAngles[sunIndex][faceIndex];
-                    mAccumOcclud[faceIndex] += mOccluded[sunIndex][faceIndex];
-                }
-                if (mHasSkyResults)
-                {
-                    float svf = mSkyViewFactor[faceIndex];
-                    float irradianceDHI = weatherDHI * svf;
-                    mIrradianceDHI[faceIndex] += irradianceDHI;
-                }
-            }
-        }
-        mHasIrrResults = true;
-    }
-    info("Irradiance calculation completed.");
-    return true;
-}
-
-bool EmbreeSolar::CalcIrradianceGroup(std::vector<float> dni, std::vector<float> dhi, std::vector<std::vector<int>> sunGroups)
-{
-    mIrradianceDNI = std::vector<float>(mFaceCount, 0.0);
-    mIrradianceDHI = std::vector<float>(mFaceCount, 0.0);
-    mAccumAngles = std::vector<float>(mFaceCount, 0.0);
-    mAccumOcclud = std::vector<float>(mFaceCount, 0.0);
-
-    for (long unsigned int i = 0; i < sunGroups.size(); i++)
-    {
-        int groupSunIndex = i;
-
-        for (long unsigned int j = 0; j < sunGroups[i].size(); j++)
-        {
-            // Weather data is stored for the real sun positions
-            int realSunIndex = sunGroups[i][j];
-            float weatherDNI = dni[realSunIndex]; // Direct normal irradiance
-            float weatherDHI = dhi[realSunIndex]; // Direct horizontal irradiance
-
-            // Angles and occluded are calculated for the group sun positions
-            for (long unsigned int faceIndex = 0; faceIndex < mAngles[groupSunIndex].size(); faceIndex++)
-            {
-                if (mHasSunResults)
-                {
-                    float angle = M_PI - mAngles[groupSunIndex][faceIndex];
-                    float angleFraction = angle / M_PI;
-                    float faceInSun = 1.0f - mOccluded[groupSunIndex][faceIndex];
-                    float irradianceDNI = weatherDNI * faceInSun * angleFraction;
-                    mIrradianceDNI[faceIndex] += irradianceDNI;
-                    mAccumAngles[faceIndex] += mAngles[groupSunIndex][faceIndex];
-                    mAccumOcclud[faceIndex] += mOccluded[groupSunIndex][faceIndex];
-                }
-
-                if (mHasSkyResults)
-                {
-                    float svf = mSkyViewFactor[faceIndex];
-                    float irradianceDHI = weatherDHI * svf;
-                    mIrradianceDHI[faceIndex] += irradianceDHI;
-                }
+                mAccumAngles[faceIndex] += mAngles[sunIndex][faceIndex];
+                mAccumOcclud[faceIndex] += mOccluded[sunIndex][faceIndex];
             }
         }
     }
     mHasIrrResults = true;
+
     info("Irradiance calculation completed.");
     return true;
 }
@@ -765,10 +678,6 @@ PYBIND11_MODULE(py_embree_solar, m)
              { py::array out = py::cast(self.SkyRaytrace_Occ1()); return out; })
         .def("sky_raytrace_occ8", [](EmbreeSolar &self)
              { py::array out = py::cast(self.SkyRaytrace_Occ8()); return out; })
-        .def("calc_irradiance", [](EmbreeSolar &self, std::vector<float> dni, std::vector<float> dhi)
-             { py::array out = py::cast(self.CalcIrradiance(dni, dhi)); return out; })
-        .def("calc_irradiance_group", [](EmbreeSolar &self, std::vector<float> dni, std::vector<float> dhi, std::vector<std::vector<int>> sunGroups)
-             { py::array out = py::cast(self.CalcIrradianceGroup(dni, dhi, sunGroups)); return out; })
         .def("get_angle_results", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetAngleResults()); return out; })
         .def("get_occluded_results", [](EmbreeSolar &self)
@@ -777,14 +686,12 @@ PYBIND11_MODULE(py_embree_solar, m)
              { py::array out = py::cast(self.GetFaceSkyHitResults()); return out; })
         .def("get_sky_view_factor_results", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetSkyViewFactorResults()); return out; })
-        .def("get_results_dni", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.GetIrradianceResultsDNI()); return out; })
-        .def("get_results_dhi", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.GetIrradianceResultsDHI()); return out; })
         .def("get_accumulated_angles", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetAccumulatedAngles()); return out; })
         .def("get_accumulated_occlusion", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.GetAccumulatedOcclusion()); return out; });
+             { py::array out = py::cast(self.GetAccumulatedOcclusion()); return out; })
+        .def("accumulate", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.Accumulate()); return out; });
 }
 
 #endif

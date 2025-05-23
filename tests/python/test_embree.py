@@ -24,17 +24,13 @@ class TestEmbreeSolar:
 
     def test_sun_raytrace(self):
         success1 = self.embree.sun_raytrace_occ1(self.sun_vecs)
-        success2 = self.embree.sun_raytrace_occ4(self.sun_vecs)
         success3 = self.embree.sun_raytrace_occ8(self.sun_vecs)
-        success4 = self.embree.sun_raytrace_occ16(self.sun_vecs)
 
-        assert success1 and success2 and success3 and success4
+        assert success1 and success3
 
     def test_sky_raytrace(self):
         # run sky analysis
         success1 = self.embree.sky_raytrace_occ1()
-        success2 = self.embree.sky_raytrace_occ4()
         success3 = self.embree.sky_raytrace_occ8()
-        success4 = self.embree.sky_raytrace_occ16()
 
-        assert success1 and success2 and success3 and success4
+        assert success1 and success3

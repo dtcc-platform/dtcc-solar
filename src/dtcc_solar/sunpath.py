@@ -6,14 +6,12 @@ import numpy as np
 import pandas as pd
 from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar import utils
-from dtcc_solar.utils import SunCollection, DataSource, unitize, SunApprox
+from dtcc_solar.utils import SunCollection, DataSource, unitize
 from dtcc_solar.utils import SolarParameters
 from pvlib import solarposition
 from dtcc_solar import data_clm, data_epw, data_meteo, data_smhi
 from dtcc_solar.utils import concatenate_meshes
 from dtcc_solar.logging import info, debug, warning, error
-from dtcc_solar.sungroups import SunGroups
-from dtcc_solar.sunquads import SunQuads
 from pprint import pp
 
 
@@ -53,10 +51,7 @@ class Sunpath:
         List of meshes for day paths for three dates in a year.
     analemmas_pc : PointCloud
         Point cloud for analemmas for each hour in a year.
-    sungroups : SunGroups
-        Groups of suns based on positions and times.
-    sundome : SunDome
-        Sundome representing sun positions."""
+    """
 
     lat: float
     lon: float
@@ -72,9 +67,6 @@ class Sunpath:
     analemmas_meshes: list[Mesh]  # Analemmas for each hour in a year
     daypath_meshes: list[Mesh]  # Day paths for three dates in a year
     analemmas_pc: PointCloud  # Analemmas for each hour in a year as a point cloud
-
-    sungroups: SunGroups
-    sundome: SunQuads
 
     def __init__(self, p: SolarParameters, radius: float, include_night: bool = False):
         """
@@ -99,14 +91,6 @@ class Sunpath:
 
         if p.display:
             self._build_sunpath_mesh()
-
-        if p.sun_approx == SunApprox.group:
-            sun_pos_dict = self._calc_analemmas(2019, p.suns_per_group)
-            self.sungroups = SunGroups(sun_pos_dict, self.sunc)
-        elif p.sun_approx == SunApprox.quad:
-            dates = pd.date_range(start="2019-01-01", end="2019-12-31", freq="1D")
-            sun_pos_dict = self._calc_daypaths(dates, 10)
-            self.sundome = SunQuads(sun_pos_dict, self.r, p.sundome_div)
 
     def _calc_analemmas(self, year: int, sample_rate: int):
         """

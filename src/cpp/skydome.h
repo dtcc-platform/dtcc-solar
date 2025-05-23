@@ -31,7 +31,6 @@ public:
     float CalcSphereCapArea(float elevation);
     float CalcHemisphereArea();
 
-    void GetTopCap(float maxElev, float elev, float maxAzim, int nAzim, float faceAreaPart);
     void CreateMeshQuad(float azim, float nextAzim, float elev, float nextElev);
 
     void CreateTregenzaZenithPatch(float elevation);

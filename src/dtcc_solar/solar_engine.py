@@ -2,15 +2,13 @@ import math
 import numpy as np
 from dtcc_solar.utils import SolarParameters, calc_face_mid_points, concatenate_meshes
 from dtcc_solar import py_embree_solar as embree
-from dtcc_solar.sunquads import SunQuads
-from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox, Sky
+from dtcc_solar.utils import SunCollection, OutputCollection, Sky
 from dtcc_solar.utils import Rays
 from dtcc_solar.sunpath import Sunpath
 from dtcc_core.model import Mesh, PointCloud
 from dtcc_core.model import Bounds
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_viewer import Window, Scene
-from dtcc_solar.sungroups import SunGroups
 from dtcc_solar.viewer import Viewer
 from pprint import pp
 
@@ -108,7 +106,7 @@ class SolarEngine:
         self._preprocess_mesh(center_mesh)
 
         if sky is None:
-            self.sky = Sky.EqualArea320
+            self.sky = Sky.Tregenza145
 
         if rays is None:
             self.rays = Rays.Bundle8
@@ -223,157 +221,64 @@ class SolarEngine:
         """
         # Creating instance of embree solar
         info(f"Creating embree instance")
-
         self.embree = embree.PyEmbreeSolar(
             self.mesh.vertices,
             self.mesh.faces,
             self.face_mask,
             int(self.sky),
         )
+        info(f"Embree instance created successfully.")
         info(f"Running analysis...")
 
         # Run raytracing
         if p.sun_analysis:
-            if p.sun_approx == SunApprox.quad and sunp.sundome is not None:
-                self._sun_quad_raycasting(sunp.sundome, sunp.sunc)
-            elif p.sun_approx == SunApprox.group and sunp.sungroups is not None:
-                self._sun_group_raycasting(sunp.sungroups, sunp.sunc)
-            elif p.sun_approx == SunApprox.none:
-                self._sun_raycasting(sunp.sunc)
+            self._sun_raycasting(sunp.sunc)
+            self.embree.accumulate()
 
         if p.sky_analysis:
             self._sky_raycasting()
 
         # Calculate irradiance base on raytracing results and weather data
-        if p.sun_approx == SunApprox.none:
-            self.embree.calc_irradiance(sunp.sunc.dni, sunp.sunc.dhi)
-        elif p.sun_approx == SunApprox.group:
-            indices = sunp.sungroups.sun_indices
-            self.embree.calc_irradiance_group(sunp.sunc.dni, sunp.sunc.dhi, indices)
-        elif p.sun_approx == SunApprox.quad:
-            active_quads = sunp.sundome.active_quads
-            indices = [quad.sun_indices for quad in active_quads]
-            self.embree.calc_irradiance_group(sunp.sunc.dni, sunp.sunc.dhi, indices)
 
         # Save results to output collection
         if p.sun_analysis:
             n_suns = sunp.sunc.count
-            outc.dni = self.embree.get_results_dni()
             outc.face_sun_angles = self.embree.get_accumulated_angles() / n_suns
             outc.sun_hours = n_suns - self.embree.get_accumulated_occlusion()
             outc.shadow_hours = self.embree.get_accumulated_occlusion()
 
         if p.sky_analysis:
-            outc.dhi = self.embree.get_results_dhi()
             outc.facehit_sky = self.embree.get_face_skyhit_results()
             outc.sky_view_factor = self.embree.get_sky_view_factor_results()
 
         outc.data_mask = self.face_mask
 
-    def _sun_group_raycasting(self, sungroups: SunGroups, sunc: SunCollection):
-        """
-        Perform sun group raycasting analysis.
-
-        Parameters
-        ----------
-        sungroups : SunGroups
-            Sun groups data for the analysis.
-        sunc : SunCollection
-            Sun collection data for the analysis.
-        """
-        sun_vecs = sungroups.list_centers
-        info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} sun groups.")
-        if self._sun_raycasting_embree(sun_vecs):
-            info(f"Raytracing sun groups completed successfully.")
-
-    def _sun_quad_raycasting(self, sundome: SunQuads, sunc: SunCollection):
-        """
-        Perform sun quad raycasting analysis.
-
-        Parameters
-        ----------
-        sundome : SunDome
-            Sundome data for the analysis.
-        sunc : SunCollection
-            Sun collection data for the analysis.
-        """
-        sundome.match_suns_and_quads(sunc)
-        sun_vecs = sundome.get_active_quad_centers()
-        info(f"Anlysing {sunc.count} suns in {len(sun_vecs)} quad groups.")
-        if self._sun_raycasting_embree(sun_vecs):
-            info(f"Raytracing sun groups completed successfully.")
-
     def _sun_raycasting(self, sunc: SunCollection):
-        """
-        Perform sun raycasting analysis.
-
-        Parameters
-        ----------
-        sunc : SunCollection
-            Sun collection data for the analysis.
-        """
+        """Perform sun raycasting analysis."""
         info(f"Running sun raycasting")
-        if self._sun_raycasting_embree(sunc.sun_vecs):
-            info(f"Running sun raycasting completed successfully.")
+        if self.rays == Rays.Bundle1:
+            success = self.embree.sun_raytrace_occ1(sunc.sun_vecs)
+        elif self.rays == Rays.Bundle8:
+            success = self.embree.sun_raytrace_occ8(sunc.sun_vecs)
+
+        if success:
+            info(f"Running sun raycasting completed succefully.")
+        else:
+            error("Something went wrong with sun raycasting in embree.")
 
     def _sky_raycasting(self):
         """Perform sky raycasting analysis."""
         info(f"Running sky raycasting")
-        if self._sky_raycasting_embree():
-            info(f"Running sky raycasting completed succefully.")
-
-    def _sun_raycasting_embree(self, sun_vecs) -> bool:
-        """
-        Perform sun raycasting using the Embree library.
-
-        Parameters
-        ----------
-        sun_vecs : list
-            List of sun vectors for the analysis.
-
-        Returns
-        -------
-        bool
-            True if the raycasting was successful, False otherwise.
-        """
-        success = False
-        if self.rays == Rays.Bundle1:
-            success = self.embree.sun_raytrace_occ1(sun_vecs)
-        elif self.rays == Rays.Bundle4:
-            success = self.embree.sun_raytrace_occ4(sun_vecs)
-        elif self.rays == Rays.Bundle8:
-            success = self.embree.sun_raytrace_occ8(sun_vecs)
-        elif self.rays == Rays.Bundle16:
-            success = self.embree.sun_raytrace_occ16(sun_vecs)
-
-        if not success:
-            error("Something went wrong with sun raycasting in embree.")
-
-        return success
-
-    def _sky_raycasting_embree(self) -> bool:
-        """
-        Perform sky raycasting using the Embree library.
-
-        Returns
-        -------
-        bool
-            True if the raycasting was successful, False otherwise.
-        """
         success = False
         if self.rays == Rays.Bundle1:
             success = self.embree.sky_raytrace_occ1()
-        elif self.rays == Rays.Bundle4:
-            success = self.embree.sky_raytrace_occ4()
         elif self.rays == Rays.Bundle8:
             success = self.embree.sky_raytrace_occ8()
-        elif self.rays == Rays.Bundle16:
-            success = self.embree.sky_raytrace_occ16()
 
-        if not success:
+        if success:
+            info(f"Running sky raycasting completed succefully.")
+        else:
             error("Something went wrong with sky raycasting in embree.")
-
-        return success
 
     def view_results(
         self,
