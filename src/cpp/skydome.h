@@ -18,7 +18,6 @@ public:
     ~Skydome();
 
     void InitRays(int rayCount);
-    void CreateEqualAreaMesh(int nStrips);
     void CreateTregenzaMesh();
     void CreateReinhartMesh();
     void CreateRays();
@@ -35,7 +34,6 @@ public:
     void GetTopCap(float maxElev, float elev, float maxAzim, int nAzim, float faceAreaPart);
     void CreateMeshQuad(float azim, float nextAzim, float elev, float nextElev);
 
-    void CreateEqualAreaZenithPatch(float elev, float nextElev, float azim, float d_azim);
     void CreateTregenzaZenithPatch(float elevation);
     void CreateReinhartZenithPatch(float elevation);
 
@@ -44,18 +42,12 @@ public:
 
     int GetFaceCount();
     int GetRayCount();
-    int GetBundle4Count();
     int GetBundle8Count();
-    int GetBundle16Count();
 
     std::vector<RTCRay> &GetRays();
-    std::vector<RTCRay4> &GetRays4();
     std::vector<RTCRay8> &GetRays8();
-    std::vector<RTCRay16> &GetRays16();
 
-    int **GetValid4();
     int **GetValid8();
-    int **GetValid16();
 
     std::vector<std::vector<int>> GetFaces();
     std::vector<std::vector<float>> GetVertices();
@@ -64,9 +56,7 @@ public:
 
 private:
     int mRayCount;
-    int mBundle4Count;
     int mBundle8Count;
-    int mBundle16Count;
 
     // Skydome mesh entities
     std::vector<std::vector<int>> mFaces;
@@ -78,11 +68,7 @@ private:
     std::vector<std::vector<float>> mRayDirections;
 
     std::vector<RTCRay> mRays;
-    std::vector<RTCRay4> mRays4;
     std::vector<RTCRay8> mRays8;
-    std::vector<RTCRay16> mRays16;
 
-    int **mRays4Valid;
     int **mRays8Valid;
-    int **mRays16Valid;
 };

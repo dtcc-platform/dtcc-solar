@@ -432,35 +432,6 @@ void EmbreeSolar::Raytrace_occ1(std::vector<float> &angles, std::vector<int> &oc
     }
 }
 
-void EmbreeSolar::Raytrace_occ4(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter)
-{
-    int nBundles = mSunrays->GetBundle4Count();
-    for (int i = 0; i < nBundles; i++)
-    {
-        RTCRay4 rayBundle = mSunrays->GetRays4()[i];
-        const int *valid = mSunrays->GetValid4(mApplyMask)[i];
-        rtcOccluded4(valid, mScene, &rayBundle);
-        for (int j = 0; j < 4; j++)
-        {
-            int rayIndex = i * 4 + j;
-            if (rayBundle.tfar[j] == -std::numeric_limits<float>::infinity())
-            {
-                hitCounter++;
-                occluded[rayIndex] = 1;
-            }
-
-            if (valid[j] == -1) // If ray is valid
-            {
-                // RayIndex is the same as FaceIndex
-                Vector ray = {rayBundle.dir_x[j], rayBundle.dir_y[j], rayBundle.dir_z[j]};
-                Vector nml = mFaceNormals[rayIndex];
-                float angle = CalcAngle2(ray, nml);
-                angles[rayIndex] = angle;
-            }
-        }
-    }
-}
-
 void EmbreeSolar::Raytrace_occ8(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter)
 {
     int nBundles = mSunrays->GetBundle8Count();
@@ -477,36 +448,6 @@ void EmbreeSolar::Raytrace_occ8(std::vector<float> &angles, std::vector<int> &oc
             {
                 occluded[rayIndex] = 1;
                 hitCounter++;
-            }
-
-            if (valid[j] == -1) // If ray is valid
-            {
-                // RayIndex is the same as FaceIndex
-                Vector ray = {rayBundle.dir_x[j], rayBundle.dir_y[j], rayBundle.dir_z[j]};
-                Vector nml = mFaceNormals[rayIndex];
-                float angle = CalcAngle2(ray, nml);
-                angles[rayIndex] = angle;
-            }
-        }
-    }
-}
-
-void EmbreeSolar::Raytrace_occ16(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter)
-{
-    int nBundles = mSunrays->GetBundle16Count();
-    for (int i = 0; i < nBundles; i++)
-    {
-        RTCRay16 rayBundle = mSunrays->GetRays16()[i];
-        const int *valid = mSunrays->GetValid16(mApplyMask)[i];
-        rtcOccluded16(valid, mScene, &rayBundle);
-
-        for (int j = 0; j < 16; j++)
-        {
-            int rayIndex = i * 16 + j;
-            if (rayBundle.tfar[j] == -std::numeric_limits<float>::infinity())
-            {
-                hitCounter++;
-                occluded[rayIndex] = 1;
             }
 
             if (valid[j] == -1) // If ray is valid
@@ -561,44 +502,6 @@ bool EmbreeSolar::SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs)
     return true;
 }
 
-bool EmbreeSolar::SunRaytrace_Occ4(std::vector<std::vector<float>> sun_vecs)
-{
-    // Define a 2D vector to store intersection results. Each postion is given the
-    // initial values 0, which is changed to 1 if an intersection is found.
-    int nSunVecs = (int)sun_vecs.size();
-    mAngles = std::vector<std::vector<float>>(nSunVecs, std::vector<float>(mFaceCount, 0.0));
-    mOccluded = std::vector<std::vector<int>>(nSunVecs, std::vector<int>(mFaceCount, 0));
-    auto start = std::chrono::high_resolution_clock::now();
-    int hitCounter = 0;
-
-    info("Running rtcOccluded4 for " + str(nSunVecs) + " sun vectors.");
-    for (int i = 0; i < nSunVecs; i++)
-    {
-        auto sun_vec = UnitizeVector(sun_vecs[i]);
-        auto &angels = mAngles[i];
-        auto &occluded = mOccluded[i];
-        if (sun_vec.size() == 3)
-        {
-            mSunrays->UpdateRay4Directions(sun_vec, mApplyMask);
-            Raytrace_occ4(angels, occluded, hitCounter);
-        }
-        else
-        {
-            error("Invalid sun vector size in EmbreeSolar::iterateRaytrace_occ4.");
-            return false;
-        }
-        if (i > 0 && i % 100 == 0)
-            info("Sun raytracing for " + str(i) + " sun vectors completed.");
-    }
-
-    info("Found " + str(hitCounter) + " intersections.");
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float> duration = end - start;
-    info("Time elapsed: " + str(duration.count()) + " seconds.");
-    mHasSunResults = true;
-    return true;
-}
-
 bool EmbreeSolar::SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs)
 {
     // Define a 2D vector to store intersection results. Each postion is given the
@@ -625,44 +528,6 @@ bool EmbreeSolar::SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs)
         else
         {
             error("Invalid sun vector size in EmbreeSolar::iterateRaytrace_occ8.");
-            return false;
-        }
-        if (i > 0 && i % 100 == 0)
-            info("Sun raytracing for " + str(i) + " sun vectors completed.");
-    }
-
-    info("Found " + str(hitCounter) + " intersections.");
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float> duration = end - start;
-    info("Time elapsed: " + str(duration.count()) + " seconds.");
-    mHasSunResults = true;
-    return true;
-}
-
-bool EmbreeSolar::SunRaytrace_Occ16(std::vector<std::vector<float>> sun_vecs)
-{
-    // Define a 2D vector to store intersection results. Each postion is given the
-    // initial values 0, which is changed to 1 if an intersection is found.
-    int nSunVecs = (int)sun_vecs.size();
-    mAngles = std::vector<std::vector<float>>(nSunVecs, std::vector<float>(mFaceCount, 0.0));
-    mOccluded = std::vector<std::vector<int>>(nSunVecs, std::vector<int>(mFaceCount, 0));
-
-    auto start = std::chrono::high_resolution_clock::now();
-    info("Running rtcOccluded16 for " + str(nSunVecs) + " sun vectors.");
-    int hitCounter = 0;
-    for (int i = 0; i < nSunVecs; i++)
-    {
-        auto sun_vec = UnitizeVector(sun_vecs[i]);
-        auto &angles = mAngles[i];
-        auto &occluded = mOccluded[i];
-        if (sun_vec.size() == 3)
-        {
-            mSunrays->UpdateRay16Directions(sun_vec, mApplyMask);
-            Raytrace_occ16(angles, occluded, hitCounter);
-        }
-        else
-        {
-            error("Invalid sun vector size in EmbreeSolar::iterateRaytrace_occ16.");
             return false;
         }
         if (i > 0 && i % 100 == 0)
@@ -720,54 +585,6 @@ bool EmbreeSolar::SkyRaytrace_Occ1()
     return true;
 }
 
-bool EmbreeSolar::SkyRaytrace_Occ4()
-{
-    int hitCounter = 0;
-    int hitAttempts = 0;
-    float hitPortion = 0.0f;
-    // Compute diffuse sky portion by iterating over all faces in the mesh
-    mFaceSkyHit = std::vector<std::vector<int>>(mFaceCount, std::vector<int>(mSkydome->GetRayCount(), 0));
-    mSkyViewFactor = std::vector<float>(mFaceCount, 0);
-    auto start = std::chrono::high_resolution_clock::now();
-    info("Running diffuse rtcOccluded4 for " + str(mMaskCount) + " faces and " + str(mSkydome->GetRayCount()) + " skydome rays.");
-    for (int i = 0; i < mFaceCount; i++)
-    {
-        if (mFaceMask[i])
-        {
-            mSkydome->Translate4Rays(mFaceMidPts[i]);
-            int nBundles = mSkydome->GetBundle4Count();
-            hitPortion = 0.0;
-            for (int j = 0; j < nBundles; j++)
-            {
-                RTCRay4 rayBundle = mSkydome->GetRays4()[j];
-                const int *valid = mSkydome->GetValid4()[j];
-                rtcOccluded4(valid, mScene, &rayBundle);
-                for (int k = 0; k < 4; k++)
-                {
-                    int rayIndex = j * 4 + k;
-                    if (rayBundle.tfar[k] == -std::numeric_limits<float>::infinity())
-                    {
-                        hitCounter++;
-                        hitPortion = hitPortion + mSkydome->GetRayAreas()[rayIndex];
-                        mFaceSkyHit[i][rayIndex];
-                    }
-                    hitAttempts++;
-                }
-            }
-            mSkyViewFactor[i] = 1.0 - hitPortion;
-            if (i > 0 && i % 10000 == 0)
-                info("Sky raytracing for " + str(i) + " faces completed.");
-        }
-    }
-
-    info("Found " + str(hitCounter) + " intersections in " + str(hitAttempts) + " attempts.");
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float> duration = end - start;
-    info("Time elapsed: " + str(duration.count()) + " seconds.");
-    mHasSkyResults = true;
-    return true;
-}
-
 bool EmbreeSolar::SkyRaytrace_Occ8()
 {
     int hitCounter = 0;
@@ -793,54 +610,6 @@ bool EmbreeSolar::SkyRaytrace_Occ8()
                 for (int k = 0; k < 8; k++)
                 {
                     int rayIndex = j * 8 + k;
-                    if (rayBundle.tfar[k] == -std::numeric_limits<float>::infinity())
-                    {
-                        hitCounter++;
-                        hitPortion = hitPortion + mSkydome->GetRayAreas()[rayIndex];
-                        mFaceSkyHit[i][rayIndex] = 1;
-                    }
-                    hitAttempts++;
-                }
-            }
-            mSkyViewFactor[i] = 1.0 - hitPortion;
-            if (i > 0 && i % 10000 == 0)
-                info("Sky raytracing for " + str(i) + " faces completed.");
-        }
-    }
-
-    info("Found " + str(hitCounter) + " intersections in " + str(hitAttempts) + " attempts.");
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float> duration = end - start;
-    info("Time elapsed: " + str(duration.count()) + " seconds.");
-    mHasSkyResults = true;
-    return true;
-}
-
-bool EmbreeSolar::SkyRaytrace_Occ16()
-{
-    int hitCounter = 0;
-    int hitAttempts = 0;
-    float hitPortion = 0.0f;
-    // Compute diffuse sky portion by iterating over all faces in the mesh
-    mFaceSkyHit = std::vector<std::vector<int>>(mFaceCount, std::vector<int>(mSkydome->GetRayCount(), 0));
-    mSkyViewFactor = std::vector<float>(mFaceCount, 0);
-    auto start = std::chrono::high_resolution_clock::now();
-    info("Running diffuse rtcOccluded16 for " + str(mMaskCount) + " faces and " + str(mSkydome->GetRayCount()) + " skydome rays.");
-    for (int i = 0; i < mFaceCount; i++)
-    {
-        if (mFaceMask[i])
-        {
-            mSkydome->Translate16Rays(mFaceMidPts[i]);
-            int nBundles = mSkydome->GetBundle16Count();
-            hitPortion = 0.0;
-            for (int j = 0; j < nBundles; j++)
-            {
-                RTCRay16 rayBundle = mSkydome->GetRays16()[j];
-                const int *valid = mSkydome->GetValid16()[j];
-                rtcOccluded16(valid, mScene, &rayBundle);
-                for (int k = 0; k < 16; k++)
-                {
-                    int rayIndex = j * 16 + k;
                     if (rayBundle.tfar[k] == -std::numeric_limits<float>::infinity())
                     {
                         hitCounter++;
@@ -990,20 +759,12 @@ PYBIND11_MODULE(py_embree_solar, m)
              { py::array out = py::cast(self.GetSkydomeRayCount()); return out; })
         .def("sun_raytrace_occ1", [](EmbreeSolar &self, std::vector<std::vector<float>> sun_vecs)
              { py::array out = py::cast(self.SunRaytrace_Occ1(sun_vecs)); return out; })
-        .def("sun_raytrace_occ4", [](EmbreeSolar &self, std::vector<std::vector<float>> sun_vecs)
-             { py::array out = py::cast(self.SunRaytrace_Occ4(sun_vecs)); return out; })
         .def("sun_raytrace_occ8", [](EmbreeSolar &self, std::vector<std::vector<float>> sun_vecs)
              { py::array out = py::cast(self.SunRaytrace_Occ8(sun_vecs)); return out; })
-        .def("sun_raytrace_occ16", [](EmbreeSolar &self, std::vector<std::vector<float>> sun_vecs)
-             { py::array out = py::cast(self.SunRaytrace_Occ16(sun_vecs)); return out; })
         .def("sky_raytrace_occ1", [](EmbreeSolar &self)
              { py::array out = py::cast(self.SkyRaytrace_Occ1()); return out; })
-        .def("sky_raytrace_occ4", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.SkyRaytrace_Occ4()); return out; })
         .def("sky_raytrace_occ8", [](EmbreeSolar &self)
              { py::array out = py::cast(self.SkyRaytrace_Occ8()); return out; })
-        .def("sky_raytrace_occ16", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.SkyRaytrace_Occ16()); return out; })
         .def("calc_irradiance", [](EmbreeSolar &self, std::vector<float> dni, std::vector<float> dhi)
              { py::array out = py::cast(self.CalcIrradiance(dni, dhi)); return out; })
         .def("calc_irradiance_group", [](EmbreeSolar &self, std::vector<float> dni, std::vector<float> dhi, std::vector<std::vector<int>> sunGroups)

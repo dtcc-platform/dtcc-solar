@@ -59,19 +59,13 @@ public:
     std::vector<float> GetAccumulatedOcclusion();
 
     void Raytrace_occ1(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
-    void Raytrace_occ4(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
     void Raytrace_occ8(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
-    void Raytrace_occ16(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
 
     bool SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs);
-    bool SunRaytrace_Occ4(std::vector<std::vector<float>> sun_vecs);
     bool SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs);
-    bool SunRaytrace_Occ16(std::vector<std::vector<float>> sun_vecs);
 
     bool SkyRaytrace_Occ1();
-    bool SkyRaytrace_Occ4();
     bool SkyRaytrace_Occ8();
-    bool SkyRaytrace_Occ16();
 
     bool CalcIrradiance(std::vector<float> dni, std::vector<float> dhi);
     bool CalcIrradianceGroup(std::vector<float> dni, std::vector<float> dhi, std::vector<std::vector<int>> sunGroups);
