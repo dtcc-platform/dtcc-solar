@@ -8,7 +8,7 @@ import copy
 import dtcc_solar.data_meteo as meteo
 from dtcc_solar import utils
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import SolarParameters, SunApprox, OutputCollection
+from dtcc_solar.utils import SolarParameters, OutputCollection
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_core.io import meshes
 from dtcc_core.model import Mesh
@@ -73,9 +73,8 @@ class TestRaytracing:
 
         nfaces = len(self.solar_engine.mesh.faces)
         nang = len(outputc.face_sun_angles)
-        ndni = len(outputc.dni)
 
-        assert ndni == nfaces and nang == nfaces
+        assert nang == nfaces
 
     def test_raytracing_sun_quad_iterative(self):
         p = copy.deepcopy(self.p)
@@ -83,7 +82,6 @@ class TestRaytracing:
         p.sky_analysis = True
         p.start_date = "2019-01-01 00:00:00"
         p.end_date = "2019-12-31 23:00:00"
-        p.sun_approx = SunApprox.quad
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
@@ -103,7 +101,6 @@ class TestRaytracing:
         p.sky_analysis = True
         p.start_date = "2019-06-01 12:00:00"
         p.end_date = "2019-06-01 12:00:00"
-        p.sun_approx = SunApprox.none
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()

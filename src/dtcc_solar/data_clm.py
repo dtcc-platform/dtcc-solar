@@ -28,7 +28,7 @@ def import_data(sunc: SunCollection, weather_file: str):
 
     # The data file contains weather data for an entire year
     year_dates = pd.date_range(
-        start=full_year_start_date, end=full_year_end_date, freq="1H"
+        start=full_year_start_date, end=full_year_end_date, freq="1h"
     )
     year_dict_keys = np.array([str(d) for d in year_dates])
     year_normal_irr = dict.fromkeys(year_dict_keys)
