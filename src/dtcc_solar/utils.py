@@ -9,7 +9,7 @@ from enum import Enum, IntEnum
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
 from collections import defaultdict
-from dtcc_model import Mesh
+from dtcc_core.model import Mesh
 from csv import reader
 from pandas import Timestamp, DatetimeIndex
 from dtcc_solar.logging import info, debug, warning, error
@@ -92,10 +92,8 @@ class SunCollection:
     sun_vecs: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
     dni: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Direct Horizontal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
-    dhi: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
-    irradiance_di: np.ndarray = field(default_factory=lambda: np.empty(0))
+    dhi: np.ndarray = field(default_factory=lambda: np.empty(0))
     # List zenith values
     zeniths: np.ndarray = field(default_factory=lambda: np.empty(0))
 
@@ -278,7 +276,7 @@ def subdivide_mesh(mesh: Mesh, max_edge_length: float) -> Mesh:
 def split_mesh_with_domain(mesh: Mesh, xdom: list, ydom: list):
     pts = calc_face_mid_points(mesh)
     x_min, y_min = pts[:, 0:2].min(axis=0)
-    x_range, y_range = pts[:, 0:2].ptp(axis=0)
+    x_range, y_range = np.ptp(pts[:, 0:2], axis=0)
 
     if len(xdom) == len(ydom) == 2 and xdom[0] < xdom[1] and ydom[0] < ydom[1]:
         # Normalize the x,y coordinates

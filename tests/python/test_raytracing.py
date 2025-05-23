@@ -5,15 +5,14 @@ import pandas as pd
 import math
 import copy
 
+import dtcc_solar.data_meteo as meteo
 from dtcc_solar import utils
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import SolarParameters, SunApprox, OutputCollection
 from dtcc_solar.solar_engine import SolarEngine
-from dtcc_io import meshes
-from dtcc_model import Mesh
-import dtcc_solar.data_meteo as meteo
+from dtcc_core.io import meshes
+from dtcc_core.model import Mesh
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
-
 from typing import List, Any
 from pprint import pp
 

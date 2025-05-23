@@ -4,12 +4,12 @@ import pytz
 import datetime
 import numpy as np
 import pandas as pd
+from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar import utils
 from dtcc_solar.utils import SunCollection, DataSource, unitize, SunApprox
 from dtcc_solar.utils import SolarParameters
 from pvlib import solarposition
 from dtcc_solar import data_clm, data_epw, data_meteo, data_smhi
-from dtcc_model import Mesh, PointCloud
 from dtcc_solar.utils import concatenate_meshes
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sungroups import SunGroups
@@ -126,7 +126,7 @@ class Sunpath:
         """
         start_date = str(year) + "-01-01 12:00:00"
         end_date = str(year + 1) + "-01-01 11:00:00"
-        times = pd.date_range(start=start_date, end=end_date, freq="H")
+        times = pd.date_range(start=start_date, end=end_date, freq="h")
 
         # Times to evaluate will be 8760 for a normal year and 8764 for leep year
         times_to_evaluate = len(times.values)
@@ -246,7 +246,7 @@ class Sunpath:
         """
         time_from = pd.to_datetime(start_date)
         time_to = pd.to_datetime(end_date)
-        times = pd.date_range(start=time_from, end=time_to, freq="H")
+        times = pd.date_range(start=time_from, end=time_to, freq="h")
         self.sunc.count = len(times)
         for i, time in enumerate(times):
             time_stamp = pd.Timestamp(time)
@@ -264,7 +264,7 @@ class Sunpath:
         """
         date_from_str = self.sunc.datetime_strs[0]
         date_to_str = self.sunc.datetime_strs[-1]
-        dates = pd.date_range(start=date_from_str, end=date_to_str, freq="1H")
+        dates = pd.date_range(start=date_from_str, end=date_to_str, freq="1h")
         self.sunc.date_times = dates
         solpos = solarposition.get_solarposition(dates, self.lat, self.lon)
         # elev = np.radians(solpos.elevation.to_list())
@@ -283,13 +283,12 @@ class Sunpath:
             sun_vecs.append(sun_vec)
             positions.append(np.array([x_sun[i], y_sun[i], z_sun[i]]))
             zeniths.append(zeni[i])
-            over_horizon.append(zeni[i] < math.pi / 2.0)
+            over_horizon.append(zeni[i] < (math.pi / 2.0))
 
         self.sunc.sun_vecs = np.array(sun_vecs)
         self.sunc.positions = np.array(positions)
         self.sunc.zeniths = np.array(zeniths)
         self.sunc.dhi = np.zeros(self.sunc.count)
-        self.sunc.irradiance_di = np.zeros(self.sunc.count)
         self.sunc.dni = np.zeros(self.sunc.count)
 
     def _remove_suns_below_horizon(self, over_horizon: list[bool]):
@@ -309,9 +308,9 @@ class Sunpath:
         self.sunc.sun_vecs = self.sunc.sun_vecs[over_horizon, :]
         self.sunc.positions = self.sunc.positions[over_horizon, :]
         self.sunc.date_times = self.sunc.date_times[over_horizon]
-        self.sunc.dhi = self.sunc.dhi[over_horizon]
-        self.sunc.irradiance_di = self.sunc.irradiance_di[over_horizon]
         self.sunc.dni = self.sunc.dni[over_horizon]
+        self.sunc.dhi = self.sunc.dhi[over_horizon]
+        self.sunc.zeniths = self.sunc.zeniths[over_horizon]
         self.sunc.count = len(self.sunc.positions)
 
         timestamps = []

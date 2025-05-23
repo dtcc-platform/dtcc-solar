@@ -1,8 +1,8 @@
 import numpy as np
 import pprint
-from dtcc_io import meshes
+from dtcc_core.io import meshes
 from dtcc_solar import py_embree_solar
-from dtcc_model import Mesh, PointCloud
+from dtcc_core.model import PointCloud
 from pprint import pp
 from dtcc_viewer import Scene, Window
 

@@ -7,7 +7,7 @@ from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.sunquads import SunQuads
 from pprint import pp
-from dtcc_model import Mesh, PointCloud
+from dtcc_core.model import Mesh, PointCloud
 from dtcc_viewer import Scene, Window
 from dtcc_solar.utils import SolarParameters, SunApprox
 

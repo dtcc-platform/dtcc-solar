@@ -6,8 +6,8 @@ from dtcc_solar.sunquads import SunQuads
 from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox, Sky
 from dtcc_solar.utils import Rays
 from dtcc_solar.sunpath import Sunpath
-from dtcc_model import Mesh, PointCloud
-from dtcc_model.geometry import Bounds
+from dtcc_core.model import Mesh, PointCloud
+from dtcc_core.model import Bounds
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_viewer import Window, Scene
 from dtcc_solar.sungroups import SunGroups
@@ -139,6 +139,7 @@ class SolarEngine:
         mesh = concatenate_meshes([analysis_mesh, shading_mesh])
         face_mask = np.ones(len(analysis_mesh.faces), dtype=bool)
         face_mask = np.append(face_mask, np.zeros(len(shading_mesh.faces), dtype=bool))
+
         return mesh, face_mask
 
     def _preprocess_mesh(self, move_to_center: bool):
@@ -222,6 +223,7 @@ class SolarEngine:
         """
         # Creating instance of embree solar
         info(f"Creating embree instance")
+
         self.embree = embree.PyEmbreeSolar(
             self.mesh.vertices,
             self.mesh.faces,

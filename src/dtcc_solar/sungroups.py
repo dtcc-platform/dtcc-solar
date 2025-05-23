@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from dtcc_model import Mesh, PointCloud
+from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar.utils import SunCollection
 from pprint import pp
 from dtcc_solar.utils import distance
