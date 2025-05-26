@@ -4,19 +4,19 @@ from dtcc_solar.logging import info, debug, warning, error
 
 perez_coeffs = {
     1: {
-        "epsilon_range": (0.000, 1.065),
-        "a": -1.0000,
+        "epsilon_range": (1.000, 1.065),
+        "a": -1.000,
         "b": -0.3185,
         "c": 10.1100,
-        "d": -3.0000,
-        "e": 0.4500,
+        "d": -3.000,
+        "e": 0.450,
     },
     2: {
         "epsilon_range": (1.065, 1.230),
         "a": -0.9585,
         "b": -0.2515,
         "c": 8.6000,
-        "d": -1.5000,
+        "d": -1.500,
         "e": 0.3086,
     },
     3: {
@@ -24,7 +24,7 @@ perez_coeffs = {
         "a": -0.7760,
         "b": -0.1623,
         "c": 6.4000,
-        "d": -0.7500,
+        "d": -0.750,
         "e": 0.2538,
     },
     4: {
@@ -32,7 +32,7 @@ perez_coeffs = {
         "a": -0.5690,
         "b": -0.0539,
         "c": 3.8000,
-        "d": -0.2500,
+        "d": -0.250,
         "e": 0.1774,
     },
     5: {
@@ -40,7 +40,7 @@ perez_coeffs = {
         "a": -0.3277,
         "b": 0.0653,
         "c": 1.5000,
-        "d": 0.0000,
+        "d": 0.000,
         "e": 0.1062,
     },
     6: {
@@ -48,7 +48,7 @@ perez_coeffs = {
         "a": -0.2500,
         "b": 0.1500,
         "c": 0.0000,
-        "d": 0.0000,
+        "d": 0.000,
         "e": 0.0000,
     },
     7: {
@@ -56,7 +56,7 @@ perez_coeffs = {
         "a": -0.1500,
         "b": 0.3000,
         "c": -1.2500,
-        "d": 0.0000,
+        "d": 0.000,
         "e": 0.0000,
     },
     8: {
@@ -64,7 +64,7 @@ perez_coeffs = {
         "a": -0.1000,
         "b": 0.4000,
         "c": -2.5000,
-        "d": 0.0000,
+        "d": 0.000,
         "e": 0.0000,
     },
 }
@@ -76,11 +76,11 @@ def get_perez_coeffs(epsilon):
         if lower <= epsilon <= upper:
             return [data["a"], data["b"], data["c"], data["d"], data["e"]]
         elif epsilon < lower:
-            warning("Negative epsilon value, is zenith > 90 degrees?")
+            warning("Epsilon value out of range (1.0-inf), is zenith > 90 degrees?")
     return None  # or raise ValueError("Epsilon out of range")
 
 
-def compute_epsilon(dhi, dni, zenith_rad):
+def compute_epsilon(dni, dhi, zenith):
     """
     Compute the Perez clearness index (ε) used for sky classification.
 
@@ -93,20 +93,23 @@ def compute_epsilon(dhi, dni, zenith_rad):
         float: Perez clearness index ε
     """
 
-    # Avoid division by zero
-    if dhi <= 0:
-        return 999.0  # Arbitrary high number indicating extreme clearness (or no sky model)
-
     # Cosine of zenith angle (used to project DNI onto horizontal plane)
-    cos_zenith = math.cos(zenith_rad)
+    cos_zenith = math.cos(zenith)
 
     # Clearness index formula (Perez 1990)
-    epsilon = (dhi + dni * cos_zenith) / (dhi + 1e-10)
+
+    term1 = dhi + dni * cos_zenith
+    term2 = dhi + 1.041 * math.pow(zenith, 3)
+    epsilon = term1 / term2
+
+    if epsilon < 1.0:
+        # warning(f"Epsilon {epsilon:.3f} is below valid range. Clamping to 1.0.")
+        epsilon = 1.0
 
     return epsilon
 
 
-def perez_relative_luminance(zenith, sun_patch_angle, a, b, c, d, e):
+def per_rel_luminance(sun_zenith, sun_patch_angle, a, b, c, d, e):
     """
     Compute the relative luminance f(θ, γ) of a sky patch using the Perez model.
 
@@ -122,10 +125,10 @@ def perez_relative_luminance(zenith, sun_patch_angle, a, b, c, d, e):
         float
             Relative luminance (unitless)
     """
-    cos_zenith = max(np.cos(zenith), 0.01)  # avoid divide-by-zero
+    cos_sun_zenith = max(np.cos(sun_zenith), 0.001)  # avoid divide-by-zero
     cos_sun_patch_angle = np.cos(sun_patch_angle)
 
-    term1 = 1 + a * np.exp(b / cos_zenith)
+    term1 = 1 + a * np.exp(b / cos_sun_zenith)
     term2 = 1 + c * np.exp(d * sun_patch_angle) + e * cos_sun_patch_angle**2
 
     f = term1 * term2
@@ -133,14 +136,14 @@ def perez_relative_luminance(zenith, sun_patch_angle, a, b, c, d, e):
     return f
 
 
-def compute_norm_factor(dhi, f, zenith_angles, solid_angles):
+def calc_norm_factor(dhi, fs, zenith_angles, solid_angles):
     """
     Compute the Perez normalization factor I from precomputed relative luminance.
 
     Parameters:
         dhi : float
             Diffuse Horizontal Irradiance [W/m²]
-        f : np.ndarray
+        fs : np.ndarray
             Array of unnormalized relative luminance f_i for each patch
         zenith_angles : np.ndarray
             Array of zenith angles θ_i for each patch [radians]
@@ -150,8 +153,8 @@ def compute_norm_factor(dhi, f, zenith_angles, solid_angles):
     Returns:
         float : normalization factor I
     """
-    cos_theta = np.clip(np.cos(zenith_angles), 0.01, 1.0)  # avoid division artifacts
-    weights = f * cos_theta * solid_angles
+    cos_zenith = np.clip(np.cos(zenith_angles), 0.01, 1.0)  # avoid division artifacts
+    weights = fs * cos_zenith * solid_angles
     denominator = np.sum(weights)
 
     if denominator == 0.0:

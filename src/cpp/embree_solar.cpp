@@ -645,6 +645,11 @@ bool EmbreeSolar::Accumulate()
     return true;
 }
 
+bool EmbreeSolar::CalcSkyVectorMatrix()
+{
+    return true;
+}
+
 #ifdef PYTHON_MODULE
 
 namespace py = pybind11;

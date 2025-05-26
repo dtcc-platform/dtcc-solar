@@ -8,6 +8,7 @@ from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
 from dtcc_solar.skydome import Skydome
+from dtcc_core.io import load_city
 
 # from dtcc_model import Mesh, PointCloud
 from dtcc_solar.city import *
@@ -42,41 +43,26 @@ def skydome_test():
     skydome.calc_sky_vector_matrix(sunpath)
 
     sky_vector_matrix = skydome.sky_vector_matrix
-    pp(sky_vector_matrix)
+    sky_vector_matrix_1d = np.sum(sky_vector_matrix, axis=1)
+    svm = np.repeat(sky_vector_matrix_1d, 2)
+    svm = np.append(svm, [svm[-1], svm[-1], svm[-1], svm[-1]])
 
-    skydome.view()
+    per_rel_lum = skydome.per_rel_lumiance
+    per_rel_lum_1d = np.sum(per_rel_lum, axis=1)
+    prl = np.repeat(per_rel_lum_1d, 2)
+    prl = np.append(prl, [prl[-1], prl[-1], prl[-1], prl[-1]])
 
+    print("Sun vector shape: ", sunpath.sunc.sun_vecs.shape)
+    print("Sky vector matrix shape: ", sky_vector_matrix.shape)
 
-def analyse_city(solar_parameters: SolarParameters):
-    print("-------- Solar City Analysis Started -------")
+    print("Skydome faces shape: ", skydome.mesh.faces.shape)
+    print("SVM shape: ", svm.shape)
+    print("PRL shape: ", prl.shape)
 
-    url = (
-        "https://3d.bk.tudelft.nl/opendata/cityjson/3dcities/v2.0/DenHaag_01.city.json"
-    )
-    urlretrieve(url=url, filename="city.json")
-    city = dtcc.load_city("city.json")
-    bld_meshes = get_building_meshes(city)
-    bld_mesh = dtcc.builder.meshing.merge_meshes(bld_meshes)
-    ter_mesh = city.terrain.mesh
-    check_mesh(bld_mesh)
-    check_mesh(ter_mesh)
+    print("SVM: ", np.min(svm), np.max(svm), np.mean(svm))
+    print("PRL: ", np.min(prl), np.max(prl), np.mean(prl))
 
-    move_vec = bld_mesh.vertices.mean()
-    bld_mesh.vertices = bld_mesh.vertices - move_vec
-    bld_mesh.view()
-
-    ter_mesh.vertices = ter_mesh.vertices - move_vec
-    ter_mesh.view()
-
-    p = solar_parameters
-
-    engine = SolarEngine(
-        bld_mesh, sky=Sky.Reinhart580, rays=Rays.Bundle8, center_mesh=True
-    )
-    sunpath = Sunpath(p, engine.sunpath_radius)
-    outputc = OutputCollection()
-    engine.run_analysis(p, sunpath, outputc)
-    engine.view_results(p, sunpath, outputc)
+    skydome.view(data=svm)
 
 
 def analyse_mesh_1(solar_parameters: SolarParameters):
@@ -192,8 +178,7 @@ if __name__ == "__main__":
         sky_analysis=True,
     )
 
-    analyse_mesh_1(p_1)
+    skydome_test()
+    # analyse_mesh_1(p_1)
     # analyse_mesh_2(p_1)
     # analyse_mesh_3(p_1)
-    # analyse_city(p_1)
-    # skydome_test()

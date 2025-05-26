@@ -56,8 +56,6 @@ public:
     std::vector<float> GetAccumulatedAngles();
     std::vector<float> GetAccumulatedOcclusion();
 
-    bool Accumulate();
-
     void Raytrace_occ1(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
     void Raytrace_occ8(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
 
@@ -66,6 +64,9 @@ public:
 
     bool SkyRaytrace_Occ1();
     bool SkyRaytrace_Occ8();
+
+    bool Accumulate();
+    bool CalcSkyVectorMatrix();
 
     void CalcFaceNormals();
     void ErrorFunction(void *userPtr, enum RTCError error, const char *str);
