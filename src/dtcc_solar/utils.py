@@ -480,3 +480,16 @@ def calc_face_mid_points(mesh):
     vertex3 = np.array(mesh.vertices[faceVertexIndex3])
     face_mid_points = (vertex1 + vertex2 + vertex3) / 3.0
     return face_mid_points
+
+
+def map_to_tregenza_faces(data: np.ndarray):
+
+    data = np.array(data)
+    if len(data.shape) == 2:
+        data = np.sum(data, axis=1)
+
+    last = data[-1]
+    data = np.repeat(data, 2)
+    data = np.append(data, [last, last, last, last])
+
+    return data

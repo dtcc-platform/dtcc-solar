@@ -9,8 +9,8 @@ from dtcc_solar.viewer import Viewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
 from dtcc_solar.skydome import Skydome
 from dtcc_core.io import load_city
+from dtcc_core.model import PointCloud
 
-# from dtcc_model import Mesh, PointCloud
 from dtcc_solar.city import *
 from pprint import pp
 
@@ -26,8 +26,8 @@ def skydome_test():
     p = SolarParameters(
         file_name="",
         weather_file=path,
-        start_date="2019-06-01 00:00:00",
-        end_date="2019-06-30 23:00:00",
+        start_date="2019-01-01 00:00:00",
+        end_date="2019-12-30 23:00:00",
         longitude=11.97,
         latitude=57.71,
         data_source=DataSource.epw,
@@ -38,19 +38,23 @@ def skydome_test():
     skydome = Skydome()
     skydome.create_tregenza_mesh()
 
-    sunpath_radius = 10.0
+    sunpath_radius = 2.0
     sunpath = Sunpath(p, sunpath_radius)
     skydome.calc_sky_vector_matrix(sunpath)
 
-    sky_vector_matrix = skydome.sky_vector_matrix
-    sky_vector_matrix_1d = np.sum(sky_vector_matrix, axis=1)
-    svm = np.repeat(sky_vector_matrix_1d, 2)
-    svm = np.append(svm, [svm[-1], svm[-1], svm[-1], svm[-1]])
+    sun_pc = PointCloud(points=sunpath.sunc.positions)
 
     per_rel_lum = skydome.per_rel_lumiance
-    per_rel_lum_1d = np.sum(per_rel_lum, axis=1)
-    prl = np.repeat(per_rel_lum_1d, 2)
-    prl = np.append(prl, [prl[-1], prl[-1], prl[-1], prl[-1]])
+    prl = map_to_tregenza_faces(per_rel_lum)
+
+    absolute_lum = skydome.absolute_luminance
+    abl = map_to_tregenza_faces(absolute_lum)
+
+    sky_vector_matrix = skydome.sky_vector_matrix
+    svm = map_to_tregenza_faces(sky_vector_matrix)
+
+    solid_angles = skydome.solid_angles
+    sa = map_to_tregenza_faces(solid_angles)
 
     print("Sun vector shape: ", sunpath.sunc.sun_vecs.shape)
     print("Sky vector matrix shape: ", sky_vector_matrix.shape)
@@ -62,7 +66,17 @@ def skydome_test():
     print("SVM: ", np.min(svm), np.max(svm), np.mean(svm))
     print("PRL: ", np.min(prl), np.max(prl), np.mean(prl))
 
-    skydome.view(data=svm)
+    dict_data = {
+        "per rel lumiance": prl,
+        "absolute lumiance": abl,
+        "sun vector matrix": svm,
+        "solid angles": sa,
+    }
+
+    for angle in skydome.solid_angles:
+        print(f"Solid angle: {angle:.4f} sr")
+
+    skydome.view(data=dict_data, pc=sun_pc)
 
 
 def analyse_mesh_1(solar_parameters: SolarParameters):

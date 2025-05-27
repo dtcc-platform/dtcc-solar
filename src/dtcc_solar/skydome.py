@@ -1,16 +1,11 @@
 import math
 import numpy as np
 
-from dtcc_core.model import Mesh, LineString, MultiLineString
+from dtcc_core.model import Mesh, LineString, MultiLineString, PointCloud
 from dtcc_viewer import Scene, Window
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import SunCollection
-from dtcc_solar.perez import (
-    get_perez_coeffs,
-    compute_epsilon,
-    per_rel_luminance,
-    calc_norm_factor,
-)
+from dtcc_solar.perez import *
 from dtcc_solar.logging import info, debug, warning, error
 
 
@@ -20,6 +15,7 @@ class Skydome:
     mls: MultiLineString
     sky_vector_matrix: np.ndarray
     per_rel_lumiance: np.ndarray
+    absolute_luminance: np.ndarray
 
     def __init__(self):
         self.vertices = []
@@ -162,12 +158,11 @@ class Skydome:
 
         self.mls = MultiLineString(linestrings=line_strings)
 
-    def view(self, data=None):
-        self.create_dirvector_mls(self.quad_midpoints, self.ray_dirs)
+    def view(self, data=None, pc: PointCloud = None):
         window = Window(1200, 800)
         scene = Scene()
         scene.add_mesh("Skydome", self.mesh, data=data)
-        scene.add_multilinestring("Skydome rays", self.mls)
+        scene.add_pointcloud("Sun positions", pc, size=0.01)
         window.render(scene)
 
     def solid_angle(self, elev1, elev2, azim1, azim2):
@@ -199,82 +194,57 @@ class Skydome:
         dni = sunpath.sunc.dni
         dhi = sunpath.sunc.dhi
         sun_zenith = sunpath.sunc.zeniths
-        solid_angles = np.array(self.solid_angles)
 
-        sky_vec_mat = np.zeros([len(self.ray_dirs), len(sun_vecs)])
         pre_rel_lum = np.zeros([len(self.ray_dirs), len(sun_vecs)])
+        absolute_lum = np.zeros([len(self.ray_dirs), len(sun_vecs)])
+        sky_vec_mat = np.zeros([len(self.ray_dirs), len(sun_vecs)])
 
-        zvec = np.array([0.0, 0.0, 1.0])
+        solid_angles = np.array(self.solid_angles)
 
         for i in range(len(sun_vecs)):
             # For each sun position compuite the radiation on each patch
             if dhi[i] > 0.0 and sun_zenith[i] < np.pi / 2.0:
-                epsilon = compute_epsilon(dni[i], dhi[i], sun_zenith[i])
-                [a, b, c, d, e] = get_perez_coeffs(epsilon)
+                epsilon = compute_sky_clearness(dni[i], dhi[i], sun_zenith[i])
+                [A, B, C, D, E] = get_perez_coefficients(epsilon)
 
-                fs = []
-                patch_zeniths = []
+                Fs = []  # List to store the relative luminance for each patch
                 # Compute the radiation for each ray (i.e. each sky patch)
                 for j in range(len(self.ray_dirs)):
                     ray_dir = np.array(self.ray_dirs[j])
                     sun_patch_dot = np.dot(sun_vecs[i], ray_dir)
                     sun_patch_angle = math.acos(sun_patch_dot)
 
-                    f = per_rel_luminance(sun_zenith[i], sun_patch_angle, a, b, c, d, e)
+                    F = perez_rel_lum(sun_zenith[i], sun_patch_angle, A, B, C, D, E)
+                    Fs.append(F)
 
-                    fs.append(f)
+                Fs = np.array(Fs)
 
-                    patch_zenith_dot = np.dot(zvec, ray_dir)
-                    patch_zenith = math.acos(patch_zenith_dot)
-                    patch_zeniths.append(patch_zenith)
+                # Compute relative luminance for patch perpendicular to the sun vector
+                Fnorm = perez_rel_lum_zenith(sun_zenith[i], A, B, C, D, E)
 
-                patch_zeniths = np.array(patch_zeniths)
-                fs = np.array(fs)
+                # Compute the zenith luminance in cd/m²
+                # Yz = compute_zenith_luminance_1(dhi[i], sun_zenith[i])
 
-                norm_factor = calc_norm_factor(dhi[i], fs, patch_zeniths, solid_angles)
-                print(f"Sun {i}, normalization factor: {norm_factor:.2f}")
-                pre_rel_lum[:, i] = fs
-                sky_vec_mat[:, i] = norm_factor * fs * solid_angles
+                # Compute the zenith luminance in W/m²/sr
+                Yz = compute_zenith_luminance_2(dhi[i], sun_zenith[i])
 
-                # Check total diffuse energy matches
-                energy = np.sum(sky_vec_mat[:, i])
-                print(f"Sun {i}, diffuse energy: {energy:.2f}, expected: {dhi[i]:.2f}")
+                # Absolute luminance for patch i
+                Li = Yz * (Fs / Fnorm)
 
-                self.validate_sky_normalization(fs, patch_zeniths, solid_angles)
+                pre_rel_lum[:, i] = Fs
+                absolute_lum[:, i] = Li
+                sky_vec_mat[:, i] = Li * solid_angles
+
+                # Normalize relative luminance so that it sums to 1.0
+                Fs_norm = normalize_relative_luminance(Fs, target=1.0)
 
             else:
                 # If no diffuse radiation, set to zero
                 pre_rel_lum[:, i] = 0.0
+                absolute_lum[:, i] = 0.0
                 sky_vec_mat[:, i] = 0.0
 
         # Store as class attributes
         self.per_rel_lumiance = pre_rel_lum
+        self.absolute_luminance = absolute_lum
         self.sky_vector_matrix = sky_vec_mat
-
-    def validate_sky_normalization(
-        self, f: np.ndarray, zenith_angles: np.ndarray, solid_angles: np.ndarray
-    ):
-        """
-        Validate that the Perez relative luminance distribution is correctly normalized.
-
-        Parameters:
-            f : np.ndarray
-                Array of relative luminance values for each patch
-            zenith_angles : np.ndarray
-                Array of zenith angles for each patch [radians]
-            solid_angles : np.ndarray
-                Array of solid angles for each patch [steradians]
-
-        Prints:
-            - Normalization integral
-            - Deviation from 1.0
-        """
-        cos_zenith = np.clip(np.cos(zenith_angles), 0.0, 1.0)
-        weights = f * cos_zenith * solid_angles
-        integral = np.sum(weights)
-
-        print(f"Perez sky normalization check:")
-        print(f"∑(f * cos(θ) * dΩ) = {integral:.6f}")
-        print(f"Deviation from 1.0: {abs(1.0 - integral):.6f}")
-
-        return integral

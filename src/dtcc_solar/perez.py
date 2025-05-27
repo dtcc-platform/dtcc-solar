@@ -2,162 +2,206 @@ import math
 import numpy as np
 from dtcc_solar.logging import info, debug, warning, error
 
-perez_coeffs = {
-    1: {
-        "epsilon_range": (1.000, 1.065),
-        "a": -1.000,
-        "b": -0.3185,
-        "c": 10.1100,
-        "d": -3.000,
-        "e": 0.450,
-    },
-    2: {
-        "epsilon_range": (1.065, 1.230),
-        "a": -0.9585,
-        "b": -0.2515,
-        "c": 8.6000,
-        "d": -1.500,
-        "e": 0.3086,
-    },
-    3: {
-        "epsilon_range": (1.230, 1.500),
-        "a": -0.7760,
-        "b": -0.1623,
-        "c": 6.4000,
-        "d": -0.750,
-        "e": 0.2538,
-    },
-    4: {
-        "epsilon_range": (1.500, 1.950),
-        "a": -0.5690,
-        "b": -0.0539,
-        "c": 3.8000,
-        "d": -0.250,
-        "e": 0.1774,
-    },
-    5: {
-        "epsilon_range": (1.950, 2.800),
-        "a": -0.3277,
-        "b": 0.0653,
-        "c": 1.5000,
-        "d": 0.000,
-        "e": 0.1062,
-    },
-    6: {
-        "epsilon_range": (2.800, 4.500),
-        "a": -0.2500,
-        "b": 0.1500,
-        "c": 0.0000,
-        "d": 0.000,
-        "e": 0.0000,
-    },
-    7: {
-        "epsilon_range": (4.500, 6.200),
-        "a": -0.1500,
-        "b": 0.3000,
-        "c": -1.2500,
-        "d": 0.000,
-        "e": 0.0000,
-    },
-    8: {
-        "epsilon_range": (6.200, float("inf")),
-        "a": -0.1000,
-        "b": 0.4000,
-        "c": -2.5000,
-        "d": 0.000,
-        "e": 0.0000,
-    },
-}
 
-
-def get_perez_coeffs(epsilon):
-    for sky_type, data in perez_coeffs.items():
-        lower, upper = data["epsilon_range"]
-        if lower <= epsilon <= upper:
-            return [data["a"], data["b"], data["c"], data["d"], data["e"]]
-        elif epsilon < lower:
-            warning("Epsilon value out of range (1.0-inf), is zenith > 90 degrees?")
-    return None  # or raise ValueError("Epsilon out of range")
-
-
-def compute_epsilon(dni, dhi, zenith):
+def get_perez_coefficients(epsilon):
     """
-    Compute the Perez clearness index (ε) used for sky classification.
+    Retrieve Perez model coefficients (A, B, C, D, E) based on sky clearness ε
+    Input:
+        epsilon: Sky clearness ε (unitless)
+    Returns:
+        Tuple (A, B, C, D, E)
+    """
+    # Table from Perez et al. (1990)
+    perez_bins = [
+        (1.065, -1.0, -0.32, 10.0, -3.0, 0.45),
+        (1.230, -0.95, -0.29, 9.8, -2.9, 0.43),
+        (1.500, -0.90, -0.26, 9.5, -2.8, 0.41),
+        (1.950, -0.80, -0.23, 9.0, -2.6, 0.38),
+        (2.800, -0.60, -0.15, 8.0, -2.3, 0.34),
+        (4.500, -0.30, -0.06, 6.5, -1.7, 0.27),
+        (6.200, 0.00, 0.00, 5.0, -1.0, 0.20),
+        (float("inf"), 0.30, 0.05, 3.0, -0.5, 0.10),
+    ]
+
+    for threshold, A, B, C, D, E in perez_bins:
+        if epsilon <= threshold:
+            return A, B, C, D, E
+
+    raise ValueError("Clearness value is out of expected range.")
+
+
+def compute_sky_clearness(dni, dhi, sun_zenith_rad):
+    """
+    Compute Perez sky clearness ε for the sky luminance distribution model.
 
     Parameters:
-        dhi (float): Diffuse Horizontal Irradiance [W/m²]
-        dni (float): Direct Normal Irradiance [W/m²]
-        zenith_rad (float): Solar zenith angle [radians]
+    - dni: Direct normal irradiance (W/m²)
+    - dhi: Diffuse horizontal irradiance (W/m²)
+    - sun_zenith_rad: Solar zenith angle in radians
 
     Returns:
-        float: Perez clearness index ε
+    - epsilon: Sky clearness (unitless)
     """
+    if dhi <= 0:
+        return float("inf")  # Defined as perfectly clear in the model
 
-    # Cosine of zenith angle (used to project DNI onto horizontal plane)
-    cos_zenith = math.cos(zenith)
-
-    # Clearness index formula (Perez 1990)
-
-    term1 = dhi + dni * cos_zenith
-    term2 = dhi + 1.041 * math.pow(zenith, 3)
-    epsilon = term1 / term2
-
-    if epsilon < 1.0:
-        # warning(f"Epsilon {epsilon:.3f} is below valid range. Clamping to 1.0.")
-        epsilon = 1.0
-
+    epsilon = (dni / dhi + 1.041 * sun_zenith_rad**3) / (1 + 1.041 * sun_zenith_rad**3)
     return epsilon
 
 
-def per_rel_luminance(sun_zenith, sun_patch_angle, a, b, c, d, e):
+def compute_zenith_luminance_1(dhi, sun_zenith):
     """
-    Compute the relative luminance f(θ, γ) of a sky patch using the Perez model.
+    Compute zenith luminance Yz using Perez Option A formula.
 
     Parameters:
-        zenith : float
-            Zenith angle of the patch (in radians, 0 at zenith, π/2 at horizon)
-        sun_patch_angle : float
-            Angle between sun vector and patch direction (in radians)
-        a, b, c, d, e : float
-            Perez sky model coefficients
+    - dhi: Diffuse horizontal irradiance (W/m²)
+    - sun_zenith_rad: Solar zenith angle in radians
 
     Returns:
-        float
-            Relative luminance (unitless)
+    - Yz: Zenith luminance in cd/m²
     """
-    cos_sun_zenith = max(np.cos(sun_zenith), 0.001)  # avoid divide-by-zero
-    cos_sun_patch_angle = np.cos(sun_patch_angle)
-
-    term1 = 1 + a * np.exp(b / cos_sun_zenith)
-    term2 = 1 + c * np.exp(d * sun_patch_angle) + e * cos_sun_patch_angle**2
-
-    f = term1 * term2
-
-    return f
+    term = 0.91 + 10 * math.exp(-3 * sun_zenith) + 0.45 * math.cos(sun_zenith) ** 2
+    Yz = (1000 / math.pi) * dhi * term
+    return Yz
 
 
-def calc_norm_factor(dhi, fs, zenith_angles, solid_angles):
+def compute_zenith_luminance_2(dhi, sun_zenith):
     """
-    Compute the Perez normalization factor I from precomputed relative luminance.
+    Compute zenith luminance Yz in W/m²/sr using Perez Option A.
+    """
+    term = 0.91 + 10 * math.exp(-3 * sun_zenith) + 0.45 * math.cos(sun_zenith) ** 2
+    Yz = dhi / math.pi * term
+    return Yz
+
+
+def calculate_air_mass(zenith_deg):
+    """
+    Calculates the relative air mass using Kasten and Young's formula.
+    Input:
+        zenith_deg: solar zenith angle in degrees
+    Returns:
+        air mass (unitless)
+    """
+    if zenith_deg >= 90:
+        return float("inf")  # sun below horizon
+    z = zenith_deg
+    return 1 / (math.cos(math.radians(z)) + 0.50572 * (96.07995 - z) ** -1.6364)
+
+
+def compute_sky_brightness(dhi, zenith_deg, ext=1367):
+    """
+    Computes the sky brightness Δ.
+    Inputs:
+        dhi: Diffuse horizontal irradiance (W/m²)
+        zenith_deg: Solar zenith angle in degrees
+        ext: Extraterrestrial solar irradiance (W/m²), default 1367
+    Returns:
+        Brightness Δ (unitless)
+    """
+    m = calculate_air_mass(zenith_deg)
+    return (dhi * m) / ext
+
+
+def perez_rel_lum(patch_zenith, sun_patch_angle, A, B, C, D, E):
+    """
+    Computes the Perez relative luminance distribution function F(θ, γ).
+
+    Inputs:
+        patch_zenith: Zenith angle θ for sky patch (radians)
+        sun_patch_angle: Angle between sky patch and sun (radians)
+        A-E: Perez coefficients
+    Returns:
+        Relative luminance factor F (unitless)
+    """
+    cos_patch_zenith = math.cos(patch_zenith)
+    if cos_patch_zenith == 0:
+        cos_patch_zenith = 1e-6  # avoid division by zero
+
+    term1 = 1 + A * math.exp(B / cos_patch_zenith)
+    term2 = 1 + C * math.exp(D * sun_patch_angle) + E * math.cos(sun_patch_angle) ** 2
+    return term1 * term2
+
+
+def perez_rel_lum_zenith(sun_zenith, A, B, C, D, E):
+    """
+    Computes the relative luminance Fz(θ, γ) for the zenith patch.
+
+    Inputs:
+        sun_zenith: Zenith angle for the sun (radians)
+        A-E: Perez coefficients
+    Returns:
+        Relative luminance at zenith (unitless)
+    """
+    term1 = 1 + A * np.exp(B)
+    term2 = 1 + C * np.exp(D * sun_zenith) + E * (np.cos(sun_zenith) ** 2)
+    return term1 * term2
+
+
+def lux_to_irradiance(lux, efficacy=112):
+    """
+    Convert illuminance (lux) to irradiance (W/m²).
 
     Parameters:
-        dhi : float
-            Diffuse Horizontal Irradiance [W/m²]
-        fs : np.ndarray
-            Array of unnormalized relative luminance f_i for each patch
-        zenith_angles : np.ndarray
-            Array of zenith angles θ_i for each patch [radians]
-        solid_angles : np.ndarray
-            Array of solid angles ΔΩ_i for each patch [steradians]
+    - lux: Illuminance in lux (lm/m²)
+    - efficacy: Luminous efficacy in lumens per watt (lm/W), default for daylight = 112
 
     Returns:
-        float : normalization factor I
+    - Irradiance in W/m²
     """
-    cos_zenith = np.clip(np.cos(zenith_angles), 0.01, 1.0)  # avoid division artifacts
-    weights = fs * cos_zenith * solid_angles
-    denominator = np.sum(weights)
+    return lux / efficacy
 
-    if denominator == 0.0:
-        return 0.0  # or raise an error if desired
 
-    return dhi / denominator
+def normalize_relative_luminance(Fs, weights=None, target=1.0):
+    """
+    Normalize the relative luminance values so they sum to a target total.
+
+    Inputs:
+        Fs           : ndarray of relative luminance values (unitless)
+        weights      : optional solid angle weights for each patch (same shape as l_rel)
+        target       : desired sum after normalization
+
+    Returns:
+        Normalized relative luminance ndarray.
+    """
+    if weights is None:
+        weights = np.ones_like(Fs)
+
+    weighted_sum = np.sum(Fs * weights)
+    if weighted_sum <= 0:
+        raise ValueError("Sum of weighted luminance must be positive.")
+
+    scale = target / weighted_sum
+    return Fs * scale
+
+
+def check_azimuthal_symmetry(Fs, patch_zenith, patch_azimuth, sun_azimuth):
+    """
+    Check symmetry of sky relative luminance with respect to sun azimuth.
+
+    Inputs:
+        F           : array of luminance values (same shape as theta, phi)
+        theta       : array of patch zenith angles (radians)
+        phi         : array of azimuth angles (radians)
+        sun_azimuth : sun azimuth angle (radians)
+
+    Returns:
+        mean_abs_diff : mean absolute luminance difference between mirror patches
+        max_abs_diff  : maximum absolute difference
+        summary       : text summary
+    """
+    phi_mirror = (2 * sun_azimuth - patch_azimuth) % (2 * np.pi)
+
+    # Find indices of closest match for mirror directions
+    def find_mirror_indices(phi_array, phi_target):
+        return np.argmin(np.abs(phi_array[:, None] - phi_target[None, :]), axis=0)
+
+    mirror_idx = find_mirror_indices(patch_azimuth, phi_mirror)
+
+    l_mirror = Fs[mirror_idx]
+    diff = np.abs(Fs - l_mirror)
+
+    mean_diff = np.mean(diff)
+    max_diff = np.max(diff)
+
+    summary = f"Symmetry check:\n  Mean abs diff: {mean_diff:.3f}\n  Max abs diff: {max_diff:.3f}"
+    return mean_diff, max_diff, summary
