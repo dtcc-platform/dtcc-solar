@@ -7,10 +7,11 @@ from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
-from dtcc_solar.skydome import Skydome
+from dtcc_solar.tregenza import Tregenza
+from dtcc_solar.reinhart import Reinhart
 from dtcc_core.io import load_city
 from dtcc_core.model import PointCloud
-
+from dtcc_solar.perez import *
 from dtcc_solar.city import *
 from pprint import pp
 
@@ -18,7 +19,7 @@ import numpy as np
 from urllib.request import urlretrieve
 
 
-def skydome_test():
+def tregenza_test():
     print("-------- Skydome Test -------")
 
     path = "../../../data/weather/SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.epw"
@@ -35,48 +36,35 @@ def skydome_test():
         sky_analysis=True,
     )
 
-    skydome = Skydome()
-    skydome.create_tregenza_mesh()
+    skydome = Reinhart()
+    skydome.create_mesh()
 
     sunpath_radius = 2.0
     sunpath = Sunpath(p, sunpath_radius)
-    skydome.calc_sky_vector_matrix(sunpath)
+    perez_results = calc_sky_matrix(sunpath, skydome)
 
     sun_pc = PointCloud(points=sunpath.sunc.positions)
 
-    per_rel_lum = skydome.per_rel_lumiance
-    prl = map_to_tregenza_faces(per_rel_lum)
+    rel_lum = perez_results.relative_luminance
+    rel_lum = skydome.map_data_to_faces(rel_lum)
 
-    absolute_lum = skydome.absolute_luminance
-    abl = map_to_tregenza_faces(absolute_lum)
+    abs_lum = perez_results.absolute_luminance
+    abs_lum = skydome.map_data_to_faces(abs_lum)
 
-    sky_vector_matrix = skydome.sky_vector_matrix
-    svm = map_to_tregenza_faces(sky_vector_matrix)
+    sky_mat = perez_results.sky_vector_matrix
+    sky_mat = skydome.map_data_to_faces(sky_mat)
 
-    solid_angles = skydome.solid_angles
-    sa = map_to_tregenza_faces(solid_angles)
-
-    print("Sun vector shape: ", sunpath.sunc.sun_vecs.shape)
-    print("Sky vector matrix shape: ", sky_vector_matrix.shape)
-
-    print("Skydome faces shape: ", skydome.mesh.faces.shape)
-    print("SVM shape: ", svm.shape)
-    print("PRL shape: ", prl.shape)
-
-    print("SVM: ", np.min(svm), np.max(svm), np.mean(svm))
-    print("PRL: ", np.min(prl), np.max(prl), np.mean(prl))
+    solid_angles = perez_results.solid_angles
+    sa = skydome.map_data_to_faces(solid_angles)
 
     dict_data = {
-        "per rel lumiance": prl,
-        "absolute lumiance": abl,
-        "sun vector matrix": svm,
+        "relative lumiance": rel_lum,
+        "absolute lumiance": abs_lum,
+        "sky matrix": sky_mat,
         "solid angles": sa,
     }
 
-    for angle in skydome.solid_angles:
-        print(f"Solid angle: {angle:.4f} sr")
-
-    skydome.view(data=dict_data, pc=sun_pc)
+    skydome.view(name="Skydome", data=dict_data, sun_pos_pc=sun_pc)
 
 
 def analyse_mesh_1(solar_parameters: SolarParameters):
@@ -192,7 +180,7 @@ if __name__ == "__main__":
         sky_analysis=True,
     )
 
-    skydome_test()
+    tregenza_test()
     # analyse_mesh_1(p_1)
     # analyse_mesh_2(p_1)
     # analyse_mesh_3(p_1)

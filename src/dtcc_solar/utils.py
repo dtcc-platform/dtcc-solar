@@ -482,7 +482,25 @@ def calc_face_mid_points(mesh):
     return face_mid_points
 
 
+def map_to_reinhart_faces(data: np.ndarray):
+    if len(data) != 580:
+        raise ValueError("Data must have exactly 580 elements for Reinhart mapping.")
+
+    data = np.array(data)
+    if len(data.shape) == 2:
+        data = np.sum(data, axis=1)
+
+    sub_data1, sub_data2 = np.split(data, 576)
+
+    data = np.repeat(sub_data1, 2)  # Repeat each element twice for quads (2 triangels)
+    data = np.append(data, sub_data2)  # Add data for last 4 triangels
+
+    return data
+
+
 def map_to_tregenza_faces(data: np.ndarray):
+    if len(data) != 145:
+        raise ValueError("Data must have exactly 145 elements for Tregenza mapping.")
 
     data = np.array(data)
     if len(data.shape) == 2:
