@@ -498,3 +498,31 @@ def calc_face_mid_points(mesh):
     vertex3 = np.array(mesh.vertices[faceVertexIndex3])
     face_mid_points = (vertex1 + vertex2 + vertex3) / 3.0
     return face_mid_points
+
+
+def calc_face_normals(mesh):
+    """
+    Compute unit normal vectors for each face in the mesh.
+
+    Parameters:
+        mesh: An object with `vertices` (N x 3) and `faces` (M x 3) arrays.
+
+    Returns:
+        normals: (M x 3) array of unit normal vectors.
+    """
+    v0 = mesh.vertices[mesh.faces[:, 0]]
+    v1 = mesh.vertices[mesh.faces[:, 1]]
+    v2 = mesh.vertices[mesh.faces[:, 2]]
+
+    # Compute vectors for two edges of each triangle
+    edge1 = v1 - v0
+    edge2 = v2 - v0
+
+    # Compute cross product to get face normals
+    normals = np.cross(edge1, edge2)
+
+    # Normalize each normal vector to unit length
+    norms = np.linalg.norm(normals, axis=1, keepdims=True)
+    normals = normals / np.where(norms == 0, 1, norms)  # Prevent division by zero
+
+    return normals

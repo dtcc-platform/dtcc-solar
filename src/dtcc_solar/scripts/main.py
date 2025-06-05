@@ -20,7 +20,7 @@ def analyse_city(solar_parameters: SolarParameters):
     p.file_name = "../../../data/models/denhaag.city.json"
     city = dtcc_io.load_cityjson(p.file_name)
 
-    bld_mesh, parts = generate_building_mesh_2(city, subdee_length=3.5)
+    bld_mesh, parts = generate_building_mesh_2(city)
     ter_mesh = get_terrain_mesh(city)
     # terrain_mesh = reduce_mesh(terrain_mesh, 0.95)
 
@@ -33,15 +33,15 @@ def analyse_city(solar_parameters: SolarParameters):
     engine.run_analysis(p, sunpath, outputc)
     engine.view_results(p, sunpath, outputc)
 
-    p.export = False
+    p.export = True
     if p.export:
         filename = "../../../data/output/test.json"
         export_mesh_to_json(
             bld_mesh,
             parts,
-            outputc.data_1["total irradiation (kWh/m2)"],
-            outputc.data_1["face sun angles (rad)"],
-            outputc.data_1["sun hours [h]"],
+            outputc.irradiance_di[outputc.data_mask],
+            outputc.face_sun_angles[outputc.data_mask],
+            outputc.sun_hours[outputc.data_mask],
             filename,
         )
 
@@ -97,6 +97,39 @@ def analyse_mesh_3(solar_parameters: SolarParameters):
     outputc = OutputCollection()
     engine.run_analysis(p, sunpath, outputc)
     engine.view_results(p, sunpath, outputc)
+
+
+def analyse_mesh_4():
+
+    print("-------- Solar Mesh Analysis Started -------")
+
+    inputfile_S = "../../../data/models/CitySurfaceS.stl"
+    epw_file = "../../../data/weather/BGR_SF_Sofia.Intl.AP.156140_TMYx.2007-2021.epw"
+    export_path = "../../../data/output/CitySurfaceS_Results.json"
+
+    p = SolarParameters(
+        file_name=inputfile_S,
+        weather_file=epw_file,
+        start_date="2019-07-15 13:00:00",
+        end_date="2019-07-15 17:00:00",
+        longitude=43.695,
+        latitude=23.406,
+        data_source=DataSource.epw,
+        sun_analysis=True,
+        sky_analysis=True,
+        sun_approx=SunApprox.group,
+    )
+
+    mesh = meshes.load_mesh(p.file_name)
+
+    # Setup model, run analysis and view results
+    engine = SolarEngine(mesh, sky=Sky.Reinhart580)
+    sunpath = Sunpath(p, engine.sunpath_radius)
+    outputc = OutputCollection()
+    engine.run_analysis(p, sunpath, outputc)
+    engine.view_results(p, sunpath, outputc)
+
+    export_guid_and_results_to_json(mesh, p, outputc, export_path)
 
 
 if __name__ == "__main__":
@@ -165,4 +198,5 @@ if __name__ == "__main__":
     # analyse_mesh_1(p_1)
     # analyse_mesh_2(p_1)
     # analyse_mesh_3(p_1)
-    analyse_city(p_1)
+    analyse_mesh_4()
+    # analyse_city(p_1)

@@ -86,7 +86,7 @@ def date_match(api_date, sun_date):
     api_day = api_date[0:10]
     sun_day = sun_date[0:10]
     api_time = api_date[11:19]
-    sun_time = api_date[11:19]
+    sun_time = sun_date[11:19]
 
     if api_day == sun_day and api_time == sun_time:
         return True

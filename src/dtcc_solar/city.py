@@ -5,7 +5,7 @@ from typing import List, Dict, Tuple
 from dtcc_model import Mesh, GeometryType, MultiSurface, Surface
 from dtcc_model import City, Building, Terrain
 from dtcc_solar.utils import subdivide_mesh, is_mesh_valid, SolarParameters
-from dtcc_solar.utils import OutputCollection
+from dtcc_solar.utils import OutputCollection, calc_face_normals
 from dtcc_solar.logging import info, debug, warning, error
 from enum import Enum, IntEnum
 
@@ -273,7 +273,6 @@ def export_results_to_json(
         "start_date": p.start_date,
         "end_date": p.end_date,
         "data_source": p.data_source,
-        "sun_approximation": p.sun_approx,
         "latitude": p.latitude,
         "longitude": p.longitude,
         "data_source": p.data_source,
@@ -282,6 +281,68 @@ def export_results_to_json(
 
     # Create the structure to hold the mesh data
     results_data = {
+        "SkyViewFactor": svf.tolist(),
+        "SunHours": sun_hours.tolist(),
+        "DirectIrradiation": direct.tolist(),
+        "DiffuseIrradiation": diffuse.tolist(),
+        "Parameters": parameters,
+    }
+
+    # Write the data to a JSON file
+    with open(filename, "w") as json_file:
+        json.dump(results_data, json_file, indent=4)
+
+    info(f"Results exported successfully")
+
+
+def export_guid_and_results_to_json(
+    mesh: Mesh, p: SolarParameters, outputc: OutputCollection, filename
+):
+    """Export a mesh and its associated data to a JSON file."""
+
+    info(f"Exporting mesh to {filename}")
+
+    svf = outputc.sky_view_factor[outputc.data_mask]
+    sun_hours = outputc.sun_hours[outputc.data_mask]
+    direct = outputc.dni[outputc.data_mask] / 1000.0
+    diffuse = outputc.dhi[outputc.data_mask] / 1000.0
+
+    face_mpts = np.mean(mesh.vertices[mesh.faces], axis=1)
+    face_normals = calc_face_normals(mesh)
+
+    guid_mpt = [f"{{{', '.join(f'{val:.4f}' for val in row)}}}" for row in face_mpts]
+
+    guid_nrl = [f"{{{', '.join(f'{val:.4f}' for val in row)}}}" for row in face_normals]
+
+    guid_combined = [f"{a},{b}" for a, b in zip(guid_mpt, guid_nrl)]
+
+    print(f"GUIDs: {guid_combined}")
+
+    face_count = len(mesh.faces)
+
+    # Ensure the length of data lists matches the number of faces
+    assert len(svf) == face_count
+    assert len(sun_hours) == face_count
+    assert len(direct) == face_count
+    assert len(diffuse) == face_count
+
+    parameters = {
+        "file_name": p.file_name,
+        "sun_analysis": p.sun_analysis,
+        "sky_analysis": p.sky_analysis,
+        "sun_approx": p.sun_approx,
+        "start_date": p.start_date,
+        "end_date": p.end_date,
+        "data_source": p.data_source,
+        "latitude": p.latitude,
+        "longitude": p.longitude,
+        "data_source": p.data_source,
+        "weather_data": p.weather_file,
+    }
+
+    # Create the structure to hold the mesh data
+    results_data = {
+        "GUID": guid_combined,
         "SkyViewFactor": svf.tolist(),
         "SunHours": sun_hours.tolist(),
         "DirectIrradiation": direct.tolist(),
