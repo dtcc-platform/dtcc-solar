@@ -4,6 +4,19 @@ from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.skydome import Skydome
 from dataclasses import dataclass, field
+from dtcc_solar.perez_complete_coeffs import calc_perez_coeffs, calc_zenith_lum_coeffs
+from dtcc_solar.perez_simple_coeffs import get_perez_coeffs
+import matplotlib.pyplot as plt
+
+"""
+Perez sky luminance distribution model implementation.
+This module implements the Perez model for sky luminance distribution,
+which is used to calculate the luminance of different patches of the sky
+based on the position of the sun and sky conditions.
+It includes functions to compute sky clearness, zenith luminance,
+relative luminance, and absolute luminance for sky patches.
+It also provides a data class to store the results of the calculations.
+"""
 
 
 @dataclass
@@ -20,33 +33,14 @@ class PerezResults:
     absolute_luminance: np.ndarray = field(default_factory=lambda: np.empty(0))
     # 1D array of solid angles (steradians) for each patch [n]
     solid_angles: np.ndarray = field(default_factory=lambda: np.empty(0))
-
-
-def get_perez_coefficients(epsilon):
-    """
-    Retrieve Perez model coefficients (A, B, C, D, E) based on sky clearness ε
-    Input:
-        epsilon: Sky clearness ε (unitless)
-    Returns:
-        Tuple (A, B, C, D, E)
-    """
-    # Table from Perez et al. (1990)
-    perez_bins = [
-        (1.065, -1.0, -0.32, 10.0, -3.0, 0.45),
-        (1.230, -0.95, -0.29, 9.8, -2.9, 0.43),
-        (1.500, -0.90, -0.26, 9.5, -2.8, 0.41),
-        (1.950, -0.80, -0.23, 9.0, -2.6, 0.38),
-        (2.800, -0.60, -0.15, 8.0, -2.3, 0.34),
-        (4.500, -0.30, -0.06, 6.5, -1.7, 0.27),
-        (6.200, 0.00, 0.00, 5.0, -1.0, 0.20),
-        (float("inf"), 0.30, 0.05, 3.0, -0.5, 0.10),
-    ]
-
-    for threshold, A, B, C, D, E in perez_bins:
-        if epsilon <= threshold:
-            return A, B, C, D, E
-
-    raise ValueError("Clearness value is out of expected range.")
+    # Relative luminance term1 (unitless) for Perez model
+    rel_lum_term1: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Relative luminance term2 (unitless) for Perez model
+    rel_lum_term2: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Ksi angles (zenith angles in radians) for each patch and timestep
+    ksis: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Gamma angles (angle between sun and patch in radians) for each patch and timestep
+    gammas: np.ndarray = field(default_factory=lambda: np.empty(0))
 
 
 def compute_sky_clearness(dni, dhi, sun_zenith_rad):
@@ -65,6 +59,10 @@ def compute_sky_clearness(dni, dhi, sun_zenith_rad):
         return float("inf")  # Defined as perfectly clear in the model
 
     epsilon = (dni / dhi + 1.041 * sun_zenith_rad**3) / (1 + 1.041 * sun_zenith_rad**3)
+
+    # Clamp epsilon to the range [1.0, 6.3] as per Perez model
+    epsilon = max(1.0, min(epsilon, 12.0))
+
     return epsilon
 
 
@@ -93,67 +91,84 @@ def compute_zenith_luminance_2(dhi, sun_zenith):
     return Yz
 
 
-def calculate_air_mass(zenith_deg):
+def calc_zenith_luminance_3(epsilon, delta, dhi, Z) -> float:
     """
-    Calculates the relative air mass using Kasten and Young's formula.
+    Calculate zenith luminance using eqiation (10) in Perez 1990.
+
+    Parameters:
+        dhi: Diffuse horizontal irradiance (W/m²)
+        Z: Solar zenith angle (radians)
+        epsilon: Sky clearness ε (unitless)
+        delta: Sky brightness Δ (unitless)
+    """
+
+    [ai, ci, cip, di] = calc_zenith_lum_coeffs(epsilon)
+
+    Lvz = dhi * (ai + ci * math.cos(Z) + cip * math.exp(-3 * Z) + di * delta)
+
+    return Lvz
+
+
+def calculate_air_mass(sun_zenith):
+    """
+    Calculates the relative air mass using Kasten, F. 1966.
     Input:
-        zenith_deg: solar zenith angle in degrees
+        sun_zenith: solar zenith angle in radians
     Returns:
         air mass (unitless)
     """
-    if zenith_deg >= 90:
+    if math.degrees(sun_zenith) >= 90:
         return float("inf")  # sun below horizon
-    z = zenith_deg
-    return 1 / (math.cos(math.radians(z)) + 0.50572 * (96.07995 - z) ** -1.6364)
+    z = sun_zenith
+
+    m = 1.0 / (math.cos(z) + 0.15 * pow((93.885 - math.degrees(z)), -1.253))
+
+    return m
 
 
-def compute_sky_brightness(dhi, zenith_deg, ext=1367):
+def compute_sky_brightness(dhi, m, epsilon, ext=1367):
     """
     Computes the sky brightness Δ.
     Inputs:
         dhi: Diffuse horizontal irradiance (W/m²)
-        zenith_deg: Solar zenith angle in degrees
+        m: Relative air mass (unitless)
         ext: Extraterrestrial solar irradiance (W/m²), default 1367
     Returns:
         Brightness Δ (unitless)
     """
-    m = calculate_air_mass(zenith_deg)
-    return (dhi * m) / ext
+
+    delta = (m * dhi) / ext
+
+    if epsilon < 1.065:
+        delta = min(delta, 1.5)
+
+    # Clamping found in radiance code
+    # if epsilon > 1.065 and epsilon < 2.8:
+    #    if delta < 0.2:
+    #        delta = 0.2
+
+    return delta
 
 
-def perez_rel_lum(patch_zenith, sun_patch_angle, A, B, C, D, E):
+def perez_rel_lum(ksi, gamma, A, B, C, D, E):
     """
     Computes the Perez relative luminance distribution function F(θ, γ).
 
     Inputs:
-        patch_zenith: Zenith angle θ for sky patch (radians)
-        sun_patch_angle: Angle between sky patch and sun (radians)
+        ksi: Zenith angle θ for sky patch (radians)
+        gamma: Angle between sky patch and sun (radians)
         A-E: Perez coefficients
     Returns:
         Relative luminance factor F (unitless)
     """
-    cos_patch_zenith = math.cos(patch_zenith)
-    if cos_patch_zenith == 0:
-        cos_patch_zenith = 1e-6  # avoid division by zero
 
-    term1 = 1 + A * math.exp(B / cos_patch_zenith)
-    term2 = 1 + C * math.exp(D * sun_patch_angle) + E * math.cos(sun_patch_angle) ** 2
-    return term1 * term2
+    # Ensure cos_ksi is not too small to avoid numerical issues
+    cos_ksi = max(math.cos(ksi), 1e-4)
 
+    term1 = 1 + A * math.exp(B / cos_ksi)
+    term2 = 1 + C * math.exp(D * gamma) + E * math.cos(gamma) ** 2
 
-def perez_rel_lum_zenith(sun_zenith, A, B, C, D, E):
-    """
-    Computes the relative luminance Fz(θ, γ) for the zenith patch.
-
-    Inputs:
-        sun_zenith: Zenith angle for the sun (radians)
-        A-E: Perez coefficients
-    Returns:
-        Relative luminance at zenith (unitless)
-    """
-    term1 = 1 + A * np.exp(B)
-    term2 = 1 + C * np.exp(D * sun_zenith) + E * (np.cos(sun_zenith) ** 2)
-    return term1 * term2
+    return term1, term2
 
 
 def lux_to_irradiance(lux, efficacy=112):
@@ -226,7 +241,7 @@ def check_azimuthal_symmetry(Fs, patch_zenith, patch_azimuth, sun_azimuth):
     return mean_diff, max_diff, summary
 
 
-def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> PerezResults:
+def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome, simple=True) -> PerezResults:
 
     dni = sunpath.sunc.dni
     dhi = sunpath.sunc.dhi
@@ -237,44 +252,90 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> PerezResults:
     absolute_lum = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
     sky_vec_mat = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
 
+    ksis = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
+    gammas = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
+    terms1 = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
+    terms2 = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
+    coeffs = np.zeros([5, len(sun_vecs)])
+
+    keys_1 = ["sun_zenith", "dni", "dhi", "epsilon", "delta", "air_mass"]
+    data_dict_1 = {key: [] for key in keys_1}
+
+    keys_2 = ["min_f", "max_f", "min_term1", "max_term1", "min_term2", "max_term2"]
+    data_dict_2 = {key: [] for key in keys_2}
+
     solid_angles = np.array(skydome.solid_angles)
 
     for i in range(len(sun_vecs)):
         # For each sun position compuite the radiation on each patch
-        if dhi[i] > 0.0 and sun_zenith[i] < np.pi / 2.0:
-            epsilon = compute_sky_clearness(dni[i], dhi[i], sun_zenith[i])
-            [A, B, C, D, E] = get_perez_coefficients(epsilon)
 
-            Fs = []  # List to store the relative luminance for each patch
-            # Compute the radiation for each ray (i.e. each sky patch)
+        dni[i] = 400
+        dhi[i] = 200
+
+        if dhi[i] > 0.0 and sun_zenith[i] < np.pi / 2.0:
+
+            m = calculate_air_mass(sun_zenith[i])
+
+            epsilon = compute_sky_clearness(dni[i], dhi[i], sun_zenith[i])
+            delta = compute_sky_brightness(dhi[i], m, epsilon)
+
+            if simple:
+                [A, B, C, D, E] = get_perez_coeffs(epsilon)
+            else:
+                [A, B, C, D, E] = calc_perez_coeffs(epsilon, delta, sun_zenith[i])
+
+            fs = []  # List to store the relative luminance for each patch
+
             for j in range(len(skydome.ray_dirs)):
                 ray_dir = np.array(skydome.ray_dirs[j])
                 sun_patch_dot = np.dot(sun_vecs[i], ray_dir)
-                sun_patch_angle = math.acos(sun_patch_dot)
+                gamma = math.acos(sun_patch_dot)
+                ksi = skydome.patch_zeniths[j]
 
-                F = perez_rel_lum(sun_zenith[i], sun_patch_angle, A, B, C, D, E)
-                Fs.append(F)
+                [term1, term2] = perez_rel_lum(ksi, gamma, A, B, C, D, E)
+                f = term1 * term2
+                fs.append(f)
 
-            Fs = np.array(Fs)
+                terms1[j, i] = term1
+                terms2[j, i] = term2
+                ksis[j, i] = ksi
+                gammas[j, i] = gamma
 
-            # Compute relative luminance for patch perpendicular to the sun vector
-            Fnorm = perez_rel_lum_zenith(sun_zenith[i], A, B, C, D, E)
+            coeffs[0, i] = A
+            coeffs[1, i] = B
+            coeffs[2, i] = C
+            coeffs[3, i] = D
+            coeffs[4, i] = E
 
-            # Compute the zenith luminance in cd/m²
-            # Yz = compute_zenith_luminance_1(dhi[i], sun_zenith[i])
+            data_dict_1["sun_zenith"].append(sun_zenith[i])
+            data_dict_1["dni"].append(dni[i])
+            data_dict_1["dhi"].append(dhi[i])
+            data_dict_1["epsilon"].append(epsilon)
+            data_dict_1["delta"].append(delta)
+            data_dict_1["air_mass"].append(m)
 
-            # Compute the zenith luminance in W/m²/sr
-            Yz = compute_zenith_luminance_2(dhi[i], sun_zenith[i])
+            data_dict_2["min_f"].append(np.min(fs))
+            data_dict_2["max_f"].append(np.max(fs))
+            data_dict_2["min_term1"].append(np.min(terms1[:, i]))
+            data_dict_2["max_term1"].append(np.max(terms1[:, i]))
+            data_dict_2["min_term2"].append(np.min(terms2[:, i]))
+            data_dict_2["max_term2"].append(np.max(terms2[:, i]))
+
+            fs = np.array(fs)
+
+            gamma = sun_zenith[i]  # Angle between sun and patch for patch at zenith = 0
+            term1, term2 = perez_rel_lum(0, gamma, A, B, C, D, E)
+            f_norm = term1 * term2
+
+            # Compute the zenith luminance using eqiation (10) in Perez 1990
+            Lvz = calc_zenith_luminance_3(epsilon, delta, dhi[i], sun_zenith[i])
 
             # Absolute luminance for patch i
-            Li = Yz * (Fs / Fnorm)
+            Li = Lvz * (fs / f_norm)
 
-            pre_rel_lum[:, i] = Fs
+            pre_rel_lum[:, i] = fs
             absolute_lum[:, i] = Li
             sky_vec_mat[:, i] = Li * solid_angles
-
-            # Normalize relative luminance so that it sums to 1.0
-            Fs_norm = normalize_relative_luminance(Fs, target=1.0)
 
         else:
             # If no diffuse radiation, set to zero
@@ -283,13 +344,133 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> PerezResults:
             sky_vec_mat[:, i] = 0.0
 
     # Store as class attributes
-
     perez_results = PerezResults()
 
     perez_results.count = len(sun_vecs)
     perez_results.relative_luminance = pre_rel_lum
+    perez_results.rel_lum_term1 = terms1
+    perez_results.rel_lum_term2 = terms2
     perez_results.absolute_luminance = absolute_lum
     perez_results.sky_vector_matrix = sky_vec_mat
+    perez_results.ksis = ksis
+    perez_results.gammas = gammas
     perez_results.solid_angles = solid_angles
 
+    sub_plots_2d(perez_results, 0, 1450)
+    sub_plot_dict(data_dict_1, 0, 1450)
+    sub_plot_dict(data_dict_2, 0, 1450)
+    plot_coeffs_data(coeffs, "coeffs", 0, len(sun_vecs), title="Perez Coefficients")
+
+    plt.show()
+
     return perez_results
+
+
+def sub_plots_2d(res: PerezResults, t1, t2):
+
+    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 10))
+    axs = axs.flatten()  # Flatten to simplify indexing
+
+    subplot2d(axs[0], res.relative_luminance, t1, t2, title="Relative Luminance")
+    subplot2d(axs[1], res.rel_lum_term1, t1, t2, title="Relative Luminance Term1")
+    subplot2d(axs[3], res.rel_lum_term2, t1, t2, title="Relative Luminance Term2")
+
+    # Optional: turn off unused subplot (if 6th not used)
+    fig.delaxes(axs[2])
+
+    plt.tight_layout()
+
+
+def sub_plot_dict(data: dict, t1, t2):
+
+    n = len(data.keys())
+    fig, axs = plt.subplots(nrows=n, ncols=1, figsize=(16, 10))
+    axs = axs.flatten()  # Flatten to simplify indexing
+    counter = 0
+
+    t2 = min(t2, len(next(iter(data.values()))))
+
+    for key, value in data.items():
+        subplot1d(axs[counter], value, t1, t2, name=key)
+        counter += 1
+
+    plt.tight_layout()
+
+
+def subplot2d(ax, data: np.ndarray, t1=0, t2=5, title="title"):
+    """
+    Plot a slice of 2D data on a given Axes subplot.
+    """
+    n_patches, n_timesteps = data.shape
+    upper = min(t2, n_timesteps)
+    timestep_indices = list(range(t1, upper))
+
+    for i in timestep_indices:
+        F_values = data[:, i]
+        ax.plot(range(n_patches), F_values, label=f"Sun #{i}")
+
+    ax.set_xlabel("Sky Patch Index")
+    ax.set_ylabel("Value")
+    ax.set_title(title)
+    ax.grid(True)
+    ax.legend()
+
+
+def subplot1d(ax, data: np.ndarray, t1, t2, name="title"):
+    """
+    Plot a slice of 2D data on a given Axes subplot.
+    """
+    data_cropped = data[t1:t2]
+    n = len(data_cropped)
+    ax.plot(range(t1, t2), data_cropped, label=name)
+
+    ax.set_xlabel("Sun index")
+    ax.set_ylabel("Value")
+    ax.set_title(name)
+    ax.grid(True)
+    ax.legend()
+
+
+def plot_2d_data(data: np.ndarray, t1=0, t2=5, title="title"):
+
+    n_patches, n_timesteps = data.shape
+    upper = min(t2, n_timesteps)
+    timestep_indices = list(range(t1, upper))
+
+    print(f"Plotting {len(timestep_indices)} timesteps from {t1} to {upper}.")
+
+    plt.figure(figsize=(12, 6))
+
+    for i in timestep_indices:
+        F_values = data[:, i]
+        plt.plot(range(n_patches), F_values, label=f"Sun #{i}")
+
+    plt.xlabel("Sky Patch Index")
+    plt.ylabel("Relative Luminance F")
+    plt.title(title)
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_coeffs_data(data: np.ndarray, data_name: str, t1=0, t2=5, title="title"):
+    """
+    Plot a slice of 1D data array.
+    """
+    n_coeffs, n_suns = data.shape
+
+    coeffs_names = ["A", "B", "C", "D", "E"]
+
+    plt.figure("Perez Coefficients", figsize=(12, 6))
+
+    for i in range(n_coeffs):
+        data_cropped = data[i, t1:t2]
+        plt.plot(range(t1, t2), data_cropped, label=coeffs_names[i])
+
+    plt.xlabel(f"Sun indices from {t1} to {t2}")
+    plt.ylabel(data_name)
+    plt.title(title)
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()

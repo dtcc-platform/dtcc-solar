@@ -51,6 +51,9 @@ def import_data(sunc: SunCollection, weather_file: str):
     direct_normal_radiation = np.roll(np.array(direct_normal_radiation), 1)
     diffuse_horisontal_radiation = np.roll(np.array(diffuse_horisontal_radiation), 1)
 
+    sunc.max_dhi = np.max(diffuse_horisontal_radiation)
+    sunc.max_dni = np.max(direct_normal_radiation)
+
     sun_index = 0
     epw_index = 0
     for epw_date in year_dates:
@@ -71,7 +74,7 @@ def date_match(api_date: str, sun_date: str):
     api_day = api_date[0:10]
     sun_day = sun_date[0:10]
     api_time = api_date[11:19]
-    sun_time = api_date[11:19]
+    sun_time = sun_date[11:19]
     if api_day == sun_day and api_time == sun_time:
         return True
     return False

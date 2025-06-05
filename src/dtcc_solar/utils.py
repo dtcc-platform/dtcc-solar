@@ -87,6 +87,14 @@ class SunCollection:
     dhi: np.ndarray = field(default_factory=lambda: np.empty(0))
     # List zenith values
     zeniths: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Max measured dhi value for entire the year (independent of date limits)
+    max_dhi: float = 0.0
+    # Max measured dni value for entire the year (independent of date limits)
+    max_dni: float = 0.0
+    # Sythetic data for dni
+    synth_dni: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Sythetic data for dhi
+    synth_dhi: np.ndarray = field(default_factory=lambda: np.empty(0))
 
 
 @dataclass
@@ -480,34 +488,3 @@ def calc_face_mid_points(mesh):
     vertex3 = np.array(mesh.vertices[faceVertexIndex3])
     face_mid_points = (vertex1 + vertex2 + vertex3) / 3.0
     return face_mid_points
-
-
-def map_to_reinhart_faces(data: np.ndarray):
-    if len(data) != 580:
-        raise ValueError("Data must have exactly 580 elements for Reinhart mapping.")
-
-    data = np.array(data)
-    if len(data.shape) == 2:
-        data = np.sum(data, axis=1)
-
-    sub_data1, sub_data2 = np.split(data, 576)
-
-    data = np.repeat(sub_data1, 2)  # Repeat each element twice for quads (2 triangels)
-    data = np.append(data, sub_data2)  # Add data for last 4 triangels
-
-    return data
-
-
-def map_to_tregenza_faces(data: np.ndarray):
-    if len(data) != 145:
-        raise ValueError("Data must have exactly 145 elements for Tregenza mapping.")
-
-    data = np.array(data)
-    if len(data.shape) == 2:
-        data = np.sum(data, axis=1)
-
-    last = data[-1]
-    data = np.repeat(data, 2)
-    data = np.append(data, [last, last, last, last])
-
-    return data

@@ -13,6 +13,7 @@ from dtcc_core.io import load_city
 from dtcc_core.model import PointCloud
 from dtcc_solar.perez import *
 from dtcc_solar.city import *
+from dtcc_solar.radiance import load_radiance, epw_to_wea
 from pprint import pp
 
 import numpy as np
@@ -22,26 +23,32 @@ from urllib.request import urlretrieve
 def tregenza_test():
     print("-------- Skydome Test -------")
 
-    path = "../../../data/weather/SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.epw"
+    path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+
+    long_lnd = 0.12
+    lat_lnd = 51.5
 
     p = SolarParameters(
         file_name="",
-        weather_file=path,
-        start_date="2019-01-01 00:00:00",
-        end_date="2019-12-30 23:00:00",
-        longitude=11.97,
-        latitude=57.71,
+        weather_file=path_lnd,
+        start_date="2019-04-01 06:00:00",
+        end_date="2019-04-30 20:00:00",
+        longitude=long_lnd,
+        latitude=lat_lnd,
         data_source=DataSource.epw,
         sun_analysis=True,
         sky_analysis=True,
     )
+
+    # wea_file = epw_to_wea(p.weather_file)
+    # load_radiance(wea_file)
 
     skydome = Reinhart()
     skydome.create_mesh()
 
     sunpath_radius = 2.0
     sunpath = Sunpath(p, sunpath_radius)
-    perez_results = calc_sky_matrix(sunpath, skydome)
+    perez_results = calc_sky_matrix(sunpath, skydome, simple=False)
 
     sun_pc = PointCloud(points=sunpath.sunc.positions)
 
@@ -57,11 +64,19 @@ def tregenza_test():
     solid_angles = perez_results.solid_angles
     sa = skydome.map_data_to_faces(solid_angles)
 
+    ksis = perez_results.ksis
+    ksis = skydome.map_data_to_faces(ksis)
+
+    gammas = perez_results.gammas
+    gammas = skydome.map_data_to_faces(gammas)
+
     dict_data = {
         "relative lumiance": rel_lum,
         "absolute lumiance": abs_lum,
         "sky matrix": sky_mat,
         "solid angles": sa,
+        "ksis": ksis,
+        "gammas": gammas,
     }
 
     skydome.view(name="Skydome", data=dict_data, sun_pos_pc=sun_pc)

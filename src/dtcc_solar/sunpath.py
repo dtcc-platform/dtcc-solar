@@ -11,6 +11,7 @@ from dtcc_solar.utils import SolarParameters
 from pvlib import solarposition
 from dtcc_solar import data_clm, data_epw, data_meteo, data_smhi
 from dtcc_solar.utils import concatenate_meshes
+from pandas import Timestamp, DatetimeIndex
 from dtcc_solar.logging import info, debug, warning, error
 from pprint import pp
 
@@ -216,6 +217,8 @@ class Sunpath:
         self._append_weather_data(p)
         if not include_night:
             self._remove_suns_below_horizon(over_horizon)
+
+        self._generate_synthetic_weather_data()
 
     def _create_sun_timestamps(self, start_date: str, end_date: str):
         """
@@ -430,6 +433,73 @@ class Sunpath:
         points = np.array(points)
         pc = PointCloud(points=points)
         return pc
+
+    def _generate_synthetic_weather_data(self):
+        """
+        Generate synthetic weather data for the sunpath.
+        """
+        down_scale = 0.8
+
+        base_level_dni = down_scale * self.sunc.max_dni * 0.6
+        year_amp_dni = down_scale * self.sunc.max_dni * 0.4
+
+        base_level_dhi = down_scale * self.sunc.max_dhi * 0.2
+        year_amp_dhi = down_scale * self.sunc.max_dhi * 0.8
+
+        current_day = self.sunc.time_stamps[0].day
+
+        sun_indices = []
+        synth_dhi = np.zeros(self.sunc.count)
+        synth_dni = np.zeros(self.sunc.count)
+
+        for i in range(self.sunc.count):
+            next = self.sunc.time_stamps[i].day
+            ts = self.sunc.time_stamps[i]
+            if current_day == next:
+                sun_indices.append(i)
+            else:
+                # New day, reset current day and month
+                current_day = next
+
+                amp_dni = self._get_amplitude(ts, year_amp_dni, base_level_dni)
+                amp_dhi = self._get_amplitude(ts, year_amp_dhi, base_level_dhi)
+
+                self._gen_synth_day(synth_dni, sun_indices, amp_dni)
+                self._gen_synth_day(synth_dhi, sun_indices, amp_dhi)
+                sun_indices = []
+                sun_indices.append(i)
+
+        if sun_indices:
+            amp_dni = self._get_amplitude(ts, year_amp_dni, base_level_dni)
+            amp_dhi = self._get_amplitude(ts, year_amp_dhi, base_level_dhi)
+            self._gen_synth_day(synth_dni, sun_indices, amp_dni)
+            self._gen_synth_day(synth_dhi, sun_indices, amp_dhi)
+
+        self.sunc.synth_dhi = synth_dhi
+        self.sunc.synth_dni = synth_dni
+
+    def _gen_synth_day(self, synth_data: np.array, indices: list[int], amp: float):
+        hours = np.linspace(0, np.pi, len(indices))
+        data = amp * np.sin(hours)
+        synth_data[indices] = data
+
+    def _get_amplitude(self, date: Timestamp, year_amp: float, base: float) -> float:
+        day_delta = self._get_days_delta(date)
+        frac = day_delta / 365.0
+        amp = base + year_amp * np.sin(np.pi * frac)
+        return amp
+
+    def _get_days_delta(self, date: Timestamp) -> int:
+        """
+        Calculate the number of days between two timestamps.
+        """
+        start_year = date.year
+        start_month = 1
+        start_day = 1
+        first_day = pd.Timestamp(start_year, start_month, start_day)
+
+        delta = date - first_day
+        return delta.days
 
 
 class SunpathUtils:

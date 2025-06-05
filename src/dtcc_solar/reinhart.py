@@ -63,6 +63,8 @@ class Reinhart(Skydome):
                     solid_angle = self.solid_angle(elev1, elev2, azim1, azim2)
                     self.solid_angles.append(solid_angle)
 
+                    self.patch_zeniths.append((math.pi / 2.0) - mid_elev)
+
                     patch_area = self.calc_sphere_patch_area(elev1, elev2, azim1, azim2)
                     self.ray_areas.append(patch_area / dome_area)
                     self.patch_counter += 1
@@ -72,9 +74,6 @@ class Reinhart(Skydome):
         mesh_vertices = np.array(self.vertices)
         mesh_faces = np.array(self.faces)
         self.mesh = Mesh(vertices=mesh_vertices, faces=mesh_faces)
-
-        print(len(mesh_vertices))
-        print(mesh_faces)
 
         # Should be ≈ 6.283 (2π)
         tot_solid_angle = np.sum(self.solid_angles)
@@ -119,6 +118,8 @@ class Reinhart(Skydome):
             ray_dir = self.spherical_to_cartesian(mid_elev, mid_azim)
             self.ray_dirs.append(ray_dir)
             self.ray_areas.append((cap_area / 4.0) / dome_area)
+
+            self.patch_zeniths.append((math.pi / 2.0) - mid_elev)
 
             solid_angle = self.solid_angle(elev1, elev2, azim1, azim2)
             self.solid_angles.append(solid_angle)
