@@ -6,8 +6,7 @@ from dtcc_solar.sunquads import SunQuads
 from dtcc_solar.utils import SunCollection, OutputCollection, SunApprox, Sky
 from dtcc_solar.utils import Rays
 from dtcc_solar.sunpath import Sunpath
-from dtcc_model import Mesh, PointCloud
-from dtcc_model.geometry import Bounds
+from dtcc_core.model import Mesh, Bounds
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_viewer import Window, Scene
 from dtcc_solar.sungroups import SunGroups

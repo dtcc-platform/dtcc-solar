@@ -9,7 +9,7 @@ from dtcc_solar.utils import SunCollection, DataSource, unitize, SunApprox
 from dtcc_solar.utils import SolarParameters
 from pvlib import solarposition
 from dtcc_solar import data_clm, data_epw, data_meteo, data_smhi
-from dtcc_model import Mesh, PointCloud
+from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar.utils import concatenate_meshes
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sungroups import SunGroups
@@ -126,7 +126,7 @@ class Sunpath:
         """
         start_date = str(year) + "-01-01 12:00:00"
         end_date = str(year + 1) + "-01-01 11:00:00"
-        times = pd.date_range(start=start_date, end=end_date, freq="H")
+        times = pd.date_range(start=start_date, end=end_date, freq="h")
 
         # Times to evaluate will be 8760 for a normal year and 8764 for leep year
         times_to_evaluate = len(times.values)
@@ -246,7 +246,7 @@ class Sunpath:
         """
         time_from = pd.to_datetime(start_date)
         time_to = pd.to_datetime(end_date)
-        times = pd.date_range(start=time_from, end=time_to, freq="H")
+        times = pd.date_range(start=time_from, end=time_to, freq="h")
         self.sunc.count = len(times)
         for i, time in enumerate(times):
             time_stamp = pd.Timestamp(time)
@@ -264,7 +264,7 @@ class Sunpath:
         """
         date_from_str = self.sunc.datetime_strs[0]
         date_to_str = self.sunc.datetime_strs[-1]
-        dates = pd.date_range(start=date_from_str, end=date_to_str, freq="1H")
+        dates = pd.date_range(start=date_from_str, end=date_to_str, freq="h")
         self.sunc.date_times = dates
         solpos = solarposition.get_solarposition(dates, self.lat, self.lon)
         # elev = np.radians(solpos.elevation.to_list())

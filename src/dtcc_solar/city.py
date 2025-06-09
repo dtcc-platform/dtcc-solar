@@ -1,9 +1,10 @@
 import numpy as np
 import json
+import os
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
-from dtcc_model import Mesh, GeometryType, MultiSurface, Surface
-from dtcc_model import City, Building, Terrain
+from dtcc_core.model import Mesh, GeometryType, MultiSurface, Surface
+from dtcc_core.model import City, Building, Terrain
 from dtcc_solar.utils import subdivide_mesh, is_mesh_valid, SolarParameters
 from dtcc_solar.utils import OutputCollection, calc_face_normals
 from dtcc_solar.logging import info, debug, warning, error
@@ -316,8 +317,6 @@ def export_guid_and_results_to_json(
 
     guid_combined = [f"{a},{b}" for a, b in zip(guid_mpt, guid_nrl)]
 
-    print(f"GUIDs: {guid_combined}")
-
     face_count = len(mesh.faces)
 
     # Ensure the length of data lists matches the number of faces
@@ -349,6 +348,8 @@ def export_guid_and_results_to_json(
         "DiffuseIrradiation": diffuse.tolist(),
         "Parameters": parameters,
     }
+
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
 
     # Write the data to a JSON file
     with open(filename, "w") as json_file:

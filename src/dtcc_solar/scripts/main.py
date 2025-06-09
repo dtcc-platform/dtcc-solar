@@ -7,8 +7,8 @@ from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
-from dtcc_model import Mesh, PointCloud
-from dtcc_io import meshes
+from dtcc_core.model import Mesh, PointCloud
+from dtcc_core.io import meshes
 from dtcc_solar.city import *
 from pprint import pp
 
@@ -104,7 +104,7 @@ def analyse_mesh_4():
     print("-------- Solar Mesh Analysis Started -------")
 
     inputfile_S = "../../../data/models/CitySurfaceS.stl"
-    epw_file = "../../../data/weather/BGR_SF_Sofia.Intl.AP.156140_TMYx.2007-2021.epw"
+    epw_file = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
     export_path = "../../../data/output/CitySurfaceS_Results.json"
 
     p = SolarParameters(
@@ -117,7 +117,7 @@ def analyse_mesh_4():
         data_source=DataSource.epw,
         sun_analysis=True,
         sky_analysis=True,
-        sun_approx=SunApprox.group,
+        sun_approx=SunApprox.none,
     )
 
     mesh = meshes.load_mesh(p.file_name)
