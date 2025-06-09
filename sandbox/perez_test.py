@@ -85,7 +85,7 @@ def plot_weather_data():
         file_name="",
         weather_file=path_lnd,
         start_date="2019-01-01 00:00:00",
-        end_date="2019-07-01 23:00:00",
+        end_date="2019-02-01 23:00:00",
         longitude=long_lnd,
         latitude=lat_lnd,
         data_source=DataSource.epw,

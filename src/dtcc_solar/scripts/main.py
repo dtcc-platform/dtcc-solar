@@ -20,7 +20,7 @@ import numpy as np
 from urllib.request import urlretrieve
 
 
-def tregenza_test():
+def perez_test():
     print("-------- Skydome Test -------")
 
     path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
@@ -31,8 +31,8 @@ def tregenza_test():
     p = SolarParameters(
         file_name="",
         weather_file=path_lnd,
-        start_date="2019-04-01 06:00:00",
-        end_date="2019-04-30 20:00:00",
+        start_date="2019-01-01 00:00:00",
+        end_date="2019-12-31 23:00:00",
         longitude=long_lnd,
         latitude=lat_lnd,
         data_source=DataSource.epw,
@@ -48,7 +48,7 @@ def tregenza_test():
 
     sunpath_radius = 2.0
     sunpath = Sunpath(p, sunpath_radius)
-    perez_results = calc_sky_matrix(sunpath, skydome, simple=False)
+    perez_results = calc_sky_matrix(sunpath, skydome)
 
     sun_pc = PointCloud(points=sunpath.sunc.positions)
 
@@ -195,7 +195,7 @@ if __name__ == "__main__":
         sky_analysis=True,
     )
 
-    tregenza_test()
+    perez_test()
     # analyse_mesh_1(p_1)
     # analyse_mesh_2(p_1)
     # analyse_mesh_3(p_1)

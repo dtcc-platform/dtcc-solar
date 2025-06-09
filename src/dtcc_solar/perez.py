@@ -5,7 +5,6 @@ from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.skydome import Skydome
 from dataclasses import dataclass, field
 from dtcc_solar.perez_complete_coeffs import calc_perez_coeffs, calc_zenith_lum_coeffs
-from dtcc_solar.perez_simple_coeffs import get_perez_coeffs
 import matplotlib.pyplot as plt
 
 """
@@ -122,6 +121,8 @@ def calculate_air_mass(sun_zenith):
     z = sun_zenith
 
     m = 1.0 / (math.cos(z) + 0.15 * pow((93.885 - math.degrees(z)), -1.253))
+
+    m = min(m, 10)  # Clamp to a maximum value
 
     return m
 
@@ -241,10 +242,12 @@ def check_azimuthal_symmetry(Fs, patch_zenith, patch_azimuth, sun_azimuth):
     return mean_diff, max_diff, summary
 
 
-def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome, simple=True) -> PerezResults:
+def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> PerezResults:
 
     dni = sunpath.sunc.dni
     dhi = sunpath.sunc.dhi
+    dni_synth = sunpath.sunc.synth_dni
+    dhi_synth = sunpath.sunc.synth_dhi
     sun_vecs = sunpath.sunc.sun_vecs
     sun_zenith = sunpath.sunc.zeniths
 
@@ -266,34 +269,33 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome, simple=True) -> PerezRes
 
     solid_angles = np.array(skydome.solid_angles)
 
+    zenith_limit = math.radians(90)  # Limit for zenith angle for numerical stability
+
     for i in range(len(sun_vecs)):
         # For each sun position compuite the radiation on each patch
+        dni[i] = dni_synth[i]
+        dhi[i] = dhi_synth[i]
 
-        dni[i] = 400
-        dhi[i] = 200
+        if dhi[i] > 0.0 and sun_zenith[i] < zenith_limit:
 
-        if dhi[i] > 0.0 and sun_zenith[i] < np.pi / 2.0:
-
-            m = calculate_air_mass(sun_zenith[i])
-
+            air_mass = calculate_air_mass(sun_zenith[i])
             epsilon = compute_sky_clearness(dni[i], dhi[i], sun_zenith[i])
-            delta = compute_sky_brightness(dhi[i], m, epsilon)
+            delta = compute_sky_brightness(dhi[i], air_mass, epsilon)
 
-            if simple:
-                [A, B, C, D, E] = get_perez_coeffs(epsilon)
-            else:
-                [A, B, C, D, E] = calc_perez_coeffs(epsilon, delta, sun_zenith[i])
+            [A, B, C, D, E] = calc_perez_coeffs(epsilon, delta, sun_zenith[i])
 
-            fs = []  # List to store the relative luminance for each patch
+            fs = []
 
             for j in range(len(skydome.ray_dirs)):
                 ray_dir = np.array(skydome.ray_dirs[j])
                 sun_patch_dot = np.dot(sun_vecs[i], ray_dir)
                 gamma = math.acos(sun_patch_dot)
+                gamma = min(max(gamma, 1e-4), math.pi)
                 ksi = skydome.patch_zeniths[j]
 
                 [term1, term2] = perez_rel_lum(ksi, gamma, A, B, C, D, E)
                 f = term1 * term2
+                f = max(f, 0.0)  # Ensure non-negative luminance
                 fs.append(f)
 
                 terms1[j, i] = term1
@@ -312,7 +314,7 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome, simple=True) -> PerezRes
             data_dict_1["dhi"].append(dhi[i])
             data_dict_1["epsilon"].append(epsilon)
             data_dict_1["delta"].append(delta)
-            data_dict_1["air_mass"].append(m)
+            data_dict_1["air_mass"].append(air_mass)
 
             data_dict_2["min_f"].append(np.min(fs))
             data_dict_2["max_f"].append(np.max(fs))
@@ -356,9 +358,9 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome, simple=True) -> PerezRes
     perez_results.gammas = gammas
     perez_results.solid_angles = solid_angles
 
-    sub_plots_2d(perez_results, 0, 1450)
-    sub_plot_dict(data_dict_1, 0, 1450)
-    sub_plot_dict(data_dict_2, 0, 1450)
+    sub_plots_2d(perez_results, 0, 5000)
+    sub_plot_dict(data_dict_1, 0, 5000)
+    sub_plot_dict(data_dict_2, 0, 5000)
     plot_coeffs_data(coeffs, "coeffs", 0, len(sun_vecs), title="Perez Coefficients")
 
     plt.show()
