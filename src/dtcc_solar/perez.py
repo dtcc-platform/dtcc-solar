@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import pandas as pd
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.skydome import Skydome
@@ -59,7 +60,7 @@ def compute_sky_clearness(dni, dhi, sun_zenith_rad):
 
     epsilon = (dni / dhi + 1.041 * sun_zenith_rad**3) / (1 + 1.041 * sun_zenith_rad**3)
 
-    # Clamp epsilon to the range [1.0, 6.3] as per Perez model
+    # Clamp epsilon to the range [1.0, 12.0] as per Perez model
     epsilon = max(1.0, min(epsilon, 12.0))
 
     return epsilon
@@ -127,18 +128,65 @@ def calculate_air_mass(sun_zenith):
     return m
 
 
-def compute_sky_brightness(dhi, m, epsilon, ext=1367):
+def calc_julian_day(ts: pd.Timestamp):
+    """
+    Calculate the Julian day of the year from a date.
+
+    Parameters:
+    - date: datetime object
+
+    Returns:
+    - int: Julian day (1 to 365 or 366)
+    """
+    # Convert date to Julian day
+    first_day = pd.Timestamp(ts.year, 1, 1)
+    delta = ts - first_day
+
+    return delta.days + 1  # Julian day starts from 1, not 0
+
+
+def calc_eccentricity(julian_day):
+    """
+    Calculate the Earth orbit eccentricity correction factor (E0)
+    for a given Julian day.
+
+    Reference: Sen, Z. (2008). Solar Energy Fundamentals and Modeling Techniques. Springer, p. 72.
+
+    Parameters:
+    - julian_day (int): Julian day of the year (1 to 365 or 366)
+
+    Returns:
+    - float: Eccentricity correction factor (unitless)
+    """
+    # Day angle in radians
+    day_angle = (julian_day - 1) * (2.0 * math.pi / 365.0)
+
+    # Eccentricity correction factor
+    E0 = (
+        1.00011
+        + 0.034221 * math.cos(day_angle)
+        + 0.00128 * math.sin(day_angle)
+        + 0.000719 * math.cos(2.0 * day_angle)
+        + 0.000077 * math.sin(2.0 * day_angle)
+    )
+
+    return E0
+
+
+def compute_sky_brightness(dhi, m, epsilon, ts: pd.Timestamp, ext=1367):
     """
     Computes the sky brightness Δ.
     Inputs:
         dhi: Diffuse horizontal irradiance (W/m²)
         m: Relative air mass (unitless)
+        ts: Timestamp of the calculation
         ext: Extraterrestrial solar irradiance (W/m²), default 1367
     Returns:
         Brightness Δ (unitless)
     """
-
-    delta = (m * dhi) / ext
+    julian_day = calc_julian_day(ts)
+    E0 = calc_eccentricity(julian_day)
+    delta = (m * dhi) / (ext * E0)
 
     if epsilon < 1.065:
         delta = min(delta, 1.5)
@@ -169,7 +217,11 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
     term1 = 1 + A * math.exp(B / cos_ksi)
     term2 = 1 + C * math.exp(D * gamma) + E * math.cos(gamma) ** 2
 
-    return term1, term2
+    f = term1 * term2
+
+    f = max(f, 0.0)  # Ensure non-negative luminance
+
+    return f
 
 
 def lux_to_irradiance(lux, efficacy=112):
@@ -242,6 +294,26 @@ def check_azimuthal_symmetry(Fs, patch_zenith, patch_azimuth, sun_azimuth):
     return mean_diff, max_diff, summary
 
 
+def calc_norm_factor(lvs, dhi, ksis, solid_angles):
+    """
+    Calculate normalisation factor to scale relative luminance values.
+
+    Inputs:
+        lvs          : Relative luminance values (unitless)
+        ksis         : Zenith angles for each patch (radians)
+        solid_angles : Solid angles for each patch (steradians)
+
+    Returns:
+        Absolute radiance in W/m²/sr
+    """
+    integrand = lvs * np.cos(ksis) * solid_angles
+    norm_factor = np.sum(integrand)
+
+    warning("Normalization factor is zero or negative, returning zeros.")
+
+    return norm_factor
+
+
 def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> PerezResults:
 
     dni = sunpath.sunc.dni
@@ -250,21 +322,19 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> PerezResults:
     dhi_synth = sunpath.sunc.synth_dhi
     sun_vecs = sunpath.sunc.sun_vecs
     sun_zenith = sunpath.sunc.zeniths
+    sun_times = sunpath.sunc.time_stamps
 
     pre_rel_lum = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
-    absolute_lum = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
     sky_vec_mat = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
 
-    ksis = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
-    gammas = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
-    terms1 = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
-    terms2 = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
+    all_ksis = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
+    all_gammas = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
     coeffs = np.zeros([5, len(sun_vecs)])
 
     keys_1 = ["sun_zenith", "dni", "dhi", "epsilon", "delta", "air_mass"]
     data_dict_1 = {key: [] for key in keys_1}
 
-    keys_2 = ["min_f", "max_f", "min_term1", "max_term1", "min_term2", "max_term2"]
+    keys_2 = ["Rvs_min", "Rvs_max", "normalisation"]
     data_dict_2 = {key: [] for key in keys_2}
 
     solid_angles = np.array(skydome.solid_angles)
@@ -280,11 +350,12 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> PerezResults:
 
             air_mass = calculate_air_mass(sun_zenith[i])
             epsilon = compute_sky_clearness(dni[i], dhi[i], sun_zenith[i])
-            delta = compute_sky_brightness(dhi[i], air_mass, epsilon)
+            delta = compute_sky_brightness(dhi[i], air_mass, epsilon, sun_times[i])
 
             [A, B, C, D, E] = calc_perez_coeffs(epsilon, delta, sun_zenith[i])
 
-            fs = []
+            lvs = []
+            ksis = []
 
             for j in range(len(skydome.ray_dirs)):
                 ray_dir = np.array(skydome.ray_dirs[j])
@@ -293,15 +364,30 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> PerezResults:
                 gamma = min(max(gamma, 1e-4), math.pi)
                 ksi = skydome.patch_zeniths[j]
 
-                [term1, term2] = perez_rel_lum(ksi, gamma, A, B, C, D, E)
-                f = term1 * term2
-                f = max(f, 0.0)  # Ensure non-negative luminance
-                fs.append(f)
+                lv = perez_rel_lum(ksi, gamma, A, B, C, D, E)
+                lvs.append(lv)
+                ksis.append(ksi)
 
-                terms1[j, i] = term1
-                terms2[j, i] = term2
-                ksis[j, i] = ksi
-                gammas[j, i] = gamma
+                all_ksis[j, i] = ksi
+                all_gammas[j, i] = gamma
+
+            lvs = np.array(lvs)
+            ksis = np.array(ksis)
+
+            # Calculate normalisation factor eq. (3) in Perez 1993
+            norm = calc_norm_factor(lvs, dhi[i], ksis, solid_angles)
+
+            if norm <= 1e-7:
+                # Uniform sky the ensures dhi is distributed evenly across patches
+                cos_weighted_sum = np.sum(np.cos(ksis) * solid_angles)
+                R_uniform = dhi[i] / cos_weighted_sum
+                Rvs = R_uniform
+            else:
+                # Calculate absolute radiance
+                Rvs = (lvs * dhi[i]) / norm
+
+            pre_rel_lum[:, i] = lvs
+            sky_vec_mat[:, i] = Rvs
 
             coeffs[0, i] = A
             coeffs[1, i] = B
@@ -316,33 +402,13 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> PerezResults:
             data_dict_1["delta"].append(delta)
             data_dict_1["air_mass"].append(air_mass)
 
-            data_dict_2["min_f"].append(np.min(fs))
-            data_dict_2["max_f"].append(np.max(fs))
-            data_dict_2["min_term1"].append(np.min(terms1[:, i]))
-            data_dict_2["max_term1"].append(np.max(terms1[:, i]))
-            data_dict_2["min_term2"].append(np.min(terms2[:, i]))
-            data_dict_2["max_term2"].append(np.max(terms2[:, i]))
-
-            fs = np.array(fs)
-
-            gamma = sun_zenith[i]  # Angle between sun and patch for patch at zenith = 0
-            term1, term2 = perez_rel_lum(0, gamma, A, B, C, D, E)
-            f_norm = term1 * term2
-
-            # Compute the zenith luminance using eqiation (10) in Perez 1990
-            Lvz = calc_zenith_luminance_3(epsilon, delta, dhi[i], sun_zenith[i])
-
-            # Absolute luminance for patch i
-            Li = Lvz * (fs / f_norm)
-
-            pre_rel_lum[:, i] = fs
-            absolute_lum[:, i] = Li
-            sky_vec_mat[:, i] = Li * solid_angles
+            data_dict_2["Rvs_min"].append(np.min(Rvs))
+            data_dict_2["Rvs_max"].append(np.max(Rvs))
+            data_dict_2["normalisation"].append(norm)
 
         else:
             # If no diffuse radiation, set to zero
             pre_rel_lum[:, i] = 0.0
-            absolute_lum[:, i] = 0.0
             sky_vec_mat[:, i] = 0.0
 
     # Store as class attributes
@@ -350,12 +416,9 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> PerezResults:
 
     perez_results.count = len(sun_vecs)
     perez_results.relative_luminance = pre_rel_lum
-    perez_results.rel_lum_term1 = terms1
-    perez_results.rel_lum_term2 = terms2
-    perez_results.absolute_luminance = absolute_lum
     perez_results.sky_vector_matrix = sky_vec_mat
-    perez_results.ksis = ksis
-    perez_results.gammas = gammas
+    perez_results.ksis = all_ksis
+    perez_results.gammas = all_gammas
     perez_results.solid_angles = solid_angles
 
     sub_plots_2d(perez_results, 0, 5000)
@@ -370,15 +433,11 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> PerezResults:
 
 def sub_plots_2d(res: PerezResults, t1, t2):
 
-    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16, 10))
+    fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(16, 10))
     axs = axs.flatten()  # Flatten to simplify indexing
 
     subplot2d(axs[0], res.relative_luminance, t1, t2, title="Relative Luminance")
-    subplot2d(axs[1], res.rel_lum_term1, t1, t2, title="Relative Luminance Term1")
-    subplot2d(axs[3], res.rel_lum_term2, t1, t2, title="Relative Luminance Term2")
-
-    # Optional: turn off unused subplot (if 6th not used)
-    fig.delaxes(axs[2])
+    subplot2d(axs[1], res.sky_vector_matrix, t1, t2, title="Sky Vector Matrix")
 
     plt.tight_layout()
 

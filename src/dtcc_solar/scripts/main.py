@@ -55,9 +55,6 @@ def perez_test():
     rel_lum = perez_results.relative_luminance
     rel_lum = skydome.map_data_to_faces(rel_lum)
 
-    abs_lum = perez_results.absolute_luminance
-    abs_lum = skydome.map_data_to_faces(abs_lum)
-
     sky_mat = perez_results.sky_vector_matrix
     sky_mat = skydome.map_data_to_faces(sky_mat)
 
@@ -72,7 +69,6 @@ def perez_test():
 
     dict_data = {
         "relative lumiance": rel_lum,
-        "absolute lumiance": abs_lum,
         "sky matrix": sky_mat,
         "solid angles": sa,
         "ksis": ksis,
