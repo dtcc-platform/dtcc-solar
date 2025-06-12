@@ -1,11 +1,12 @@
 import math
 import numpy as np
 import pandas as pd
+import pprint as pp
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.skydome import Skydome
 from dataclasses import dataclass, field
-from dtcc_solar.perez_complete_coeffs import calc_perez_coeffs
+from dtcc_solar.coefficients import calc_perez_coeffs
 from dtcc_solar.plotting import sub_plots_2d, sub_plot_dict, plot_coeffs_dict
 from dtcc_solar.plotting import show_plot, plot_debug_1, plot_debug_2
 from dtcc_solar.utils import SkyResults, SunResults
@@ -75,7 +76,7 @@ def calc_julian_day(ts: pd.Timestamp):
     - int: Julian day (1 to 365 or 366)
     """
     # Convert date to Julian day
-    first_day = pd.Timestamp(ts.year, 1, 1)
+    first_day = pd.Timestamp(ts.year, 1, 1, tz=ts.tz)
     delta = ts - first_day
 
     return delta.days + 1  # Julian day starts from 1, not 0
@@ -219,17 +220,10 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
     for i in range(len(sun_vecs)):
         # For each sun position compute the radiation on each patch
-        dni[i] = dni_synth[i]
-        dhi[i] = dhi_synth[i]
-        # if sun_zenith[i] > math.radians(85) and dni[i] > 200:
-        #    print(f"Warning: Sun zenith angle is too high, setting dni = 0. ")
-        #    dni[i] = 0.0
+        # dni[i] = dni_synth[i]
+        # dhi[i] = dhi_synth[i]
 
         if dhi[i] > 0.0 and sun_zenith[i] < zenith_limit:
-
-            print(
-                f"Eval sun position {i} at {sun_times[i]}, with dhi={dhi[i]} W/m², dni={dni[i]} W/m², zenith={math.degrees(sun_zenith[i])}°"
-            )
 
             air_mass = calculate_air_mass(sun_zenith[i])
             epsilon = compute_sky_clearness(dni[i], dhi[i], sun_zenith[i])
@@ -276,10 +270,6 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
             projected_sum = np.sum(Rvs * np.cos(ksis) * solid_angles)  # (W/m²)
             error = (projected_sum - dhi[i]) / dhi[i]  # (unitless)
 
-            if i % 1200 == 0:
-                debug_rvs.append(Rvs)
-                debug_gammas.append(all_gammas[:, i])
-
             coeffs_dict["A"].append(A)
             coeffs_dict["B"].append(B)
             coeffs_dict["C"].append(C)
@@ -321,13 +311,13 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     perez_results.gammas = all_gammas
     perez_results.solid_angles = solid_angles
 
-    sub_plot_dict(data_dict_1, 0, 5000)
-    sub_plot_dict(data_dict_2, 0, 5000)
+    # sub_plot_dict(data_dict_1, 0, 5000)
+    # sub_plot_dict(data_dict_2, 0, 5000)
     # plot_coeffs_dict(coeffs_dict, 0, len(sun_vecs), title="Perez Coefficients")
-    plot_debug_1(np.array(debug_gammas), np.array(debug_rvs))
-    plot_debug_2(np.array(debug_sun_zen), np.array(debug_max_rvs))
+    # plot_debug_1(np.array(debug_gammas), np.array(debug_rvs))
+    # plot_debug_2(np.array(debug_sun_zen), np.array(debug_max_rvs))
 
-    show_plot()
+    # show_plot()
 
     return perez_results
 
@@ -363,7 +353,7 @@ def find_closest_patch(sun_vec, ray_dirs):
     return np.argmax(dots)  # max dot = min angle
 
 
-def calc_smeared_sun_matrix(sunpath: Sunpath, skydome: Skydome, da=15.0) -> SunResults:
+def calc_sun_mat_flat_smear(sunpath: Sunpath, skydome: Skydome, da=15.0) -> SunResults:
     """
     Smeared sun matrix across multiple patches within smear_angle_deg of the sun direction.
     """
@@ -393,16 +383,66 @@ def calc_smeared_sun_matrix(sunpath: Sunpath, skydome: Skydome, da=15.0) -> SunR
         if len(valid_indices) == 0:
             continue  # fallback to single patch?
 
-        weights = dots[valid_indices]
-        weights = np.clip(weights, 0.0, 1.0)
-        weights_sum = np.sum(weights)
-
-        if weights_sum > 0:
-            norm_weights = weights / weights_sum
-            sun_matrix[valid_indices, i] = dni_vals[i] * norm_weights
+        sun_matrix[valid_indices, i] = dni_vals[i] / len(valid_indices)
 
     print(f"Average number of patches hit per sun: {np.mean(total_hits):.2f}")
     print(f"Max patches hit: {np.max(total_hits)}")
+
+    return SunResults(sun_matrix=sun_matrix)
+
+
+def calc_sun_mat_smooth_smear(sunpath: Sunpath, skydome: Skydome, da=15) -> SunResults:
+    """
+    Smeared sun matrix across multiple patches within smear_angle_deg of the sun direction,
+    with stronger weights near the sun and tapering to zero at da.
+    """
+    sun_vecs = sunpath.sunc.sun_vecs
+    dni_vals = sunpath.sunc.dni
+    ray_dirs = np.array(skydome.ray_dirs)  # Shape: (N_patches, 3)
+    N_patches = len(ray_dirs)
+    N_times = len(sun_vecs)
+
+    sun_matrix = np.zeros((N_patches, N_times))
+
+    smear_angle_rad = np.radians(da)
+    total_hits = []
+    errors = []
+
+    for i, sun_vec in enumerate(sun_vecs):
+        dni = dni_vals[i]
+        if dni <= 0.0:
+            continue
+
+        sun_vec = sun_vec / np.linalg.norm(sun_vec)  # Safety
+
+        # Compute angles between sun and each patch
+        dots = np.clip(np.dot(ray_dirs, sun_vec), -1.0, 1.0)
+        angles = np.arccos(dots)  # In radians
+
+        # Identify patches within smear angle
+        valid_indices = np.where(angles <= smear_angle_rad)[0]
+        total_hits.append(len(valid_indices))
+
+        if len(valid_indices) == 0:
+            continue  # fallback to closest patch?
+
+        valid_angles = angles[valid_indices]
+
+        # Define a falloff weighting function — e.g., cosine taper
+        # w = cos^2(angle / da * pi/2) for smooth falloff to zero
+        relative_angle = valid_angles / smear_angle_rad  # Range: 0 to 1
+        weights = np.cos(relative_angle * math.pi / 2) ** 2
+
+        weight_sum = np.sum(weights)
+        if weight_sum > 0:
+            dni_contribution = dni * (weights / weight_sum)
+            sun_matrix[valid_indices, i] = dni_contribution
+            error = np.abs(np.sum(dni_contribution) - dni) / dni
+            errors.append(error)
+
+    info(f"Average number of patches hit per sun: {np.mean(total_hits):.2f}")
+    info(f"Max patches hit: {np.max(total_hits)}")
+    info(f"Average error in smeared sun matrix: {np.mean(errors):.4f}")
 
     return SunResults(sun_matrix=sun_matrix)
 

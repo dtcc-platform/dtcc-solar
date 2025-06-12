@@ -13,6 +13,7 @@ from dtcc_core.model import Mesh, LineString
 from csv import reader
 from pandas import Timestamp, DatetimeIndex
 from dtcc_solar.logging import info, debug, warning, error
+from datetime import datetime
 
 
 class ResultsType(Enum):
@@ -24,13 +25,6 @@ class ResultsType(Enum):
     sky_view_factor = 8
     sun_hours = 10
     shadow_hours = 11
-
-
-class DataSource(IntEnum):
-    smhi = 1
-    meteo = 2
-    clm = 3
-    epw = 4
 
 
 class Sky(IntEnum):
@@ -61,6 +55,23 @@ class Analyse(Enum):
 
 
 @dataclass
+class DTCCTime:
+    year: int
+    month: int
+    day: int
+    hour: int
+    minute: int
+
+    def to_datetime(self) -> datetime:
+        return datetime(self.year, self.month, self.day, self.hour, self.minute)
+
+    def hours_until(self, other: "DTCCTime") -> float:
+        """Returns the number of hours from this time to the other time."""
+        delta = other.to_datetime() - self.to_datetime()
+        return delta.total_seconds() / 3600
+
+
+@dataclass
 class Vec3:
     x: float
     y: float
@@ -75,10 +86,6 @@ class SunCollection:
     positions: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Time stamps
     time_stamps: List[Timestamp] = field(default_factory=list)
-    # Date time indices
-    date_times: DatetimeIndex = None
-    # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
-    datetime_strs: List[str] = field(default_factory=list)
     # Normalised sun vectors
     sun_vecs: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
@@ -128,14 +135,21 @@ class SolarParameters:
     latitude: float = 51.5
     longitude: float = -0.12
     display: bool = True
-    data_source: DataSource = DataSource.meteo
     export: bool = False
-    start_date: str = "2019-06-03 07:00:00"
-    end_date: str = "2019-06-03 21:00:00"
     sun_analysis: bool = True
     sky_analysis: bool = False
-    suns_per_group: int = 8
-    sundome_div: tuple[int, int] = (150, 20)
+    start: pd.Timestamp = field(
+        default_factory=lambda: pd.Timestamp("2019-06-01 00:00")
+    )
+    end: pd.Timestamp = field(default_factory=lambda: pd.Timestamp("2019-06-30 23:00"))
+
+
+def hours_count(start: pd.Timestamp, end: pd.Timestamp) -> int:
+    """Calculate the number of hours between two timestamps."""
+    if start > end:
+        raise ValueError("Start time must be before end time.")
+    delta = end - start
+    return int(delta.total_seconds() / 3600)
 
 
 @dataclass

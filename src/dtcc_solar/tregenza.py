@@ -24,7 +24,6 @@ class Tregenza(Skydome):
     def create_mesh(self):
 
         elev_step = math.radians(12.0)
-
         dome_area = self.calc_hemisphere_area()
 
         for i in range(self.bands):

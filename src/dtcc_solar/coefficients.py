@@ -1,7 +1,7 @@
 import math
 from typing import Tuple
 
-# Sky clearness bins and their boundaries
+# Sky clearness bins and their boundaries from Perez 1990/1993.
 clearness_bins = [
     (1.000, 1.065),
     (1.065, 1.230),

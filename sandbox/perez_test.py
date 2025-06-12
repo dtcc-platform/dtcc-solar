@@ -1,4 +1,4 @@
-from dtcc_solar.perez_complete_coeffs import calc_perez_coeffs
+from dtcc_solar.coefficients import calc_perez_coeffs
 from dtcc_solar.perez import calculate_air_mass, compute_sky_brightness
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import SolarParameters, DataSource

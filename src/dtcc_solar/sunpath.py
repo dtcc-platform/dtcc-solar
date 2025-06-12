@@ -6,12 +6,11 @@ import numpy as np
 import pandas as pd
 from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar import utils
-from dtcc_solar.utils import SunCollection, DataSource, unitize
+from dtcc_solar.utils import SunCollection, unitize
 from dtcc_solar.utils import SolarParameters
 from pvlib import solarposition
-from dtcc_solar import data_clm, data_epw, data_meteo, data_smhi
-from dtcc_solar.utils import concatenate_meshes
-from pandas import Timestamp, DatetimeIndex
+from dtcc_solar.utils import concatenate_meshes, hours_count
+from pandas import Timestamp, DatetimeIndex, DataFrame
 from dtcc_solar.logging import info, debug, warning, error
 from pprint import pp
 
@@ -69,6 +68,11 @@ class Sunpath:
     daypath_meshes: list[Mesh]  # Day paths for three dates in a year
     analemmas_pc: PointCloud  # Analemmas for each hour in a year as a point cloud
 
+    over_horizon: list[bool]  # List of bools for if sun position is over the horizon
+
+    df: pd.DataFrame  # DataFrame with time index and 'dni' and 'dhi' columns
+    dt_index: pd.DatetimeIndex  # Datetime index for the DataFrame
+
     def __init__(self, p: SolarParameters, radius: float, include_night: bool = False):
         """
         Initializes the Sunpath object with given parameters.
@@ -85,13 +89,117 @@ class Sunpath:
         self.lat = p.latitude
         self.lon = p.longitude
         self.r = radius
+        self.over_horizon = []
         self.origin = np.array([0, 0, 0])
         self.sungroups = None
         self.sundome = None
+        self.tz_offset = self.get_epw_timezone(p)
+        self.dt_index = self._get_datetime_index(p)
+        self.df = self._get_irradiance_data(p, self.dt_index)
         self._create_suns(p, include_night)
 
         if p.display:
             self._build_sunpath_mesh()
+
+    def get_epw_timezone(self, p: SolarParameters) -> int:
+        """
+        Extracts the 'Time Zone' offset from the EPW file header.
+
+        Parameters:
+            epw_file_path (str): Path to the EPW file.
+
+        Returns:
+            int: The time zone offset in hours from UTC (e.g., +1, -5).
+        """
+
+        with open(p.weather_file, "r") as file:
+            first_line = file.readline()
+            parts = first_line.strip().split(",")
+
+            try:
+                # According to EPW format, field 8 is the time zone (index 7)
+                tz_offset = int(float(parts[7]))
+            except (IndexError, ValueError) as e:
+                raise ValueError("Could not parse time zone from EPW header.") from e
+
+        info(f"EPW Time Zone Offset: {tz_offset} hours")
+
+        return tz_offset
+
+    def _get_datetime_index(self, p: SolarParameters) -> DatetimeIndex:
+        """
+        Generate correctly aligned datetime index for EPW data (start of hour, local standard time).
+        """
+
+        n_hours = hours_count(p.start, p.end)
+
+        if n_hours <= 0:
+            error("Start date must be before end date.")
+            raise ValueError("Invalid date range for solar analysis.")
+        elif n_hours > 8760:
+            warning("More than 8760 hours, -> leap year or incorrect date range.")
+            n_hours = 8760
+
+        # EPW timestamps are in local STANDARD time (no DST)
+        index = pd.date_range(start=p.start, periods=n_hours, freq="h")
+
+        # Invert sign for Etc/GMT
+        index = index.tz_localize(f"Etc/GMT{-self.tz_offset}")
+
+        return index
+
+    def _get_irradiance_data(
+        self, p: SolarParameters, datetime_index: pd.DatetimeIndex
+    ) -> DataFrame:
+        """
+        Extract DNI and DHI data from an EPW file and align it with the given datetime index.
+
+        Parameters:
+            p (SolarParameters): Object with .weather_file path.
+            datetime_index (DatetimeIndex): Timezone-localized index matching EPW time format.
+
+        Returns:
+            pd.DataFrame: A DataFrame with 'dni' and 'dhi' columns aligned to the datetime index.
+        """
+
+        # Step 1: Load the EPW data (skip 8 header rows)
+        df = pd.read_csv(p.weather_file, skiprows=8, header=None)
+
+        # Step 2: Create the full EPW datetime index (EPW timestamps are END of hour)
+        full_index_endhour = pd.date_range(
+            start="2019-01-01 01:00",  # Adjust if not 2019 or make it dynamic
+            periods=len(df),
+            freq="h",
+            tz=f"Etc/GMT{-self.tz_offset}",  # EPW time is in local standard time
+        )
+
+        full_index_starthour = pd.date_range(
+            start="2019-01-01 01:00",  # Adjust if not 2019 or make it dynamic
+            periods=len(df),
+            freq="h",
+            tz=f"Etc/GMT{-self.tz_offset}",  # EPW time is in local standard time
+        )
+
+        # Step 3: Assign full index to the DataFrame
+        df.index = full_index_starthour
+
+        # Step 4: Extract DNI and DHI columns (0-indexed)
+        DNI_COL = 14  # Column 15
+        DHI_COL = 15  # Column 16
+        irradiance_df = df[[DNI_COL, DHI_COL]]
+        irradiance_df.columns = ["dni", "dhi"]
+
+        # Step 5: Reindex to match requested times
+        result_df = irradiance_df.reindex(datetime_index)
+
+        # check if the results_df is tz settings
+        info(f"DataFrame tz: {result_df.index.tz}")
+
+        # Sanity check
+        # print(result_df.head(24))
+        # print(result_df.tail(24))
+
+        return result_df
 
     def _calc_analemmas(self, year: int, sample_rate: int):
         """
@@ -210,54 +318,30 @@ class Sunpath:
         include_night : bool, optional
             Flag to include night times in the sunpath (default is False).
         """
-        over_horizon = []
         self.sunc = SunCollection()
-        self._create_sun_timestamps(p.start_date, p.end_date)
-        self._calc_suns_positions(over_horizon)
-        self._append_weather_data(p)
+        self._create_sun_timestamps()
+        self._calc_suns_positions()
         if not include_night:
-            self._remove_suns_below_horizon(over_horizon)
+            self._remove_suns_below_horizon()
 
         self._generate_synthetic_weather_data()
 
-    def _create_sun_timestamps(self, start_date: str, end_date: str):
+    def _create_sun_timestamps(self):
         """
-        Create sun timestamps for the given date range.
-
-        Parameters
-        ----------
-        start_date : str
-            Start date for the timestamps.
-        end_date : str
-            End date for the timestamps.
+        Create sun timestamps for the given date range based on the DataFrame index.
         """
-        time_from = pd.to_datetime(start_date)
-        time_to = pd.to_datetime(end_date)
-        times = pd.date_range(start=time_from, end=time_to, freq="h")
-        self.sunc.count = len(times)
-        for i, time in enumerate(times):
-            time_stamp = pd.Timestamp(time)
-            self.sunc.time_stamps.append(time_stamp)
-            self.sunc.datetime_strs.append(str(time_stamp))
+        self.sunc.time_stamps = list(pd.to_datetime(self.df.index))
+        self.sunc.count = len(self.sunc.time_stamps)
 
-    def _calc_suns_positions(self, over_horizon: list[bool]):
+    def _calc_suns_positions(self):
         """
         Calculate sun positions for the timestamps.
 
-        Parameters
-        ----------
-        over_horizon : list[bool]
-            List to store whether each sun position is over the horizon.
         """
-        date_from_str = self.sunc.datetime_strs[0]
-        date_to_str = self.sunc.datetime_strs[-1]
-        dates = pd.date_range(start=date_from_str, end=date_to_str, freq="1h")
-        self.sunc.date_times = dates
-        solpos = solarposition.get_solarposition(dates, self.lat, self.lon)
-        # elev = np.radians(solpos.elevation.to_list())
+        self.sunc.date_times = self.df.index
+        solpos = solarposition.get_solarposition(self.df.index, self.lat, self.lon)
         elev = np.radians(solpos.apparent_elevation.to_list())
         azim = np.radians(solpos.azimuth.to_list()) - np.radians(90.0)
-        # zeni = np.radians(solpos.zenith.to_list())
         zeni = np.radians(solpos.apparent_zenith.to_list())
         x_sun = self.r * np.cos(elev) * np.cos(-azim) + self.origin[0]
         y_sun = self.r * np.cos(elev) * np.sin(-azim) + self.origin[1]
@@ -270,63 +354,38 @@ class Sunpath:
             sun_vecs.append(sun_vec)
             positions.append(np.array([x_sun[i], y_sun[i], z_sun[i]]))
             zeniths.append(zeni[i])
-            over_horizon.append(zeni[i] < (math.pi / 2.0))
+            self.over_horizon.append(zeni[i] < (math.pi / 2.0))
 
         self.sunc.sun_vecs = np.array(sun_vecs)
         self.sunc.positions = np.array(positions)
         self.sunc.zeniths = np.array(zeniths)
-        self.sunc.dhi = np.zeros(self.sunc.count)
-        self.sunc.dni = np.zeros(self.sunc.count)
+        self.sunc.dni = self.df["dni"].to_numpy()
+        self.sunc.dhi = self.df["dhi"].to_numpy()
 
-    def _remove_suns_below_horizon(self, over_horizon: list[bool]):
+    def _remove_suns_below_horizon(self):
         """
         Remove sun positions below the horizon.
-
-        Parameters
-        ----------
-        over_horizon : list[bool]
-            List of bool indicating whether each sun position is over the horizon.
         """
-        count = over_horizon.count(False)
-        info(f"Date range resulting in {len(over_horizon)} total sun positions")
+        over = self.over_horizon
+        count = over.count(False)
+
+        info(f"Date range resulting in {len(over)} total sun positions")
         info(f"Removing {count} suns that are below the horizon.")
-        info(f"Remaining suns for analysis: {len(over_horizon) - count}")
+        info(f"Remaining suns for analysis: {len(over) - count}")
 
-        self.sunc.sun_vecs = self.sunc.sun_vecs[over_horizon, :]
-        self.sunc.positions = self.sunc.positions[over_horizon, :]
-        self.sunc.date_times = self.sunc.date_times[over_horizon]
-        self.sunc.dni = self.sunc.dni[over_horizon]
-        self.sunc.dhi = self.sunc.dhi[over_horizon]
-        self.sunc.zeniths = self.sunc.zeniths[over_horizon]
-        self.sunc.count = len(self.sunc.positions)
+        self.sunc.sun_vecs = self.sunc.sun_vecs[over, :]
+        self.sunc.positions = self.sunc.positions[over, :]
+        self.sunc.dni = self.sunc.dni[over]
+        self.sunc.dhi = self.sunc.dhi[over]
+        self.sunc.zeniths = self.sunc.zeniths[over]
 
-        timestamps = []
-        datestrings = []
-        for i, ts in enumerate(self.sunc.time_stamps):
-            if over_horizon[i]:
-                timestamps.append(ts)
-                datestrings.append(self.sunc.datetime_strs[i])
+        filtered_timestamps = []
+        for ts, valid in zip(self.sunc.time_stamps, over):
+            if valid:
+                filtered_timestamps.append(ts)
 
-        self.sunc.time_stamps = timestamps
-        self.sunc.datetime_strs = datestrings
-
-    def _append_weather_data(self, p: SolarParameters):
-        """
-        Append weather data to the sun positions.
-
-        Parameters
-        ----------
-        p : SolarParameters
-            Parameters for solar calculations.
-        """
-        if p.data_source == DataSource.smhi:
-            data_smhi.get_data(p.longitude, p.latitude, self.sunc)
-        if p.data_source == DataSource.meteo:
-            data_meteo.get_data(p.longitude, p.latitude, self.sunc)
-        elif p.data_source == DataSource.clm:
-            data_clm.import_data(self.sunc, p.weather_file)
-        elif p.data_source == DataSource.epw:
-            data_epw.import_data(self.sunc, p.weather_file)
+        self.sunc.time_stamps = filtered_timestamps
+        self.sunc.count = len(self.sunc.time_stamps)
 
     def _build_sunpath_mesh(self):
         """Build sunpath mesh by combining analemmas and day paths."""
@@ -493,54 +552,10 @@ class Sunpath:
         """
         Calculate the number of days between two timestamps.
         """
-        start_year = date.year
-        start_month = 1
-        start_day = 1
-        first_day = pd.Timestamp(start_year, start_month, start_day)
+        year = date.year
+        month = 1
+        day = 1
+        first_day = pd.Timestamp(year, month, day, tz=f"Etc/GMT-{self.tz_offset}")
 
         delta = date - first_day
         return delta.days
-
-
-class SunpathUtils:
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def convert_utc_to_local_time(utc_h, gmt_diff):
-        local_h = utc_h + gmt_diff
-        if local_h < 0:
-            local_h = 24 + local_h
-        elif local_h > 23:
-            local_h = local_h - 24
-
-        return local_h
-
-    @staticmethod
-    def convert_local_time_to_utc(local_h, gmt_diff):
-        utc_h = local_h - gmt_diff
-        if utc_h < 0:
-            utc_h = 24 + utc_h
-        elif utc_h > 23:
-            utc_h = utc_h - 24
-
-        return utc_h
-
-    @staticmethod
-    def get_timezone_from_long_lat(lat, long):
-        tf = 0  # = TimezoneFinder()
-        timezone_str = tf.timezone_at(lng=long, lat=lat)
-        print(timezone_str)
-
-        timezone = pytz.timezone(timezone_str)
-        dt = datetime.datetime.now()
-        offset = timezone.utcoffset(dt)
-        h_offset_1 = offset.seconds / 3600
-        h_offset_2 = 24 - h_offset_1
-
-        print("Time zone: " + str(timezone))
-        print("GMT_diff: " + str(h_offset_1) + " or: " + str(h_offset_2))
-
-        h_offset = np.min([h_offset_1, h_offset_2])
-
-        return h_offset

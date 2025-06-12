@@ -12,7 +12,7 @@ from dtcc_solar.reinhart import Reinhart
 from dtcc_core.io import load_city
 from dtcc_core.model import PointCloud
 from dtcc_solar.perez import *
-from dtcc_solar.city import *
+from dtcc_solar.city_utils import *
 from dtcc_solar.radiance import load_radiance, epw_to_wea
 from pprint import pp
 
@@ -31,13 +31,12 @@ def perez_test():
     p = SolarParameters(
         file_name="",
         weather_file=path_lnd,
-        start_date="2019-06-01 12:00:00",
-        end_date="2019-06-01 15:00:00",
         longitude=long_lnd,
         latitude=lat_lnd,
-        data_source=DataSource.epw,
         sun_analysis=True,
         sky_analysis=True,
+        start=pd.Timestamp("2019-01-01 00:00:00"),
+        end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
     # wea_file = epw_to_wea(p.weather_file)
@@ -46,12 +45,13 @@ def perez_test():
     skydome = Reinhart()
     skydome.create_mesh()
 
-    sunpath_radius = 1.1
+    sunpath_radius = 1.5
     sunpath = Sunpath(p, sunpath_radius)
     sky_results = calc_sky_matrix(sunpath, skydome)
 
     # sun_results = calc_sun_matrix(sunpath, skydome)
-    sun_results = calc_smeared_sun_matrix(sunpath, skydome, da=15)
+    # sun_results = calc_sun_mat_flat_smear(sunpath, skydome, da=15)
+    sun_results = calc_sun_mat_smooth_smear(sunpath, skydome, da=20)
 
     sun_pc = PointCloud(points=sunpath.sunc.positions)
 
@@ -153,49 +153,43 @@ if __name__ == "__main__":
     boxes_sharp_f5248 = "../../../data/validation/boxes_sharp_f5248.obj"
     boxes_soft_f5248 = "../../../data/validation/boxes_soft_f5248.obj"
 
-    lnd_clm = "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
     lnd_epw = "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
-    gbg_clm = "SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.clm"
     gbg_epw = "SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.epw"
-    sth_clm = "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.clm"
     sth_epw = "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
 
     # Gothenburg
     p_1 = SolarParameters(
         file_name=boxes_sharp_f5248,
         weather_file=path + gbg_epw,
-        start_date="2019-01-01 00:00:00",
-        end_date="2019-12-31 23:00:00",
         longitude=11.97,
         latitude=57.71,
-        data_source=DataSource.epw,
         sun_analysis=True,
         sky_analysis=True,
+        start=pd.Timestamp("2019-01-01 00:00:00"),
+        end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
     # Stockholm
     p_2 = SolarParameters(
         file_name=inputfile_L,
-        weather_file=path + sth_clm,
-        start_date="2019-01-01 00:00:00",
-        end_date="2019-12-31 00:00:00",
+        weather_file=path + sth_epw,
         longitude=18.063,
         latitude=59.33,
-        data_source=DataSource.clm,
         sun_analysis=True,
         sky_analysis=True,
+        start=pd.Timestamp("2019-01-01 00:00:00"),
+        end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
     # Rio de Janeiro
     p_3 = SolarParameters(
         file_name=inputfile_L,
-        start_date="2019-01-01 00:00:00",
-        end_date="2019-12-31 00:00:00",
         longitude=-43.19,
         latitude=-22.90,
-        data_source=DataSource.meteo,
         sun_analysis=True,
         sky_analysis=True,
+        start=pd.Timestamp("2019-01-01 00:00:00"),
+        end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
     perez_test()

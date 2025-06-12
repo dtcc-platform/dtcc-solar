@@ -5,7 +5,6 @@ import pandas as pd
 import math
 import copy
 
-import dtcc_solar.data_meteo as meteo
 from dtcc_solar import utils
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import SolarParameters, OutputCollection
@@ -48,8 +47,8 @@ class TestRaytracing:
         p = copy.deepcopy(self.p)
         p.sun_analysis = True
         p.sky_analysis = False
-        p.start_date = "2019-06-01 12:00:00"
-        p.end_date = "2019-06-01 12:00:00"
+        p.start = pd.Timestamp("2019-06-01 12:00:00")
+        p.end = pd.Timestamp("2019-06-01 12:00:00")
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
@@ -64,8 +63,8 @@ class TestRaytracing:
         p = copy.deepcopy(self.p)
         p.sun_analysis = True
         p.sky_analysis = False
-        p.start_date = "2019-06-01 11:00:00"
-        p.end_date = "2019-06-01 15:00:00"
+        p.start = pd.Timestamp("2019-06-01 11:00:00")
+        p.end = pd.Timestamp("2019-06-01 15:00:00")
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
@@ -80,8 +79,8 @@ class TestRaytracing:
         p = copy.deepcopy(self.p)
         p.sun_analysis = True
         p.sky_analysis = True
-        p.start_date = "2019-01-01 00:00:00"
-        p.end_date = "2019-12-31 23:00:00"
+        p.start = pd.Timestamp("2019-01-01 00:00:00")
+        p.end = pd.Timestamp("2019-12-31 23:00:00")
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
@@ -99,8 +98,8 @@ class TestRaytracing:
         p = copy.deepcopy(self.p)
         p.sun_analysis = False
         p.sky_analysis = True
-        p.start_date = "2019-06-01 12:00:00"
-        p.end_date = "2019-06-01 12:00:00"
+        p.start = pd.Timestamp("2019-06-01 12:00:00")
+        p.end = pd.Timestamp("2019-06-01 12:00:00")
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
