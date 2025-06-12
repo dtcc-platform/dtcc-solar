@@ -76,3 +76,53 @@ def load_radiance(wea_file):
         print(result.stdout)
 
     # print(matrix.shape)
+
+
+def run_radiance(wea_file: str, output_dir: str = "."):
+    """
+    Run Radiance gendaymtx to generate Reinhart sky matrices for diffuse and direct components.
+    Saves two files:
+        - reinhart_diffuse.mtx
+        - reinhart_direct.mtx
+    """
+    gdm_path = "/usr/local/radiance/bin/gendaymtx"
+    if not os.path.exists(gdm_path):
+        error(f"Radiance gendaymtx not found at: {gdm_path}")
+        return
+
+    info("Computing Radiance Reinhart sky matrices from WEA file...")
+
+    # Output paths
+    diffuse_path = os.path.join(output_dir, "reinhart_diffuse.mtx")
+    direct_path = os.path.join(output_dir, "reinhart_direct.mtx")
+
+    # Command for diffuse matrix (sky only)
+    cmd_diffuse = [gdm_path, "-r", "-m", "1", "-d", "-O1", "-skyonly", wea_file]
+    # Command for direct sun matrix
+    cmd_direct = [gdm_path, "-r", "-m", "1", "-D", "-O1", wea_file]
+
+    # Run diffuse
+    try:
+        with open(diffuse_path, "w") as f:
+            result = subprocess.run(
+                cmd_diffuse, stdout=f, stderr=subprocess.PIPE, text=True
+            )
+        if result.returncode != 0:
+            error(f"Diffuse matrix error:\n{result.stderr}")
+        else:
+            info(f"Diffuse matrix saved to {diffuse_path}")
+    except Exception as e:
+        error(f"Failed to run diffuse gendaymtx: {e}")
+
+    # Run direct
+    try:
+        with open(direct_path, "w") as f:
+            result = subprocess.run(
+                cmd_direct, stdout=f, stderr=subprocess.PIPE, text=True
+            )
+        if result.returncode != 0:
+            error(f"Direct matrix error:\n{result.stderr}")
+        else:
+            info(f"Direct matrix saved to {direct_path}")
+    except Exception as e:
+        error(f"Failed to run direct gendaymtx: {e}")

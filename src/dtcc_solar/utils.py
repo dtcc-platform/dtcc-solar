@@ -9,7 +9,7 @@ from enum import Enum, IntEnum
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple
 from collections import defaultdict
-from dtcc_core.model import Mesh
+from dtcc_core.model import Mesh, LineString
 from csv import reader
 from pandas import Timestamp, DatetimeIndex
 from dtcc_solar.logging import info, debug, warning, error
@@ -136,6 +136,39 @@ class SolarParameters:
     sky_analysis: bool = False
     suns_per_group: int = 8
     sundome_div: tuple[int, int] = (150, 20)
+
+
+@dataclass
+class SkyResults:
+    # Number of suns
+    count: int = 0
+    # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
+    sky_matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 2D array of relative luminance F (unitless) per patch and timestep [n x t]
+    relative_luminance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 2D array of norm relative luminance F (unitless) per patch and timestep [n x t]
+    relative_lum_norm: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 2D array of absolute luminance L (W/m2/sr) per patch and timestep [n x t]
+    absolute_luminance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 1D array of solid angles (steradians) for each patch [n]
+    solid_angles: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Relative luminance term1 (unitless) for Perez model
+    rel_lum_term1: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Relative luminance term2 (unitless) for Perez model
+    rel_lum_term2: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Ksi angles (zenith angles in radians) for each patch and timestep
+    ksis: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Gamma angles (angle between sun and patch in radians) for each patch and timestep
+    gammas: np.ndarray = field(default_factory=lambda: np.empty(0))
+
+
+@dataclass
+class SunResults:
+    # Number of suns
+    count: int = 0
+    # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
+    sun_matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 2D array of relative luminance F (unitless) per patch and timestep [n x t]
 
 
 def dict_2_np_array(sun_pos_dict):
@@ -488,3 +521,21 @@ def calc_face_mid_points(mesh):
     vertex3 = np.array(mesh.vertices[faceVertexIndex3])
     face_mid_points = (vertex1 + vertex2 + vertex3) / 3.0
     return face_mid_points
+
+
+def create_ls_circle(center, radius, num_segments):
+    # Calculate the angle between each segment
+    angle_step = 2 * math.pi / num_segments
+
+    # Generate points around the circumference of the circle
+    vertices = []
+    for i in range(num_segments):
+        x = center[0] + radius * math.cos(i * angle_step)
+        y = center[1] + radius * math.sin(i * angle_step)
+        z = 0.0
+        vertices.append([x, y, z])
+
+    vertices.append(vertices[0])
+    vertices = np.array(vertices)
+    circle_ls = LineString(vertices=vertices)
+    return circle_ls

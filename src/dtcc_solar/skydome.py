@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from dtcc_core.model import Mesh, MultiLineString
 from dtcc_viewer import Scene, Window
 from dtcc_core.model import Mesh, LineString, MultiLineString, PointCloud
+from dtcc_solar.utils import create_ls_circle
 
 
 class Skydome(ABC):
@@ -124,8 +125,10 @@ class Skydome(ABC):
         return (self.r**2) * abs((azim2 - azim1) * (math.sin(elev2) - math.sin(elev1)))
 
     def view(self, name: str, data=None, sun_pos_pc: PointCloud = None) -> None:
+        ls_cirlce = create_ls_circle(np.array([0, 0, 0]), self.r * 2, 100)
         window = Window(1200, 800)
         scene = Scene()
         scene.add_mesh(name, self.mesh, data=data)
         scene.add_pointcloud("Sun positions", sun_pos_pc, size=0.01)
+        scene.add_linestring("Skydome circle", ls_cirlce)
         window.render(scene)

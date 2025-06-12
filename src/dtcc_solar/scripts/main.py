@@ -31,8 +31,8 @@ def perez_test():
     p = SolarParameters(
         file_name="",
         weather_file=path_lnd,
-        start_date="2019-01-01 00:00:00",
-        end_date="2019-12-31 23:00:00",
+        start_date="2019-06-01 12:00:00",
+        end_date="2019-06-01 15:00:00",
         longitude=long_lnd,
         latitude=lat_lnd,
         data_source=DataSource.epw,
@@ -46,30 +46,37 @@ def perez_test():
     skydome = Reinhart()
     skydome.create_mesh()
 
-    sunpath_radius = 2.0
+    sunpath_radius = 1.1
     sunpath = Sunpath(p, sunpath_radius)
-    perez_results = calc_sky_matrix(sunpath, skydome)
+    sky_results = calc_sky_matrix(sunpath, skydome)
+
+    # sun_results = calc_sun_matrix(sunpath, skydome)
+    sun_results = calc_smeared_sun_matrix(sunpath, skydome, da=15)
 
     sun_pc = PointCloud(points=sunpath.sunc.positions)
 
-    rel_lum = perez_results.relative_luminance
+    rel_lum = sky_results.relative_luminance
     rel_lum = skydome.map_data_to_faces(rel_lum)
 
-    sky_mat = perez_results.sky_vector_matrix
+    sky_mat = sky_results.sky_matrix
     sky_mat = skydome.map_data_to_faces(sky_mat)
 
-    solid_angles = perez_results.solid_angles
+    solid_angles = sky_results.solid_angles
     sa = skydome.map_data_to_faces(solid_angles)
 
-    ksis = perez_results.ksis
+    ksis = sky_results.ksis
     ksis = skydome.map_data_to_faces(ksis)
 
-    gammas = perez_results.gammas
+    gammas = sky_results.gammas
     gammas = skydome.map_data_to_faces(gammas)
+
+    sun_mat = sun_results.sun_matrix
+    sun_mat = skydome.map_data_to_faces(sun_mat)
 
     dict_data = {
         "relative lumiance": rel_lum,
         "sky matrix": sky_mat,
+        "sun matrix": sun_mat,
         "solid angles": sa,
         "ksis": ksis,
         "gammas": gammas,
