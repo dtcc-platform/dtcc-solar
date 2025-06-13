@@ -1,11 +1,10 @@
+import warnings
 import os
-import trimesh
 import numpy as np
 import pandas as pd
 import math
 import copy
 
-from dtcc_solar import utils
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import SolarParameters, OutputCollection
 from dtcc_solar.solar_engine import SolarEngine
@@ -14,6 +13,8 @@ from dtcc_core.model import Mesh
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
 from typing import List, Any
 from pprint import pp
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 class TestRaytracing:
@@ -30,7 +31,7 @@ class TestRaytracing:
         self.lon = -0.12
         self.lat = 51.5
         self.file_name = "../data/models/CitySurfaceS.stl"
-        self.w_file = "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.clm"
+        self.w_file = "../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
         self.city_mesh = meshes.load_mesh(self.file_name)
 
         self.p = SolarParameters(
@@ -48,7 +49,7 @@ class TestRaytracing:
         p.sun_analysis = True
         p.sky_analysis = False
         p.start = pd.Timestamp("2019-06-01 12:00:00")
-        p.end = pd.Timestamp("2019-06-01 12:00:00")
+        p.end = pd.Timestamp("2019-06-01 13:00:00")
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
@@ -99,7 +100,7 @@ class TestRaytracing:
         p.sun_analysis = False
         p.sky_analysis = True
         p.start = pd.Timestamp("2019-06-01 12:00:00")
-        p.end = pd.Timestamp("2019-06-01 12:00:00")
+        p.end = pd.Timestamp("2019-06-01 13:00:00")
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()

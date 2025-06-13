@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import pprint
 import copy
@@ -7,6 +8,8 @@ from dtcc_core.model import Mesh, PointCloud
 from pprint import pp
 from dtcc_viewer import Scene, Window
 from dtcc_solar.utils import calc_face_mid_points, calc_face_incircle, Sky
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 class TestEmbreeSolar:

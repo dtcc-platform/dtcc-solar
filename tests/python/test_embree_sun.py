@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import pprint
 from dtcc_core.io import meshes
@@ -5,6 +6,8 @@ from dtcc_solar import py_embree_solar
 from dtcc_core.model import PointCloud
 from pprint import pp
 from dtcc_viewer import Scene, Window
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 class TestEmbreeSolar:

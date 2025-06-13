@@ -38,10 +38,6 @@ class Viewer:
         data_dict = {}
         data_mask = outc.data_mask  # Mask for faces with data
 
-        print("Data mask:", data_mask)
-        print("Data mask shape:", data_mask.shape)
-        print("face sun angles shape", outc.face_sun_angles.shape)
-
         if p.sky_analysis:
             svf_masked = outc.sky_view_factor[data_mask]
             data_dict["sky view factor"] = svf_masked

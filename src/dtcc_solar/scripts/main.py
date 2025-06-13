@@ -25,14 +25,14 @@ def perez_test():
 
     path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
 
-    long_lnd = 0.12
     lat_lnd = 51.5
+    long_lnd = 0.12
 
     p = SolarParameters(
         file_name="",
         weather_file=path_lnd,
-        longitude=long_lnd,
         latitude=lat_lnd,
+        longitude=long_lnd,
         sun_analysis=True,
         sky_analysis=True,
         start=pd.Timestamp("2019-01-01 00:00:00"),
@@ -111,7 +111,7 @@ def analyse_mesh_2(solar_parameters: SolarParameters):
     p = solar_parameters
     mesh = io.load_mesh(p.file_name)
     (analysis_mesh, shading_mesh) = split_mesh_by_vertical_faces(mesh)
-    analysis_mesh = subdivide_mesh(analysis_mesh, 3.5)
+    # analysis_mesh = subdivide_mesh(analysis_mesh, 3.5)
 
     # Setup model, run analysis and view results
     engine = SolarEngine(analysis_mesh, shading_mesh, sky=Sky.Tregenza145)
@@ -161,8 +161,8 @@ if __name__ == "__main__":
     p_1 = SolarParameters(
         file_name=boxes_sharp_f5248,
         weather_file=path + gbg_epw,
-        longitude=11.97,
-        latitude=57.71,
+        latitude=57.66,
+        longitude=12.28,
         sun_analysis=True,
         sky_analysis=True,
         start=pd.Timestamp("2019-01-01 00:00:00"),
@@ -173,8 +173,8 @@ if __name__ == "__main__":
     p_2 = SolarParameters(
         file_name=inputfile_L,
         weather_file=path + sth_epw,
-        longitude=18.063,
         latitude=59.33,
+        longitude=18.063,
         sun_analysis=True,
         sky_analysis=True,
         start=pd.Timestamp("2019-01-01 00:00:00"),
@@ -184,15 +184,15 @@ if __name__ == "__main__":
     # Rio de Janeiro
     p_3 = SolarParameters(
         file_name=inputfile_L,
-        longitude=-43.19,
         latitude=-22.90,
+        longitude=-43.19,
         sun_analysis=True,
         sky_analysis=True,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
-    perez_test()
+    # perez_test()
     # analyse_mesh_1(p_1)
-    # analyse_mesh_2(p_1)
+    analyse_mesh_2(p_2)
     # analyse_mesh_3(p_1)

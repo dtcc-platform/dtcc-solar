@@ -255,20 +255,18 @@ class SolarEngine:
 
     def _sun_raycasting(self, sunc: SunCollection):
         """Perform sun raycasting analysis."""
-        info(f"Running sun raycasting")
         if self.rays == Rays.Bundle1:
             success = self.embree.sun_raytrace_occ1(sunc.sun_vecs)
         elif self.rays == Rays.Bundle8:
             success = self.embree.sun_raytrace_occ8(sunc.sun_vecs)
 
         if success:
-            info(f"Running sun raycasting completed succefully.")
+            info(f"Sun raycasting completed succefully.")
         else:
             error("Something went wrong with sun raycasting in embree.")
 
     def _sky_raycasting(self):
         """Perform sky raycasting analysis."""
-        info(f"Running sky raycasting")
         success = False
         if self.rays == Rays.Bundle1:
             success = self.embree.sky_raytrace_occ1()
@@ -276,7 +274,7 @@ class SolarEngine:
             success = self.embree.sky_raytrace_occ8()
 
         if success:
-            info(f"Running sky raycasting completed succefully.")
+            info(f"Sky raycasting completed succefully.")
         else:
             error("Something went wrong with sky raycasting in embree.")
 

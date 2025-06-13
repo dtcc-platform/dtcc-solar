@@ -105,24 +105,56 @@ class Sunpath:
         """
         Extracts the 'Time Zone' offset from the EPW file header.
 
-        Parameters:
-            epw_file_path (str): Path to the EPW file.
-
         Returns:
             int: The time zone offset in hours from UTC (e.g., +1, -5).
         """
 
+        labels = [
+            "Header label   ",
+            "Station name   ",
+            "State/Province ",
+            "Country        ",
+            "Data type      ",
+            "WMO station ID ",
+            "Latitude       ",
+            "Longitude      ",
+            "Time Zone      ",
+            "Elevation (m)  ",
+        ]
+
         with open(p.weather_file, "r") as file:
             first_line = file.readline()
             parts = first_line.strip().split(",")
-
+            info("--------------------------------------------")
+            info("From EPW header:")
+            info("--------------------------------------------")
+            for i, part in enumerate(parts):
+                label = "Unknown label  "
+                if i < len(labels):
+                    label = labels[i]
+                info(f"{label}: {part}")
+            info("--------------------------------------------")
             try:
                 # According to EPW format, field 8 is the time zone (index 7)
-                tz_offset = int(float(parts[7]))
+                latitude = float(parts[6])
+                longitude = float(parts[7])
+                tz_offset = int(float(parts[8]))
+
             except (IndexError, ValueError) as e:
                 raise ValueError("Could not parse time zone from EPW header.") from e
 
         info(f"EPW Time Zone Offset: {tz_offset} hours")
+
+        lat_diff = abs(latitude - p.latitude)
+        lon_diff = abs(longitude - p.longitude)
+
+        if lat_diff > 1.0 or lon_diff > 1.0:
+            warning(
+                f"Latitude/Longitude mismatch: EPW ({latitude}, {longitude}), "
+                f"Parameters ({p.latitude}, {p.longitude})"
+            )
+
+        debug("Test")
 
         return tz_offset
 
