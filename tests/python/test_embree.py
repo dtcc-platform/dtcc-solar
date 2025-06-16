@@ -4,8 +4,6 @@ from dtcc_solar import py_embree_solar as embree
 from dtcc_core.io import meshes
 from pprint import pp
 
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 
 class TestEmbreeSolar:
     lat: float

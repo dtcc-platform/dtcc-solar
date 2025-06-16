@@ -9,8 +9,6 @@ from pprint import pp
 from dtcc_viewer import Scene, Window
 from dtcc_solar.utils import calc_face_mid_points, calc_face_incircle, Sky
 
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 
 class TestEmbreeSolar:
     lat: float

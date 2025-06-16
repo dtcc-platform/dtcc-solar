@@ -58,6 +58,9 @@ def perez_test():
     rel_lum = sky_results.relative_luminance
     rel_lum = skydome.map_data_to_faces(rel_lum)
 
+    nor_lum = sky_results.relative_lum_norm
+    nor_lum = skydome.map_data_to_faces(nor_lum)
+
     sky_mat = sky_results.sky_matrix
     sky_mat = skydome.map_data_to_faces(sky_mat)
 
@@ -73,14 +76,21 @@ def perez_test():
     sun_mat = sun_results.sun_matrix
     sun_mat = skydome.map_data_to_faces(sun_mat)
 
+    tot_mat = sky_mat + sun_mat
+
     dict_data = {
         "relative lumiance": rel_lum,
+        "relative lum norm": nor_lum,
         "sky matrix": sky_mat,
         "sun matrix": sun_mat,
+        "total matrix": tot_mat,
         "solid angles": sa,
         "ksis": ksis,
         "gammas": gammas,
     }
+
+    # Compare total measured radiation with the sum of radiation on skydomes
+    calc_tot_error(sky_results, skydome, sun_results, sunpath)
 
     skydome.view(name="Skydome", data=dict_data, sun_pos_pc=sun_pc)
 
@@ -192,7 +202,7 @@ if __name__ == "__main__":
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
-    # perez_test()
+    perez_test()
     # analyse_mesh_1(p_1)
-    analyse_mesh_2(p_2)
+    # analyse_mesh_2(p_2)
     # analyse_mesh_3(p_1)

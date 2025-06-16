@@ -14,8 +14,6 @@ from dtcc_solar.logging import set_log_level, info, debug, warning, error
 from typing import List, Any
 from pprint import pp
 
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 
 class TestRaytracing:
     lon: float

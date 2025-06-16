@@ -161,25 +161,6 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
     return f
 
 
-def calc_norm_factor(lvs, ksis, solid_angles):
-    """
-    Calculate normalisation factor to scale relative luminance values.
-
-    Inputs:
-        lvs          : Relative luminance values (unitless)
-        ksis         : Zenith angles for each patch (radians)
-        solid_angles : Solid angles for each patch (steradians)
-
-    Returns:
-        norma factor (unitless) * sr
-
-    """
-    integrand = lvs * np.cos(ksis) * solid_angles
-    norm_factor = np.sum(integrand)
-
-    return norm_factor
-
-
 def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
     dni = sunpath.sunc.dni
@@ -191,6 +172,7 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     sun_times = sunpath.sunc.time_stamps
 
     rel_lum = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
+    nor_lum = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
     sky_mat = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
 
     all_ksis = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
@@ -199,7 +181,7 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     keys_1 = ["sun_zenith", "dni", "dhi", "epsilon", "delta", "air_mass"]
     data_dict_1 = {key: [] for key in keys_1}
 
-    keys_2 = ["Patch_irr_max", "Patch_irr_min", "Patch_irr_mean", "norm", "error"]
+    keys_2 = ["Patch_irr_max", "Patch_irr_min", "norm", "error_dhi", "error_lum_norm"]
     data_dict_2 = {key: [] for key in keys_2}
 
     coeffs_keys = ["A", "B", "C", "D", "E"]
@@ -217,6 +199,8 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     debug_gammas = []
     debug_sun_zen = []
     debug_max_rvs = []
+
+    ignored_dhi = 0.0
 
     for i in range(len(sun_vecs)):
         # For each sun position compute the radiation on each patch
@@ -252,23 +236,28 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
             ksis = np.array(ksis)
 
             # Calculate normalisation factor eq. (3) in Perez 1993
-            norm = calc_norm_factor(lvs, ksis, solid_angles)  # (sr)
+            norm = np.sum(lvs * np.cos(ksis) * solid_angles)
 
             if norm <= norm_limit:
-                # Uniform sky the ensures dhi is distributed evenly across patches
+                # Uniform sky: distribute DHI equally per solid angle
                 small_norm_count += 1
-                cos_weighted_sum = np.sum(np.cos(ksis) * solid_angles)  # (sr)
-                R_uniform = dhi[i] / cos_weighted_sum  # (W/m²*sr)
-                Rvs = R_uniform
+                weight = np.cos(ksis) * np.sum(solid_angles)  # (sr)
+                R_uniform = dhi[i] / weight  # (W/m²·sr)
+                Rvs = np.full_like(ksis, R_uniform)
+                lvs_norm = np.full_like(ksis, 1.0 / len(lvs))
             else:
                 # Calculate absolute radiance
                 Rvs = (lvs * dhi[i]) / norm  # (W/m²*sr)
+                lvs_norm = lvs / np.sum(lvs)  # Normalised relative luminance (unitless)
 
             rel_lum[:, i] = lvs
-            sky_mat[:, i] = Rvs
+            nor_lum[:, i] = lvs_norm  # Normalised luminance (W/m²·sr)
+            sky_mat[:, i] = Rvs * solid_angles  # (W/m²)
 
             projected_sum = np.sum(Rvs * np.cos(ksis) * solid_angles)  # (W/m²)
-            error = (projected_sum - dhi[i]) / dhi[i]  # (unitless)
+            error_dhi = (projected_sum - dhi[i]) / dhi[i]  # (unitless)
+
+            error_lum_norm = np.sum(lvs_norm) - 1.0
 
             coeffs_dict["A"].append(A)
             coeffs_dict["B"].append(B)
@@ -285,9 +274,9 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
             data_dict_2["Patch_irr_max"].append(np.max(Rvs))
             data_dict_2["Patch_irr_min"].append(np.min(Rvs))
-            data_dict_2["Patch_irr_mean"].append(np.mean(Rvs))
             data_dict_2["norm"].append(norm)
-            data_dict_2["error"].append(error)
+            data_dict_2["error_dhi"].append(error_dhi)
+            data_dict_2["error_lum_norm"].append(error_lum_norm)
 
             eval_count += 1
 
@@ -298,6 +287,7 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
             # If no diffuse radiation, set to zero
             rel_lum[:, i] = 0.0
             sky_mat[:, i] = 0.0
+            ignored_dhi += dhi[i]
 
     info(f"Evaluated {eval_count} sun positions out of {len(sun_vecs)}.")
     info(f"Number of norm factors smaller then {norm_limit}: {small_norm_count}")
@@ -306,10 +296,12 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     perez_results = SkyResults()
     perez_results.count = len(sun_vecs)
     perez_results.relative_luminance = rel_lum
+    perez_results.relative_lum_norm = nor_lum
+    perez_results.solid_angles = solid_angles
     perez_results.sky_matrix = sky_mat
     perez_results.ksis = all_ksis
     perez_results.gammas = all_gammas
-    perez_results.solid_angles = solid_angles
+    perez_results.ignored_dhi = ignored_dhi
 
     # sub_plot_dict(data_dict_1, 0, 5000)
     # sub_plot_dict(data_dict_2, 0, 5000)
@@ -320,6 +312,30 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     # show_plot()
 
     return perez_results
+
+
+def calc_tot_error(
+    sky_res: SkyResults, skydome: Skydome, sun_res: SunResults, sunp: Sunpath
+):
+
+    patch_zeniths = np.array(skydome.patch_zeniths)
+
+    sun_dni = np.sum(np.sum(sun_res.sun_matrix, axis=1))
+    sky_dhi = np.sum(np.sum(sky_res.sky_matrix, axis=1) * np.cos(patch_zeniths))
+
+    sum_dni = np.sum(sunp.sunc.dni)
+    sum_dhi = np.sum(sunp.sunc.dhi)
+
+    if sum_dni > 0:
+        error_dni = np.abs(sun_dni - sum_dni) / sum_dni
+
+    if sum_dhi > 0:
+        error_dhi = np.abs(sky_dhi - sum_dhi) / sum_dhi
+        error_ign = sky_res.ignored_dhi / sum_dhi
+
+    info(f"Total error in DNI: {100 * error_dni:.3f} %")
+    info(f"Total error in DHI: {100 * error_dhi:.3f} %")
+    info(f"Total ignored DHI: {100 * error_ign:.3f} %")
 
 
 def calc_sun_matrix(sunpath: Sunpath, skydome: Skydome) -> SunResults:

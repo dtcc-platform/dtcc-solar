@@ -174,6 +174,8 @@ class SkyResults:
     ksis: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Gamma angles (angle between sun and patch in radians) for each patch and timestep
     gammas: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # DHI measurements ignored due to large sun zenith angle
+    ignored_dhi: float = 0.0
 
 
 @dataclass

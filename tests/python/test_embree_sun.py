@@ -7,8 +7,6 @@ from dtcc_core.model import PointCloud
 from pprint import pp
 from dtcc_viewer import Scene, Window
 
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 
 class TestEmbreeSolar:
     lat: float
