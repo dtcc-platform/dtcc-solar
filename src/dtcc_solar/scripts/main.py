@@ -95,6 +95,47 @@ def perez_test():
     skydome.view(name="Skydome", data=dict_data, sun_pos_pc=sun_pc)
 
 
+def embree_perez_test():
+    print("-------- Skydome Test -------")
+
+    path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+    # filename = "../../../data/validation/boxes_sharp_f5248.obj"
+    filename = "../../../data/validation/boxes_soft_f5248.obj"
+
+    lat_lnd = 51.5
+    long_lnd = 0.12
+
+    mesh = io.load_mesh(filename)
+
+    p = SolarParameters(
+        file_name="",
+        weather_file=path_lnd,
+        latitude=lat_lnd,
+        longitude=long_lnd,
+        sun_analysis=True,
+        sky_analysis=True,
+        start=pd.Timestamp("2019-01-01 00:00:00"),
+        end=pd.Timestamp("2019-12-31 23:00:00"),
+    )
+
+    skydome = Reinhart()
+    skydome.create_mesh()
+
+    sunpath_radius = 1.5
+    sunpath = Sunpath(p, sunpath_radius)
+    outputc = OutputCollection()
+
+    sky_res = calc_sky_matrix(sunpath, skydome)
+    sun_res = calc_sun_mat_smooth_smear(sunpath, skydome, da=20)
+
+    tot_matrix = sky_res.sky_matrix + sun_res.sun_matrix
+
+    # Setup model, run analysis and view results
+    engine = SolarEngine(mesh)
+
+    engine.run_analysis_2(sunpath, tot_matrix, skydome)
+
+
 def analyse_mesh_1(solar_parameters: SolarParameters):
 
     print("-------- Solar Mesh Analysis Started -------")
@@ -202,7 +243,8 @@ if __name__ == "__main__":
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
-    perez_test()
+    # perez_test()
+    embree_perez_test()
     # analyse_mesh_1(p_1)
     # analyse_mesh_2(p_2)
     # analyse_mesh_3(p_1)

@@ -189,23 +189,15 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
     solid_angles = np.array(skydome.solid_angles)
 
-    zenith_limit = math.radians(88)  # Limit for zenith angle for numerical stability
+    zenith_limit = math.radians(89.9)  # Limit for zenith angle for numerical stability
     norm_limit = 0.01  # Normalisation factor limit for uniform sky
 
     small_norm_count = 0
     eval_count = 0
 
-    debug_rvs = []
-    debug_gammas = []
-    debug_sun_zen = []
-    debug_max_rvs = []
-
     ignored_dhi = 0.0
 
     for i in range(len(sun_vecs)):
-        # For each sun position compute the radiation on each patch
-        # dni[i] = dni_synth[i]
-        # dhi[i] = dhi_synth[i]
 
         if dhi[i] > 0.0 and sun_zenith[i] < zenith_limit:
 
@@ -280,9 +272,6 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
             eval_count += 1
 
-            debug_sun_zen.append(math.degrees(sun_zenith[i]))
-            debug_max_rvs.append(np.max(Rvs))
-
         else:
             # If no diffuse radiation, set to zero
             rel_lum[:, i] = 0.0
@@ -308,7 +297,6 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     # plot_coeffs_dict(coeffs_dict, 0, len(sun_vecs), title="Perez Coefficients")
     # plot_debug_1(np.array(debug_gammas), np.array(debug_rvs))
     # plot_debug_2(np.array(debug_sun_zen), np.array(debug_max_rvs))
-
     # show_plot()
 
     return perez_results

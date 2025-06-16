@@ -24,9 +24,7 @@ public:
     void BundleRays();
 
     void TranslateRays(Vertex new_origin);
-    void Translate4Rays(Vertex new_origin);
     void Translate8Rays(Vertex new_origin);
-    void Translate16Rays(Vertex new_origin);
 
     float CalcSphereCapArea(float elevation);
     float CalcHemisphereArea();

@@ -40,7 +40,7 @@ EmbreeSolar::EmbreeSolar()
     info("Model setup with plane geometry complete.");
 }
 
-EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces)
+EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces)
 {
     info("Creating embree instance with mesh geometry.");
 
@@ -66,7 +66,7 @@ EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<s
     info("Model setup with mesh geometry complete.");
 }
 
-EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<bool> faceMask)
+EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask)
 {
     info("Creating embree instance with mesh geometry.");
     set_log_level(INFO);
@@ -94,11 +94,14 @@ EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<s
     mHasSunResults = false;
     mHasSkyResults = false;
     mHasIrrResults = false;
+    mHasVisResults = false;
+    mHasProjResults = false;
+    mHasVisProjResults = false;
 
     info("Model setup with mesh geometry complete.");
 }
 
-EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<bool> faceMask, int skyType)
+EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, int skyType)
 {
     info("Creating embree instance with mesh geometry.");
     set_log_level(INFO);
@@ -127,6 +130,44 @@ EmbreeSolar::EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<s
     mHasSunResults = false;
     mHasSkyResults = false;
     mHasIrrResults = false;
+    mHasVisResults = false;
+    mHasProjResults = false;
+    mHasVisProjResults = false;
+
+    info("Model setup with mesh geometry complete.");
+}
+
+EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, fArray2D rays, fArray1D areas)
+{
+    info("Creating embree instance with mesh geometry.");
+    set_log_level(INFO);
+
+    mVertexCount = (int)vertices.size();
+    mFaceCount = (int)faces.size();
+    mFaceNormals = new Vector[mFaceCount];
+
+    mApplyMask = false;
+    mMaskCount = 0;
+    mFaceMask = std::vector<bool>(mFaceCount, true);
+    mMaskCount = 0;
+    for (int i = 0; i < mFaceCount; i++)
+        if (mFaceMask[i])
+            mMaskCount++;
+
+    CreateDevice();
+    CreateScene();
+    CreateGeom(vertices, faces);
+    CalcFaceMidPoints();
+    CalcFaceNormals();
+
+    mPydome = new Pydome(rays, areas);
+
+    mHasSunResults = false;
+    mHasSkyResults = false;
+    mHasIrrResults = false;
+    mHasVisResults = false;
+    mHasProjResults = false;
+    mHasVisProjResults = false;
 
     info("Model setup with mesh geometry complete.");
 }
@@ -147,7 +188,7 @@ EmbreeSolar::~EmbreeSolar()
     printf("Destructor called.\n");
 }
 
-std::vector<std::vector<int>> EmbreeSolar::GetMeshFaces()
+iArray2D EmbreeSolar::GetMeshFaces()
 {
     auto faces = std::vector<std::vector<int>>(mFaceCount, std::vector<int>(3, 0));
 
@@ -162,7 +203,7 @@ std::vector<std::vector<int>> EmbreeSolar::GetMeshFaces()
     return faces;
 }
 
-std::vector<std::vector<float>> EmbreeSolar::GetMeshVertices()
+fArray2D EmbreeSolar::GetMeshVertices()
 {
     auto vertices = std::vector<std::vector<float>>(mVertexCount, std::vector<float>(3, 0));
 
@@ -177,7 +218,7 @@ std::vector<std::vector<float>> EmbreeSolar::GetMeshVertices()
     return vertices;
 }
 
-std::vector<std::vector<float>> EmbreeSolar::GetFaceNormals()
+fArray2D EmbreeSolar::GetFaceNormals()
 {
     auto vertices = std::vector<std::vector<float>>(mFaceCount, std::vector<float>(3, 0));
 
@@ -192,47 +233,67 @@ std::vector<std::vector<float>> EmbreeSolar::GetFaceNormals()
     return vertices;
 }
 
-std::vector<std::vector<int>> EmbreeSolar::GetSkydomeFaces()
+iArray2D EmbreeSolar::GetSkydomeFaces()
 {
     return mSkydome->GetFaces();
 }
 
-std::vector<std::vector<float>> EmbreeSolar::GetSkydomeVertices()
+fArray2D EmbreeSolar::GetSkydomeVertices()
 {
     return mSkydome->GetVertices();
 }
 
-std::vector<std::vector<float>> EmbreeSolar::GetSkydomeRayDirections()
+fArray2D EmbreeSolar::GetSkydomeRayDirections()
 {
     return mSkydome->GetRayDirections();
 }
 
-std::vector<std::vector<int>> EmbreeSolar::GetOccludedResults()
+fArray2D EmbreeSolar::GetPydomeRayDirections()
+{
+    return mPydome->GetRayDirections();
+}
+
+iArray2D EmbreeSolar::GetOccludedResults()
 {
     return mOccluded;
 }
 
-std::vector<std::vector<float>> EmbreeSolar::GetAngleResults()
+fArray2D EmbreeSolar::GetAngleResults()
 {
     return mAngles;
 }
 
-std::vector<std::vector<int>> EmbreeSolar::GetFaceSkyHitResults()
+iArray2D EmbreeSolar::GetFaceSkyHitResults()
 {
     return mFaceSkyHit;
 }
 
-std::vector<float> EmbreeSolar::GetSkyViewFactorResults()
+fArray2D EmbreeSolar::GetVisibilityResults()
+{
+    return mVisibilityMatrix;
+}
+
+fArray2D EmbreeSolar::GetProjectionResults()
+{
+    return mProjectionMatrix;
+}
+
+fArray2D EmbreeSolar::GetIrradianceResults()
+{
+    return mIrradianceMatrix;
+}
+
+fArray1D EmbreeSolar::GetSkyViewFactorResults()
 {
     return mSkyViewFactor;
 }
 
-std::vector<float> EmbreeSolar::GetAccumulatedAngles()
+fArray1D EmbreeSolar::GetAccumulatedAngles()
 {
     return mAccumAngles;
 }
 
-std::vector<float> EmbreeSolar::GetAccumulatedOcclusion()
+fArray1D EmbreeSolar::GetAccumulatedOcclusion()
 {
     return mAccumOcclud;
 }
@@ -266,7 +327,7 @@ void EmbreeSolar::CreateScene()
     info("Scene created.");
 }
 
-void EmbreeSolar::CreateGeom(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces)
+void EmbreeSolar::CreateGeom(fArray2D vertices, iArray2D faces)
 {
     mGeometry = rtcNewGeometry(mDevice, RTC_GEOMETRY_TYPE_TRIANGLE);
 
@@ -397,7 +458,7 @@ void EmbreeSolar::CalcFaceNormals()
     }
 }
 
-void EmbreeSolar::Raytrace_occ1(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter)
+void EmbreeSolar::Raytrace_occ1(fArray1D &angles, iArray1D &occluded, int &hitCounter)
 {
     int nRays = mSunrays->GetRayCount();
     for (int i = 0; i < nRays; i++)
@@ -422,7 +483,7 @@ void EmbreeSolar::Raytrace_occ1(std::vector<float> &angles, std::vector<int> &oc
     }
 }
 
-void EmbreeSolar::Raytrace_occ8(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter)
+void EmbreeSolar::Raytrace_occ8(fArray1D &angles, iArray1D &occluded, int &hitCounter)
 {
     int nBundles = mSunrays->GetBundle8Count();
     for (int i = 0; i < nBundles; i++)
@@ -452,8 +513,13 @@ void EmbreeSolar::Raytrace_occ8(std::vector<float> &angles, std::vector<int> &oc
     }
 }
 
-bool EmbreeSolar::SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs)
+bool EmbreeSolar::SunRaytrace_Occ1(fArray2D sun_vecs)
 {
+    if (!mSunrays)
+    {
+        error("Sunrays object is not initialized in EmbreeSolar::SunRaytrace_Occ1.");
+        return false;
+    }
     // Define a 2D vector to store intersection results. Each postion is given the
     // initial values 0, which is changed to 1 if an intersection is found.
     int nSunVecs = (int)sun_vecs.size();
@@ -492,8 +558,13 @@ bool EmbreeSolar::SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs)
     return true;
 }
 
-bool EmbreeSolar::SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs)
+bool EmbreeSolar::SunRaytrace_Occ8(fArray2D sun_vecs)
 {
+    if (!mSunrays)
+    {
+        error("Sunrays object is not initialized in EmbreeSolar::SunRaytrace_Occ1.");
+        return false;
+    }
     // Define a 2D vector to store intersection results. Each postion is given the
     // initial values 0, which is changed to 1 if an intersection is found.
     int nSunVecs = (int)sun_vecs.size();
@@ -534,6 +605,11 @@ bool EmbreeSolar::SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs)
 
 bool EmbreeSolar::SkyRaytrace_Occ1()
 {
+    if (!mSkydome)
+    {
+        error("Skydome object is not initialized in EmbreeSolar::SkyRaytrace_Occ1.");
+        return false;
+    }
     int hitCounter = 0;
     int hitAttempts = 0;
     float hitPortion = 0.0f;
@@ -577,6 +653,11 @@ bool EmbreeSolar::SkyRaytrace_Occ1()
 
 bool EmbreeSolar::SkyRaytrace_Occ8()
 {
+    if (!mSkydome)
+    {
+        error("Sunrays object is not initialized in EmbreeSolar::SunRaytrace_Occ1.");
+        return false;
+    }
     int hitCounter = 0;
     int hitAttempts = 0;
     float hitPortion = 0.0f;
@@ -645,8 +726,230 @@ bool EmbreeSolar::Accumulate()
     return true;
 }
 
-bool EmbreeSolar::CalcSkyVectorMatrix()
+bool EmbreeSolar::CalcProjMatrix()
 {
+    if (!mPydome)
+    {
+        error("Pydome is not initialized. Cannot compute projection matrix.");
+        return false;
+    }
+
+    fArray2D surfaceNormals = GetFaceNormals();
+    fArray2D rayDirections = mPydome->GetRayDirections();
+
+    size_t numSurfaces = surfaceNormals.size();
+    size_t numRays = rayDirections.size();
+
+    mProjectionMatrix = std::vector<std::vector<float>>(numSurfaces, std::vector<float>(numRays, 0.0f));
+
+    for (size_t i = 0; i < numSurfaces; ++i)
+    {
+        auto n = surfaceNormals[i];
+        for (size_t j = 0; j < numRays; ++j)
+        {
+            auto r = rayDirections[j];
+            float dot = n[0] * r[0] + n[1] * r[1] + n[2] * r[2];
+            mProjectionMatrix[i][j] = std::max(0.0f, dot);
+        }
+    }
+
+    info("Projection matrix was calculated successfully.");
+    mHasProjResults = true;
+
+    return true;
+}
+
+bool EmbreeSolar::CalcVisMatrix_Occ1()
+{
+    if (!mPydome)
+    {
+        error("Pydome is not initialized. Cannot perform ray tracing.");
+        return false;
+    }
+
+    int hitCounter = 0;
+    int hitAttempts = 0;
+    float hitPortion = 0.0f;
+    float thisPortion = 0.0f;
+    float domeSolidAngle = mPydome->GetDomeSolidAngle();
+    // Compute diffuse sky portion by iterating over all faces in the mesh
+    mVisibilityMatrix = std::vector<std::vector<float>>(mFaceCount, std::vector<float>(mPydome->GetRayCount(), 1.0f));
+    mSkyViewFactor = std::vector<float>(mFaceCount, 0);
+    auto start = std::chrono::high_resolution_clock::now();
+    info("Calculating visibility matrix with rtcOccluded1 for " + str(mMaskCount) + " faces and " + str(mPydome->GetRayCount()) + " rays.");
+    for (int i = 0; i < mFaceCount; i++)
+    {
+        if (mFaceMask[i])
+        {
+            mPydome->TranslateRays(mFaceMidPts[i]);
+            int nRays = mPydome->GetRayCount();
+            hitPortion = 0.0;
+            for (int j = 0; j < nRays; j++)
+            {
+                RTCRay ray = mPydome->GetRays()[j];
+                rtcOccluded1(mScene, &ray);
+                if (ray.tfar == -std::numeric_limits<float>::infinity())
+                {
+                    hitCounter++;
+                    thisPortion = mPydome->GetSolidAngles()[j] / domeSolidAngle;
+                    hitPortion = hitPortion + thisPortion;
+                    mVisibilityMatrix[i][j] = 0.0f;
+                }
+                hitAttempts++;
+            }
+            mSkyViewFactor[i] = 1.0 - hitPortion;
+            if (i > 0 && i % 10000 == 0)
+                info("Sky raytracing for " + str(i) + " faces completed.");
+        }
+    }
+
+    info("Visibility matrix calculated successfully. Found " + str(hitCounter) + " intersections in " + str(hitAttempts) + " attempts.");
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<float> duration = end - start;
+    info("Time elapsed: " + str(duration.count()) + " seconds.");
+    mHasVisResults = true;
+    return true;
+}
+
+bool EmbreeSolar::CalcVisMatrix_Occ8()
+{
+    if (!mPydome)
+    {
+        error("Pydome is not initialized. Cannot perform ray tracing.");
+        return false;
+    }
+    int hitCounter = 0;
+    int hitAttempts = 0;
+    float hitPortion = 0.0f;
+    float thisPortion = 0.0f;
+    float domeSolidAngle = mPydome->GetDomeSolidAngle();
+    // Compute diffuse sky portion by iterating over all faces in the mesh
+    mVisibilityMatrix = std::vector<std::vector<float>>(mFaceCount, std::vector<float>(mPydome->GetRayCount(), 1.0f));
+    mSkyViewFactor = std::vector<float>(mFaceCount, 0);
+    auto start = std::chrono::high_resolution_clock::now();
+    info("Calculating visibility matrix with rtcOccluded8 for " + str(mMaskCount) + " faces and " + str(mPydome->GetRayCount()) + " rays.");
+    for (int i = 0; i < mFaceCount; i++)
+    {
+        if (mFaceMask[i])
+        {
+            mPydome->Translate8Rays(mFaceMidPts[i]);
+            int nBundles = mPydome->GetBundle8Count();
+            hitPortion = 0.0;
+            for (int j = 0; j < nBundles; j++)
+            {
+                RTCRay8 rayBundle = mPydome->GetRays8()[j];
+                const int *valid = mPydome->GetValid8()[j];
+                rtcOccluded8(valid, mScene, &rayBundle);
+                for (int k = 0; k < 8; k++)
+                {
+                    int rayIndex = j * 8 + k;
+                    if (rayBundle.tfar[k] == -std::numeric_limits<float>::infinity())
+                    {
+                        hitCounter++;
+                        thisPortion = mPydome->GetSolidAngles()[rayIndex] / domeSolidAngle;
+                        hitPortion = hitPortion + thisPortion;
+                        mVisibilityMatrix[i][rayIndex] = 0.0f;
+                    }
+                    hitAttempts++;
+                }
+            }
+            mSkyViewFactor[i] = 1.0 - hitPortion;
+            if (i > 0 && i % 10000 == 0)
+                info("Sky raytracing for " + str(i) + " faces completed.");
+        }
+    }
+
+    info("Visibility matrix calculated successfully. Found " + str(hitCounter) + " intersections in " + str(hitAttempts) + " attempts.");
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<float> duration = end - start;
+    info("Time elapsed: " + str(duration.count()) + " seconds.");
+    mHasVisResults = true;
+    return true;
+}
+
+bool EmbreeSolar::CalcVisProjMatrix()
+{
+    if (!mPydome || !mHasProjResults || !mHasVisResults)
+    {
+        error("Pydome object projection or visibility matrix are not available.");
+        return false;
+    }
+
+    int rayCount = mPydome->GetRayCount();
+    mVisProjMatrix = std::vector<std::vector<float>>(mFaceCount, std::vector<float>(rayCount, 0.0f));
+
+    for (int i = 0; i < mFaceCount; i++)
+    {
+        for (int j = 0; j < rayCount; j++)
+        {
+            // Calculate the projection matrix for each face
+            mVisProjMatrix[i][j] = mVisibilityMatrix[i][j] * mProjectionMatrix[i][j];
+        }
+    }
+
+    info("Visibility-Projection matrix calculated successfully.");
+    return true;
+}
+
+bool EmbreeSolar::CalcIrradiance(fArray2D arr)
+{
+    auto arrShape = GetShape(arr);
+    info("Input array has shape row: " + str(arrShape.first) + " columns: " + str(arrShape.second));
+    auto vpShape = GetShape(mVisProjMatrix);
+    info("Vis-Proj matrix has shape row: " + str(vpShape.first) + " columns: " + str(vpShape.second));
+
+    int rayCount = mPydome->GetRayCount();
+
+    if (arrShape.first != rayCount)
+    {
+        error("Matrix shape missmatch. Array does not match rays. Cannot calculate irradiance.");
+        return false;
+    }
+
+    if (vpShape.second != arrShape.first)
+    {
+
+        error("Matrix shape missmatch. Cannot calculate irradiance.");
+        return false;
+    }
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    MatrixXf VP = VectorToEigen(mVisProjMatrix);
+    MatrixXf S = VectorToEigen(arr);
+    MatrixXf E = VP * S;
+
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<float> duration = end - start;
+    info("Time elapsed: " + str(duration.count()) + " seconds.");
+
+    mIrradianceMatrix = EigenToVector(E);
+    mHasIrrResults = true;
+    info("Irradiance calculation with Eigne completed in " + str(duration.count()) + " seconds.");
+    return true;
+}
+
+bool EmbreeSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
+{
+    info("Running 2-phase analysis...");
+
+    // Calculate projection matrix
+    if (!CalcProjMatrix())
+        return false;
+
+    // Calculate visibility matrix
+    if (!CalcVisMatrix_Occ1())
+        return false;
+
+    // Calculate the visibility-projection matrix
+    if (!CalcVisProjMatrix())
+        return false;
+
+    // Calculate irradiance
+    if (!CalcIrradiance(sunSkyMat))
+        return false;
+
+    info("2-phase analysis completed successfully.");
     return true;
 }
 
@@ -661,6 +964,7 @@ PYBIND11_MODULE(py_embree_solar, m)
         .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>>())
         .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>, std::vector<bool>>())
         .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>, std::vector<bool>, int>())
+        .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>, std::vector<bool>, std::vector<std::vector<float>>, std::vector<float>>())
         .def("get_mesh_faces", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetMeshFaces()); return out; })
         .def("get_mesh_vertices", [](EmbreeSolar &self)
@@ -673,22 +977,36 @@ PYBIND11_MODULE(py_embree_solar, m)
              { py::array out = py::cast(self.GetSkydomeVertices()); return out; })
         .def("get_skydome_rays", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetSkydomeRayDirections()); return out; })
+        .def("get_pydome_rays", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetPydomeRayDirections()); return out; })
         .def("get_skydome_ray_count", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetSkydomeRayCount()); return out; })
         .def("sun_raytrace_occ1", [](EmbreeSolar &self, std::vector<std::vector<float>> sun_vecs)
              { py::array out = py::cast(self.SunRaytrace_Occ1(sun_vecs)); return out; })
         .def("sun_raytrace_occ8", [](EmbreeSolar &self, std::vector<std::vector<float>> sun_vecs)
              { py::array out = py::cast(self.SunRaytrace_Occ8(sun_vecs)); return out; })
+        .def("run_2_phase_analysis", [](EmbreeSolar &self, std::vector<std::vector<float>> sun_sky_mat)
+             { py::array out = py::cast(self.Run2PhaseAnalysis(sun_sky_mat)); return out; })
         .def("sky_raytrace_occ1", [](EmbreeSolar &self)
              { py::array out = py::cast(self.SkyRaytrace_Occ1()); return out; })
         .def("sky_raytrace_occ8", [](EmbreeSolar &self)
              { py::array out = py::cast(self.SkyRaytrace_Occ8()); return out; })
+        .def("py_raytrace_occ1", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.CalcVisMatrix_Occ1()); return out; })
+        .def("py_raytrace_occ8", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.CalcVisMatrix_Occ8()); return out; })
         .def("get_angle_results", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetAngleResults()); return out; })
         .def("get_occluded_results", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetOccludedResults()); return out; })
         .def("get_face_skyhit_results", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetFaceSkyHitResults()); return out; })
+        .def("get_irradiance_results", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetIrradianceResults()); return out; })
+        .def("get_visibility_results", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetVisibilityResults()); return out; })
+        .def("get_projection_results", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetProjectionResults()); return out; })
         .def("get_sky_view_factor_results", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetSkyViewFactorResults()); return out; })
         .def("get_accumulated_angles", [](EmbreeSolar &self)

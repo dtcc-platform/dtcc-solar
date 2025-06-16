@@ -1,5 +1,6 @@
 #pragma once
 #include <embree4/rtcore.h>
+#include <Eigen/Dense>
 #include <stdio.h>
 #include <math.h>
 #include <limits>
@@ -10,6 +11,7 @@
 #include "common.h"
 #include "sunrays.h"
 #include "skydome.h"
+#include "pydome.h"
 #include "logging.h"
 
 #ifdef PYTHON_MODULE
@@ -19,39 +21,43 @@
 namespace py = pybind11;
 #endif
 
-// using namespace std;
-
 class EmbreeSolar
 {
 
 public:
     EmbreeSolar();
-    EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces);
-    EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<bool> face_mask);
-    EmbreeSolar(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces, std::vector<bool> face_mask, int skyType);
+    EmbreeSolar(fArray2D vertices, iArray2D faces);
+    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask);
+    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, int skyType);
+    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D rays, fArray1D areas);
     virtual ~EmbreeSolar();
 
     void CreateDevice();
     void CreateScene();
-    void CreateGeom(std::vector<std::vector<float>> vertices, std::vector<std::vector<int>> faces);
+    void CreateGeom(fArray2D vertices, iArray2D faces);
     void CreateGeomPlane();
     void CalcFaceMidPoints();
 
     int GetSkydomeRayCount();
 
-    std::vector<std::vector<int>> GetMeshFaces();
-    std::vector<std::vector<float>> GetMeshVertices();
-    std::vector<std::vector<float>> GetFaceNormals();
+    iArray2D GetMeshFaces();
+    fArray2D GetMeshVertices();
+    fArray2D GetFaceNormals();
 
-    std::vector<std::vector<int>> GetOccludedResults();
-    std::vector<std::vector<float>> GetAngleResults();
+    iArray2D GetOccludedResults();
+    fArray2D GetAngleResults();
 
-    std::vector<std::vector<int>> GetFaceSkyHitResults();
-    std::vector<float> GetSkyViewFactorResults();
+    iArray2D GetFaceSkyHitResults();
+    fArray1D GetSkyViewFactorResults();
 
-    std::vector<std::vector<int>> GetSkydomeFaces();
-    std::vector<std::vector<float>> GetSkydomeVertices();
-    std::vector<std::vector<float>> GetSkydomeRayDirections();
+    iArray2D GetSkydomeFaces();
+    fArray2D GetSkydomeVertices();
+    fArray2D GetSkydomeRayDirections();
+
+    fArray2D GetPydomeRayDirections();
+    fArray2D GetVisibilityResults();
+    fArray2D GetProjectionResults();
+    fArray2D GetIrradianceResults();
 
     std::vector<float> GetAccumulatedAngles();
     std::vector<float> GetAccumulatedOcclusion();
@@ -59,14 +65,20 @@ public:
     void Raytrace_occ1(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
     void Raytrace_occ8(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
 
-    bool SunRaytrace_Occ1(std::vector<std::vector<float>> sun_vecs);
-    bool SunRaytrace_Occ8(std::vector<std::vector<float>> sun_vecs);
+    bool SunRaytrace_Occ1(fArray2D sun_vecs);
+    bool SunRaytrace_Occ8(fArray2D sun_vecs);
 
     bool SkyRaytrace_Occ1();
     bool SkyRaytrace_Occ8();
 
+    bool CalcProjMatrix();
+    bool CalcVisMatrix_Occ1();
+    bool CalcVisMatrix_Occ8();
+    bool CalcVisProjMatrix();
+    bool CalcIrradiance(fArray2D arr);
+    bool Run2PhaseAnalysis(fArray2D sunSkyMat);
+
     bool Accumulate();
-    bool CalcSkyVectorMatrix();
 
     void CalcFaceNormals();
     void ErrorFunction(void *userPtr, enum RTCError error, const char *str);
@@ -74,13 +86,13 @@ public:
 private:
     Skydome *mSkydome = NULL;
     Sunrays *mSunrays = NULL;
+    Pydome *mPydome = NULL;
 
     RTCScene mScene;
     RTCDevice mDevice;
     RTCGeometry mGeometry;
 
     Parameters mPp; // plane parameters
-    // Parameters mRp; // ray parameters
 
     int mVertexCount;
     int mFaceCount;
@@ -97,15 +109,21 @@ private:
     bool mHasSunResults;
     bool mHasSkyResults;
     bool mHasIrrResults;
+    bool mHasVisResults;
+    bool mHasProjResults;
+    bool mHasVisProjResults;
 
-    // Results from analysis based on sun vectors or group sun vectors
-    std::vector<std::vector<int>> mOccluded;
-    std::vector<std::vector<float>> mAngles;
+    iArray2D mOccluded;
+    fArray2D mAngles;
 
-    // Results from analysis mapped onto all sun positions
     std::vector<float> mAccumAngles;
     std::vector<float> mAccumOcclud;
 
-    std::vector<std::vector<int>> mFaceSkyHit;
+    iArray2D mFaceSkyHit;
     std::vector<float> mSkyViewFactor;
+
+    fArray2D mProjectionMatrix;
+    fArray2D mVisibilityMatrix;
+    fArray2D mVisProjMatrix;
+    fArray2D mIrradianceMatrix;
 };

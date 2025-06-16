@@ -4,6 +4,7 @@ from dtcc_solar.utils import SolarParameters, calc_face_mid_points, concatenate_
 from dtcc_solar import py_embree_solar as embree
 from dtcc_solar.utils import SunCollection, OutputCollection, Sky
 from dtcc_solar.utils import Rays
+from dtcc_solar.skydome import Skydome
 from dtcc_solar.sunpath import Sunpath
 from dtcc_core.model import Mesh, PointCloud
 from dtcc_core.model import Bounds
@@ -205,6 +206,78 @@ class SolarEngine:
             The count of skydome rays.
         """
         return self.embree.get_skydome_ray_count()
+
+    def run_analysis_2(
+        self,
+        sunp: Sunpath,
+        tot_matrix: np.ndarray,
+        skydome: Skydome,
+    ):
+
+        ray_dirs = np.array(skydome.ray_dirs)
+        solid_angles = np.array(skydome.solid_angles)
+
+        self.embree = embree.PyEmbreeSolar(
+            self.mesh.vertices,
+            self.mesh.faces,
+            self.face_mask,
+            ray_dirs,
+            solid_angles,
+        )
+
+        info(f"Embree instance created successfully.")
+        info(f"Running analysis...")
+
+        self.embree.run_2_phase_analysis(tot_matrix)
+
+        vis_mat = self.embree.get_visibility_results()
+        proj_mat = self.embree.get_projection_results()
+        irr_mat = self.embree.get_irradiance_results()
+
+        face_normals = self.embree.get_face_normals()
+        z_vec = np.array([0.0, 0.0, 1.0])
+        z_vecs = np.tile(z_vec, (len(face_normals), 1))
+
+        # Ensure normals are unit vectors
+        face_normals = face_normals / np.linalg.norm(
+            face_normals, axis=1, keepdims=True
+        )
+
+        # Compute dot products between normals and z vector
+        dots = np.einsum("ij,ij->i", face_normals, z_vecs)  # shape (N,)
+
+        # Clip to valid domain for arccos to avoid numerical issues
+        dots = np.clip(dots, -1.0, 1.0)
+
+        # Compute angles in radians
+        angles_rad = np.arccos(dots)
+
+        # Optionally convert to degrees
+        angles_deg = np.degrees(angles_rad)
+
+        info(f"Sun sky matrix shape: {tot_matrix.shape}")
+        info(f"Visibility matrix shape: {vis_mat.shape}")
+        info(f"Projection matrix shape: {proj_mat.shape}")
+        info(f"Irradiance matrix shape: {irr_mat.shape}")
+
+        irr = np.sum(irr_mat, axis=1)
+        vis = np.sum(vis_mat, axis=1)
+        pro = np.sum(proj_mat, axis=1)
+
+        dict_data = {
+            "irradiance": irr,
+            "visibility": vis,
+            "projection": pro,
+            "angles": angles_rad,
+        }
+
+        sun_pc = PointCloud(points=sunp.sunc.positions)
+
+        window = Window(1200, 800)
+        scene = Scene()
+        scene.add_mesh("Mesh", self.mesh, data=dict_data)
+        scene.add_pointcloud("Suns", sun_pc, 0.1)
+        window.render(scene)
 
     def run_analysis(self, p: SolarParameters, sunp: Sunpath, outc: OutputCollection):
         """

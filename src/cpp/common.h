@@ -1,11 +1,19 @@
 #pragma once
 #include <cmath>
 #include <algorithm>
+#include <Eigen/Dense>
 #define PYTHON_MODULE
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+using fArray2D = std::vector<std::vector<float>>;
+using iArray2D = std::vector<std::vector<int>>;
+using fArray1D = std::vector<float>;
+using iArray1D = std::vector<int>;
+using bArray1D = std::vector<bool>;
+using Eigen::MatrixXf;
 
 /* vertex and triangle layout */
 struct Vertex
@@ -81,6 +89,15 @@ static inline Vector CrossProduct(Vector a, Vector b)
     return c;
 };
 
+static inline Vector DotProduct(Vector a, Vector b)
+{
+    Vector c;
+    c.x = a.x * b.x;
+    c.y = a.y * b.y;
+    c.z = a.z * b.z;
+    return c;
+};
+
 static inline float VectorAngle(std::vector<float> v1, std::vector<float> v2)
 {
     // Assume that v1 and v2 are unitized.
@@ -134,4 +151,57 @@ static inline std::vector<float> Spherical2Cartesian(float r, float elevation, f
     float y = r * cos(elevation) * sin(azimuth);
     float z = r * sin(elevation);
     return {x, y, z};
+}
+
+template <typename T>
+static inline std::pair<int, int> GetShape(const std::vector<std::vector<T>> &array2D)
+{
+    int rows = array2D.size();
+    int cols = rows > 0 ? array2D[0].size() : 0;
+    return {rows, cols};
+}
+
+template <typename T>
+static inline std::pair<int, int> GetShapeMaxCols(const std::vector<std::vector<T>> &array2D)
+{
+    int rows = array2D.size();
+    int maxCols = 0;
+    for (const auto &row : array2D)
+    {
+        if (row.size() > maxCols)
+        {
+            maxCols = row.size();
+        }
+    }
+    return {rows, maxCols};
+}
+
+static inline MatrixXf VectorToEigen(const std::vector<std::vector<float>> &vec)
+{
+    if (vec.empty() || vec[0].empty())
+        throw std::runtime_error("Empty input matrix");
+
+    size_t rows = vec.size();
+    size_t cols = vec[0].size();
+
+    MatrixXf mat(rows, cols);
+    for (size_t i = 0; i < rows; ++i)
+        for (size_t j = 0; j < cols; ++j)
+            mat(i, j) = vec[i][j];
+
+    return mat;
+}
+
+static inline fArray2D EigenToVector(const Eigen::MatrixXf &mat)
+{
+    fArray2D result(mat.rows(), std::vector<float>(mat.cols()));
+
+    for (int i = 0; i < mat.rows(); ++i)
+    {
+        for (int j = 0; j < mat.cols(); ++j)
+        {
+            result[i][j] = mat(i, j);
+        }
+    }
+    return result;
 }

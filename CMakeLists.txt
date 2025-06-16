@@ -40,6 +40,14 @@ set(pybind11_DIR ${PYTHON_SITE_PACKAGES}/pybind11/share/cmake/pybind11)
 message("Pybind11 DIR " ${pybind11_DIR})
 find_package(pybind11 REQUIRED)
 
+# Find Eigen
+find_path(EIGEN3_INCLUDE_DIR Eigen/Dense PATHS /opt/homebrew/include/eigen3)
+if(NOT EIGEN3_INCLUDE_DIR)
+  message(FATAL_ERROR "Eigen not found. Make sure it's installed (e.g. via brew) and accessible.")
+endif()
+include_directories(${EIGEN3_INCLUDE_DIR})
+message(STATUS "Eigen found at: ${EIGEN3_INCLUDE_DIR}")
+
 # Set include directories
 include_directories(${CMAKE_SOURCE_DIR}/src/cpp)
 
