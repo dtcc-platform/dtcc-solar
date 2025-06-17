@@ -1,6 +1,8 @@
 #pragma once
 #include <embree4/rtcore.h>
 #include <Eigen/Dense>
+#include <unsupported/Eigen/CXX11/Tensor>
+#include <thread>
 #include <stdio.h>
 #include <math.h>
 #include <limits>

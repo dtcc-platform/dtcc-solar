@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from dtcc_solar.utils import SolarParameters, calc_face_mid_points, concatenate_meshes
+from dtcc_solar.utils import SolarParameters, calc_face_areas, concatenate_meshes
 from dtcc_solar import py_embree_solar as embree
 from dtcc_solar.utils import SunCollection, OutputCollection, Sky
 from dtcc_solar.utils import Rays
@@ -225,6 +225,8 @@ class SolarEngine:
             solid_angles,
         )
 
+        face_areas = calc_face_areas(self.mesh)
+
         info(f"Embree instance created successfully.")
         info(f"Running analysis...")
 
@@ -234,41 +236,17 @@ class SolarEngine:
         proj_mat = self.embree.get_projection_results()
         irr_mat = self.embree.get_irradiance_results()
 
-        face_normals = self.embree.get_face_normals()
-        z_vec = np.array([0.0, 0.0, 1.0])
-        z_vecs = np.tile(z_vec, (len(face_normals), 1))
-
-        # Ensure normals are unit vectors
-        face_normals = face_normals / np.linalg.norm(
-            face_normals, axis=1, keepdims=True
-        )
-
-        # Compute dot products between normals and z vector
-        dots = np.einsum("ij,ij->i", face_normals, z_vecs)  # shape (N,)
-
-        # Clip to valid domain for arccos to avoid numerical issues
-        dots = np.clip(dots, -1.0, 1.0)
-
-        # Compute angles in radians
-        angles_rad = np.arccos(dots)
-
-        # Optionally convert to degrees
-        angles_deg = np.degrees(angles_rad)
-
-        info(f"Sun sky matrix shape: {tot_matrix.shape}")
-        info(f"Visibility matrix shape: {vis_mat.shape}")
-        info(f"Projection matrix shape: {proj_mat.shape}")
-        info(f"Irradiance matrix shape: {irr_mat.shape}")
-
-        irr = np.sum(irr_mat, axis=1)
+        irr = np.sum(irr_mat, axis=1) * 0.001  # Convert to kWh/m2
         vis = np.sum(vis_mat, axis=1)
         pro = np.sum(proj_mat, axis=1)
 
+        energy = irr * face_areas  # Convert to kWh
+
         dict_data = {
-            "irradiance": irr,
+            "irradiance [kWh/m2]": irr,
+            "energy [kWh]": energy,
             "visibility": vis,
             "projection": pro,
-            "angles": angles_rad,
         }
 
         sun_pc = PointCloud(points=sunp.sunc.positions)

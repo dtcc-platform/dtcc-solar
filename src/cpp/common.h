@@ -14,6 +14,8 @@ using fArray1D = std::vector<float>;
 using iArray1D = std::vector<int>;
 using bArray1D = std::vector<bool>;
 using Eigen::MatrixXf;
+using MatrixXfRM = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+#define EIGEN_USE_THREADS
 
 /* vertex and triangle layout */
 struct Vertex
@@ -192,7 +194,37 @@ static inline MatrixXf VectorToEigen(const std::vector<std::vector<float>> &vec)
     return mat;
 }
 
+static inline MatrixXfRM VectorToEigenRM(const std::vector<std::vector<float>> &vec)
+{
+    if (vec.empty() || vec[0].empty())
+        throw std::runtime_error("Empty input matrix");
+
+    size_t rows = vec.size();
+    size_t cols = vec[0].size();
+
+    MatrixXfRM mat(rows, cols);
+    for (size_t i = 0; i < rows; ++i)
+        for (size_t j = 0; j < cols; ++j)
+            mat(i, j) = vec[i][j];
+
+    return mat;
+}
+
 static inline fArray2D EigenToVector(const Eigen::MatrixXf &mat)
+{
+    fArray2D result(mat.rows(), std::vector<float>(mat.cols()));
+
+    for (int i = 0; i < mat.rows(); ++i)
+    {
+        for (int j = 0; j < mat.cols(); ++j)
+        {
+            result[i][j] = mat(i, j);
+        }
+    }
+    return result;
+}
+
+static inline fArray2D EigenToVectorRM(const MatrixXfRM &mat)
 {
     fArray2D result(mat.rows(), std::vector<float>(mat.cols()));
 

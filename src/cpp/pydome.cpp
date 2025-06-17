@@ -10,6 +10,7 @@ Pydome::Pydome(fArray2D rays, fArray1D solidAngles)
         if (rays[i].size() == 3)
         {
             std::vector<float> rayDir = {rays[i][0], rays[i][1], rays[i][2]};
+            rayDir = UnitizeVector(rayDir); // Ensure the ray direction is a unit vector
             mRayDirections.push_back(rayDir);
         }
         else

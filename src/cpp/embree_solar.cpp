@@ -142,6 +142,10 @@ EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, f
     info("Creating embree instance with mesh geometry.");
     set_log_level(INFO);
 
+    Eigen::setNbThreads(std::thread::hardware_concurrency());
+    Eigen::initParallel();
+    info("Eigen using " + str(Eigen::nbThreads()) + " threads.");
+
     mVertexCount = (int)vertices.size();
     mFaceCount = (int)faces.size();
     mFaceNormals = new Vector[mFaceCount];
@@ -454,6 +458,8 @@ void EmbreeSolar::CalcFaceNormals()
         v2 = UnitizeVector(v2);
 
         Vector vNormal = CrossProduct(v1, v2);
+        vNormal = UnitizeVector(vNormal);
+
         mFaceNormals[i] = vNormal;
     }
 }
@@ -745,6 +751,7 @@ bool EmbreeSolar::CalcProjMatrix()
     for (size_t i = 0; i < numSurfaces; ++i)
     {
         auto n = surfaceNormals[i];
+        // n = UnitizeVector(n); // Ensure the normal is a unit vector
         for (size_t j = 0; j < numRays; ++j)
         {
             auto r = rayDirections[j];
@@ -898,6 +905,7 @@ bool EmbreeSolar::CalcIrradiance(fArray2D arr)
     auto vpShape = GetShape(mVisProjMatrix);
     info("Vis-Proj matrix has shape row: " + str(vpShape.first) + " columns: " + str(vpShape.second));
 
+    int timeSteps = arrShape.second;
     int rayCount = mPydome->GetRayCount();
 
     if (arrShape.first != rayCount)
@@ -908,20 +916,23 @@ bool EmbreeSolar::CalcIrradiance(fArray2D arr)
 
     if (vpShape.second != arrShape.first)
     {
-
         error("Matrix shape missmatch. Cannot calculate irradiance.");
         return false;
     }
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    MatrixXf VP = VectorToEigen(mVisProjMatrix);
-    MatrixXf S = VectorToEigen(arr);
-    MatrixXf E = VP * S;
+    // MatrixXf VP = VectorToEigen(mVisProjMatrix);
+    // MatrixXf S = VectorToEigen(arr);
+    // MatrixXf E = VP * S;
+
+    MatrixXfRM VP = VectorToEigen(mVisProjMatrix); // 100,000 × 580
+    MatrixXfRM S = VectorToEigen(arr);             // 580 × 4,400
+    MatrixXfRM E(mFaceCount, timeSteps);           // Output
+    E.noalias() = VP * S;
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> duration = end - start;
-    info("Time elapsed: " + str(duration.count()) + " seconds.");
 
     mIrradianceMatrix = EigenToVector(E);
     mHasIrrResults = true;

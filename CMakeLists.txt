@@ -16,6 +16,14 @@ message(STATUS "Build type: " ${CMAKE_BUILD_TYPE})
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Suppress specific warning that breaks Eigen's Tensor module
+add_compile_options(
+    -Wall
+    -Werror
+    -Wno-unused-but-set-variable
+    -Wno-reorder
+)
+
 if(MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2")
