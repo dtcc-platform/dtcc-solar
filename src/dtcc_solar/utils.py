@@ -555,3 +555,50 @@ def create_ls_circle(center, radius, num_segments):
     vertices = np.array(vertices)
     circle_ls = LineString(vertices=vertices)
     return circle_ls
+
+
+def check_energy_balance(
+    tot_matrix: np.ndarray,
+    irradiance: np.ndarray,
+    visibility: np.ndarray,
+    face_normals: np.ndarray,
+    cos_tol: float = 0.99,
+):
+    """
+    Check if the energy balance is correct by comparing the total energy from the sun and sky.
+    Filters faces that are fully visible and nearly horizontal (facing up).
+    """
+
+    # Sum total sun + sky contribution per face
+    total_energy = np.sum(tot_matrix)
+
+    # ---- Find valid face indices ----
+    # Fully visible faces (all rays visible)
+    fully_visible_mask = np.all(visibility == 1, axis=1)
+
+    # Normalize face normals
+    normalized_normals = face_normals / np.linalg.norm(
+        face_normals, axis=1, keepdims=True
+    )
+
+    # Dot product with upward vector
+    up_vector = np.array([0.0, 0.0, 1.0])
+    cos_angles = np.dot(normalized_normals, up_vector)
+
+    # Nearly upward-facing normals
+    upward_facing_mask = cos_angles >= cos_tol
+
+    # Combine both conditions
+    valid_indices = np.where(fully_visible_mask & upward_facing_mask)[0]
+
+    max_face_irradiance = np.sum(irradiance[valid_indices, :], axis=1)
+
+    # ---- Report energy stats ----
+    max_irr = np.max(np.sum(irradiance, axis=1))
+
+    info(f"Total sky energy: {total_energy} Wh/m²")
+    info(f"Max irradiance: {max_irr} Wh/m²")
+    info(f"Found {len(fully_visible_mask)} faces that are fully visible.")
+    info(f"Found {len(upward_facing_mask)} faces that are upward facing.")
+
+    return valid_indices

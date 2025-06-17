@@ -101,7 +101,7 @@ def embree_perez_test():
     path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
     # filename = "../../../data/validation/boxes_sharp_f5248.obj"
     # filename = "../../../data/validation/boxes_soft_f5248.obj"
-    filename = "../../../data/models/CitySurfaceL.stl"
+    filename = "../../../data/models/CitySurfaceS.stl"
 
     lat_lnd = 51.5
     long_lnd = 0.12
@@ -116,7 +116,7 @@ def embree_perez_test():
         sun_analysis=True,
         sky_analysis=True,
         start=pd.Timestamp("2019-01-01 00:00:00"),
-        end=pd.Timestamp("2019-12-31 23:00:00"),
+        end=pd.Timestamp("2019-01-31 23:00:00"),
     )
 
     skydome = Reinhart()
@@ -128,6 +128,7 @@ def embree_perez_test():
 
     sky_res = calc_sky_matrix(sunpath, skydome)
     sun_res = calc_sun_mat_smooth_smear(sunpath, skydome, da=20)
+    calc_tot_error(sky_res, skydome, sun_res, sunpath)
 
     tot_matrix = sky_res.sky_matrix + sun_res.sun_matrix
 

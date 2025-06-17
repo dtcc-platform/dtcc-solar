@@ -249,6 +249,10 @@ class SolarEngine:
             "projection": pro,
         }
 
+        face_normals = self.embree.get_face_normals()
+
+        check_energy_balance(skydome, tot_matrix, irr_mat, vis_mat, face_normals)
+
         sun_pc = PointCloud(points=sunp.sunc.positions)
 
         window = Window(1200, 800)
@@ -355,3 +359,56 @@ class SolarEngine:
             shading_data = np.zeros(len(self.shading_mesh.faces))
             viewer.add_mesh("Shading mesh", mesh=self.shading_mesh, data=shading_data)
         viewer.show()
+
+
+def check_energy_balance(
+    skydome: Skydome,
+    tot_matrix: np.ndarray,
+    irradiance: np.ndarray,
+    visibility: np.ndarray,
+    face_normals: np.ndarray,
+):
+    """
+    Check energy balance by comparing total sun + sky matrix energy with received irradiance.
+    Uses the most upward-facing and fully visible face(s) as reference.
+    """
+
+    # Sum total sun + sky contribution per face (shape: N_faces,)
+    total_energy = np.sum(tot_matrix, axis=1)
+
+    # Project energy onto horizontal plane (sky dome side)
+    proj_total_energy = total_energy * np.cos(skydome.patch_zeniths)
+
+    sum_energy = np.sum(proj_total_energy)
+
+    # Identify fully visible faces
+    fully_visible_mask = np.all(visibility == 1, axis=1)
+
+    # Normalize normals
+    normed = face_normals / np.linalg.norm(face_normals, axis=1, keepdims=True)
+
+    # Find dot product with up vector
+    up_vec = np.array([0.0, 0.0, 1.0])
+    cos_angles = np.dot(normed, up_vec)
+
+    # Among fully visible faces, find the one(s) with the highest upward alignment
+    cos_angles[~fully_visible_mask] = -np.inf  # Disqualify non-visible faces
+    max_dot = np.max(cos_angles)
+
+    # Find indices of faces with this maximum upward alignment
+    valid_indices = np.where(cos_angles == max_dot)[0]
+
+    # Compute mean irradiance on selected face(s)
+    max_face_irradiance = np.sum(irradiance[valid_indices, :], axis=1)
+    res = np.mean(max_face_irradiance)
+
+    # Max irradiance on any face (for context)
+    max_irr = np.max(np.sum(irradiance, axis=1))
+
+    # Report
+    info(f"Total sun + sky irradiance on horizontal plane   : {sum_energy:.2f} Wh/m²")
+    info(f"Irradiance on the most horizontal visible faces  : {res:.2f} Wh/m²")
+    info(f"Max irradiance (any face): {max_irr:.2f} Wh/m²")
+    info(f"Found {len(valid_indices)} close to upward-facing visible face(s)")
+
+    return valid_indices

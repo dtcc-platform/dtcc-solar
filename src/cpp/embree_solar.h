@@ -3,6 +3,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <unsupported/Eigen/CXX11/Tensor>
+#include <omp.h>
 #include <thread>
 #include <stdio.h>
 #include <math.h>
