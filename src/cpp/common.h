@@ -1,6 +1,7 @@
 #pragma once
 #include <cmath>
 #include <algorithm>
+#include <Eigen/Core>
 #include <Eigen/Dense>
 #define PYTHON_MODULE
 
