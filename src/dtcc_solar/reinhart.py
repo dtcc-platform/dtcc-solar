@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from typing import Dict
 from abc import ABC, abstractmethod
 from dtcc_solar.skydome import Skydome
 from dtcc_core.model import Mesh
@@ -140,3 +141,13 @@ class Reinhart(Skydome):
         data = np.append(data1, data2)  # Add data for last 4 triangels
 
         return data
+
+    def map_dict_data_to_faces(self, dict_data: Dict) -> np.ndarray:
+
+        mapped_dict = {}
+
+        for key, data in dict_data.items():
+            mapped_data = self.map_data_to_faces(data)
+            mapped_dict[key] = mapped_data
+
+        return mapped_dict

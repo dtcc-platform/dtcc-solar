@@ -55,44 +55,21 @@ def perez_test():
 
     sun_pc = PointCloud(points=sunpath.sunc.positions)
 
-    rel_lum = sky_results.relative_luminance
-    rel_lum = skydome.map_data_to_faces(rel_lum)
-
-    nor_lum = sky_results.relative_lum_norm
-    nor_lum = skydome.map_data_to_faces(nor_lum)
-
-    sky_mat = sky_results.sky_matrix
-    sky_mat = skydome.map_data_to_faces(sky_mat)
-
-    solid_angles = sky_results.solid_angles
-    sa = skydome.map_data_to_faces(solid_angles)
-
-    ksis = sky_results.ksis
-    ksis = skydome.map_data_to_faces(ksis)
-
-    gammas = sky_results.gammas
-    gammas = skydome.map_data_to_faces(gammas)
-
-    sun_mat = sun_results.sun_matrix
-    sun_mat = skydome.map_data_to_faces(sun_mat)
-
-    tot_mat = sky_mat + sun_mat
-
-    dict_data = {
-        "relative lumiance": rel_lum,
-        "relative lum norm": nor_lum,
-        "sky matrix": sky_mat,
-        "sun matrix": sun_mat,
-        "total matrix": tot_mat,
-        "solid angles": sa,
-        "ksis": ksis,
-        "gammas": gammas,
+    face_data_dict = {
+        "relative lumiance": sky_results.relative_luminance,
+        "relative lum norm": sky_results.relative_lum_norm,
+        "sky matrix": sky_results.sky_matrix,
+        "sun matrix": sun_results.sun_matrix,
+        "total matrix": sky_results.sky_matrix + sun_results.sun_matrix,
+        "solid angles": sky_results.solid_angles,
+        "ksis": sky_results.ksis,
+        "gammas": sky_results.gammas,
     }
 
     # Compare total measured radiation with the sum of radiation on skydomes
     calc_tot_error(sky_results, skydome, sun_results, sunpath)
 
-    skydome.view(name="Skydome", data=dict_data, sun_pos_pc=sun_pc)
+    skydome.view(name="Skydome", data=face_data_dict, sun_pos_pc=sun_pc)
 
 
 def embree_perez_test():
@@ -100,11 +77,11 @@ def embree_perez_test():
 
     path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
     # filename = "../../../data/validation/boxes_sharp_f5248.obj"
-    # filename = "../../../data/validation/boxes_soft_f5248.obj"
-    filename = "../../../data/models/CitySurfaceS.stl"
+    filename = "../../../data/validation/boxes_soft_f5248.obj"
+    # filename = "../../../data/models/CitySurfaceS.stl"
 
     lat_lnd = 51.5
-    long_lnd = 0.12
+    long_lnd = 5.5e-2
 
     mesh = io.load_mesh(filename)
 
@@ -116,10 +93,11 @@ def embree_perez_test():
         sun_analysis=True,
         sky_analysis=True,
         start=pd.Timestamp("2019-01-01 00:00:00"),
-        end=pd.Timestamp("2019-01-31 23:00:00"),
+        end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
     skydome = Reinhart()
+    # skydome = Tregenza()
     skydome.create_mesh()
 
     sunpath_radius = 1.5
@@ -131,6 +109,21 @@ def embree_perez_test():
     calc_tot_error(sky_res, skydome, sun_res, sunpath)
 
     tot_matrix = sky_res.sky_matrix + sun_res.sun_matrix
+
+    face_data_dict = {
+        "sky matrix": sky_res.sky_matrix,
+        "sun matrix": sun_res.sun_matrix,
+        "total matrix": tot_matrix,
+        "solid angles": sky_res.solid_angles,
+        "ksis": sky_res.ksis,
+        "gammas": sky_res.gammas,
+    }
+
+    for key, value in face_data_dict.items():
+        info(f"{key}: {value.shape}")
+
+    sun_pc = PointCloud(points=sunpath.sunc.positions)
+    skydome.view("skydome", data_dict=face_data_dict, sun_pos_pc=sun_pc)
 
     # Setup model, run analysis and view results
     engine = SolarEngine(mesh)

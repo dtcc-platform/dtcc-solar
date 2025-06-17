@@ -46,6 +46,11 @@ class Skydome(ABC):
         """Map data to the faces of the skydome mesh."""
         pass
 
+    @abstractmethod
+    def map_dict_data_to_faces(self, data: np.ndarray) -> np.ndarray:
+        """Map data to the faces of the skydome mesh."""
+        pass
+
     def create_mesh_quad(self, azim, next_azim, elev, next_elev) -> None:
         pt1 = self.spherical_to_cartesian(elev, azim)
         pt2 = self.spherical_to_cartesian(next_elev, azim)
@@ -124,11 +129,16 @@ class Skydome(ABC):
     def calc_sphere_patch_area(self, elev1, elev2, azim1, azim2) -> float:
         return (self.r**2) * abs((azim2 - azim1) * (math.sin(elev2) - math.sin(elev1)))
 
-    def view(self, name: str, data=None, sun_pos_pc: PointCloud = None) -> None:
+    def view(self, name: str, data_dict=None, sun_pos_pc: PointCloud = None) -> None:
+
+        mapped_data_dict = None
+        if data_dict is not None and isinstance(data_dict, dict):
+            mapped_data_dict = self.map_dict_data_to_faces(data_dict)
+
         ls_cirlce = create_ls_circle(np.array([0, 0, 0]), self.r * 2, 100)
         window = Window(1200, 800)
         scene = Scene()
-        scene.add_mesh(name, self.mesh, data=data)
+        scene.add_mesh(name, self.mesh, data=mapped_data_dict)
         scene.add_pointcloud("Sun positions", sun_pos_pc, size=0.01)
         scene.add_linestring("Skydome circle", ls_cirlce)
         window.render(scene)

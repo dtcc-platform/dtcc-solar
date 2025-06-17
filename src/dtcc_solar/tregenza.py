@@ -1,6 +1,7 @@
 import math
 import numpy as np
 
+from typing import Dict
 from dtcc_solar.skydome import Skydome
 from dtcc_core.model import Mesh, LineString, MultiLineString, PointCloud
 from dtcc_solar.logging import info, debug, warning, error
@@ -109,3 +110,13 @@ class Tregenza(Skydome):
         data = np.append(data, [last, last, last, last])
 
         return data
+
+    def map_dict_data_to_faces(self, dict_data: Dict) -> np.ndarray:
+
+        mapped_dict = {}
+
+        for key, data in dict_data.items():
+            mapped_data = self.map_data_to_faces(data)
+            mapped_dict[key] = mapped_data
+
+        return mapped_dict

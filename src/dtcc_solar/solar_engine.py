@@ -253,12 +253,12 @@ class SolarEngine:
 
         check_energy_balance(skydome, tot_matrix, irr_mat, vis_mat, face_normals)
 
-        sun_pc = PointCloud(points=sunp.sunc.positions)
+        sun_pc = PointCloud(points=self.sunpath_radius * sunp.sunc.positions)
 
         window = Window(1200, 800)
         scene = Scene()
         scene.add_mesh("Mesh", self.mesh, data=dict_data)
-        scene.add_pointcloud("Suns", sun_pc, 0.1)
+        scene.add_pointcloud("Suns", sun_pc, 0.3)
         window.render(scene)
 
     def run_analysis(self, p: SolarParameters, sunp: Sunpath, outc: OutputCollection):

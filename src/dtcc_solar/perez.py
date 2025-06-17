@@ -165,8 +165,6 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
     dni = sunpath.sunc.dni
     dhi = sunpath.sunc.dhi
-    dni_synth = sunpath.sunc.synth_dni
-    dhi_synth = sunpath.sunc.synth_dhi
     sun_vecs = sunpath.sunc.sun_vecs
     sun_zenith = sunpath.sunc.zeniths
     sun_times = sunpath.sunc.time_stamps
