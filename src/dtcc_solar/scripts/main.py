@@ -16,6 +16,9 @@ from dtcc_solar.city_utils import *
 from dtcc_solar.radiance import load_radiance, epw_to_wea
 from pprint import pp
 
+import matplotlib.pyplot as plt
+
+
 import numpy as np
 from urllib.request import urlretrieve
 
@@ -131,6 +134,47 @@ def embree_perez_test():
     engine.run_analysis_2(sunpath, tot_matrix, skydome)
 
 
+def sunpath_test():
+    print("-------- Skydome Test -------")
+    path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+    # filename = "../../../data/validation/boxes_sharp_f5248.obj"
+    filename = "../../../data/validation/boxes_soft_f5248.obj"
+    # filename = "../../../data/models/CitySurfaceS.stl"
+
+    lat_lnd = 51.5
+    long_lnd = 5.5e-2
+
+    p = SolarParameters(
+        file_name="",
+        weather_file=path_lnd,
+        latitude=lat_lnd,
+        longitude=long_lnd,
+        sun_analysis=True,
+        sky_analysis=True,
+        start=pd.Timestamp("2019-01-01 00:00:00"),
+        end=pd.Timestamp("2019-12-31 23:00:00"),
+    )
+
+    sunpath_radius = 50
+    sunpath = Sunpath(p, sunpath_radius)
+
+    df = sunpath.df
+
+    df_itp = sunpath.df_itp
+
+    plt.figure(figsize=(12, 4))
+    plt.plot(df_itp.index, df_itp["dni"], label="interp DNI")
+    plt.plot(df.index, df["dni"], label="real DNI")
+    plt.xlabel("Time")
+    plt.ylabel("Wh/m²")
+    plt.title("Irradiance over Time")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.xlim(pd.Timestamp("2019-05-01"), pd.Timestamp("2019-05-30"))
+    plt.show()
+
+
 def analyse_mesh_1(solar_parameters: SolarParameters):
 
     print("-------- Solar Mesh Analysis Started -------")
@@ -240,6 +284,7 @@ if __name__ == "__main__":
 
     # perez_test()
     embree_perez_test()
+    # sunpath_test()
     # analyse_mesh_1(p_1)
     # analyse_mesh_2(p_2)
     # analyse_mesh_3(p_1)

@@ -13,10 +13,11 @@ class Pydome
 {
 
 public:
+    Pydome(fArray2D rays);
     Pydome(fArray2D rays, fArray1D areas);
     ~Pydome();
 
-    void InitRays();
+    void InitRays(fArray2D rays);
     void CreateRays();
     void BundleRays();
 

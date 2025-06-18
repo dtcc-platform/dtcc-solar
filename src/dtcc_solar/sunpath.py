@@ -60,6 +60,7 @@ class Sunpath:
     w: float
 
     sunc: SunCollection
+    sunc_itp: SunCollection  # Interpolated sun positions for smoother paths
     origin: np.ndarray
     sun_pc: list[PointCloud]
     suns_pc_minute: PointCloud
@@ -93,15 +94,23 @@ class Sunpath:
         self.origin = np.array([0, 0, 0])
         self.sungroups = None
         self.sundome = None
-        self.tz_offset = self.get_epw_timezone(p)
+        self.tz_offset = self._get_epw_timezone(p)
         self.dt_index = self._get_datetime_index(p)
-        self.df = self._get_irradiance_data(p, self.dt_index)
-        self._create_suns(p, include_night)
+        self.df = self._get_irradiance_dataframe(p, self.dt_index)
+        self.df_itp = self._get_irradiance_dataframe_interp(self.df)
+
+        self.sunc = SunCollection()
+        self._create_suns(self.sunc, self.df, include_night)
+
+        self.sunc_itp = SunCollection()
+        self._create_suns(self.sunc_itp, self.df_itp, include_night)
 
         if p.display:
             self._build_sunpath_mesh()
 
-    def get_epw_timezone(self, p: SolarParameters) -> int:
+    # Create time stamps and retrieve irradiance data from EPW file
+
+    def _get_epw_timezone(self, p: SolarParameters) -> int:
         """
         Extracts the 'Time Zone' offset from the EPW file header.
 
@@ -180,7 +189,7 @@ class Sunpath:
 
         return index
 
-    def _get_irradiance_data(
+    def _get_irradiance_dataframe(
         self, p: SolarParameters, datetime_index: pd.DatetimeIndex
     ) -> DataFrame:
         """
@@ -232,6 +241,245 @@ class Sunpath:
         # print(result_df.tail(24))
 
         return result_df
+
+    def _get_irradiance_dataframe_interp(self, df_original: DataFrame) -> DataFrame:
+        """
+        Interpolates hourly irradiance data to 20-minute intervals and reduces to representative days.
+
+        Parameters:
+        df_original (DataFrame): Original hourly data with 'dni' and 'dhi'.
+
+        Returns:
+        DataFrame: Reduced, interpolated DataFrame conserving total energy.
+        """
+        df = df_original.copy()
+
+        # Just for logging: show what normalization would do to the index
+        self._print_normalization_effect(df.index)
+
+        df_interp = self._interpolate(df, 20)
+        # Add date column *after* interpolation
+        df_interp["date"] = df_interp.index.normalize()
+        df_reduced = self._reduce_days(df_interp, day_step=5)
+
+        info(f"Total DNI in original intervals: {np.sum(df['dni']):.2f} Wh/m²")
+        info(f"Total DHI in original intervals: {np.sum(df['dhi']):.2f} Wh/m²")
+        info(f"Total DNI in interp intervals: {np.sum(df_interp['dni']):.2f} Wh/m²")
+        info(f"Total DHI in interp intervals: {np.sum(df_interp['dhi']):.2f} Wh/m²")
+        info(f"Total DNI in reduced intervals: {np.sum(df_reduced['dni']):.2f} Wh/m²")
+        info(f"Total DHI in reduced intervals: {np.sum(df_reduced['dhi']):.2f} Wh/m²")
+
+        return df_reduced
+
+    def _interpolate(self, df: DataFrame, min_step: int = 20) -> DataFrame:
+        """
+        Interpolates a DataFrame with hourly DateTimeIndex to t-minute intervals.
+
+        Parameters:
+        df (DataFrame): Input DataFrame with hourly steps and 'dni', 'dhi' columns.
+
+        Returns:
+        DataFrame: Interpolated DataFrame at t-minute intervals, scaled to Wh per t min.
+        """
+        t_str = f"{min_step}min"
+
+        new_index = pd.date_range(start=df.index[0], end=df.index[-1], freq=t_str)
+
+        df_interp = df.reindex(new_index)
+        df_interp[["dni", "dhi"]] = df_interp[["dni", "dhi"]].interpolate(method="time")
+        df_interp[["dni", "dhi"]] *= min_step / 60.0  # Convert from Wh/h to Wh per t
+
+        return df_interp
+
+    def _normalize_datetime_index(self, index: DatetimeIndex) -> DataFrame:
+
+        index_n = index.normalize()
+
+        start_before = index_n[0].replace(tzinfo=None)
+        end_before = index_n[-1].replace(tzinfo=None)
+
+        start_after = (start_before.normalize()).replace(tzinfo=None)
+        end_after = (end_before.normalize()).replace(tzinfo=None)
+
+        info("Warning: Time intervals have been changed")
+        info("--------------------------------------------------------------------")
+        info(f"Time period before norm: {start_before} → {end_before}")
+        info(f"Time period after norm:  {start_after} → {end_after}")
+        info("-------------------------------------------------------------------")
+
+        return index_n
+
+    def _reduce_days(self, df_interp: DataFrame, day_step=10) -> DataFrame:
+        """
+        Reduces the DataFrame to one representative day per group of `step` days.
+        Scales the selected day's `dni` and `dhi` so the total energy is conserved.
+
+        Parameters:
+        df_interp (DataFrame): DataFrame with 20-minute intervals and 'date' column.
+        step (int): Number of days per group.
+
+        Returns:
+        DataFrame: Reduced DataFrame.
+        """
+        df = df_interp.copy()
+        unique_days = sorted(df["date"].unique())
+        n_days = len(unique_days)
+
+        reduced_rows = []
+
+        for i in range(0, n_days, day_step):
+            group_days = unique_days[i : i + day_step]
+            if len(group_days) == 0:
+                continue
+
+            rep_day = group_days[-1]
+
+            group_data = df[df["date"].isin(group_days)]
+            rep_data = df[df["date"] == rep_day].copy()
+
+            group_dni_total = group_data["dni"].sum()
+            group_dhi_total = group_data["dhi"].sum()
+
+            rep_dni_total = rep_data["dni"].sum()
+            rep_dhi_total = rep_data["dhi"].sum()
+
+            dni_factor = group_dni_total / rep_dni_total if rep_dni_total > 0 else 0
+            dhi_factor = group_dhi_total / rep_dhi_total if rep_dhi_total > 0 else 0
+
+            rep_data["dni"] *= dni_factor
+            rep_data["dhi"] *= dhi_factor
+
+            reduced_rows.append(rep_data)
+
+        df_reduced = pd.concat(reduced_rows)
+        df_reduced.drop(columns="date", inplace=True)
+
+        return df_reduced
+
+    def _print_normalization_effect(self, index: DatetimeIndex):
+        """
+        Logs how normalization affects the start and end of a DateTimeIndex.
+        """
+        start_before = index[0]
+        end_before = index[-1]
+        start_after = start_before.normalize()
+        end_after = end_before.normalize()
+
+        info("Warning: Time intervals are normalized to midnight for day grouping.")
+        info("--------------------------------------------------------------------")
+        info(f"Time period before normalization: {start_before} → {end_before}")
+        info(f"Time period after normalization:  {start_after} → {end_after}")
+        info("--------------------------------------------------------------------")
+
+    def _create_suns(
+        self,
+        sunc: SunCollection,
+        df: DataFrame,
+        include_night: bool = False,
+        create_synthetic: bool = False,
+    ):
+        """
+        Create sun positions and append weather data.
+
+        Parameters
+        ----------
+        p : SolarParameters
+            Parameters for solar calculations.
+        include_night : bool, optional
+            Flag to include night times in the sunpath (default is False).
+        """
+        sunc.time_stamps = list(pd.to_datetime(df.index))
+        sunc.count = len(sunc.time_stamps)
+        self._calc_suns_positions(sunc, df)
+
+        if not include_night:
+            self._remove_suns_below_horizon(sunc)
+
+        if create_synthetic:
+            self._generate_synthetic_weather_data(sunc)
+
+    def _calc_suns_positions(self, sunc: SunCollection, df: DataFrame):
+        """
+        Calculate sun positions for the timestamps in provided DataFrame.
+        """
+        solpos = solarposition.get_solarposition(df.index, self.lat, self.lon)
+        elev = np.radians(solpos.apparent_elevation.to_list())
+        azim = np.radians(solpos.azimuth.to_list()) - np.radians(90.0)
+        zeni = np.radians(solpos.apparent_zenith.to_list())
+        x_sun = self.r * np.cos(elev) * np.cos(-azim) + self.origin[0]
+        y_sun = self.r * np.cos(elev) * np.sin(-azim) + self.origin[1]
+        z_sun = self.r * np.sin(elev) + self.origin[2]
+        sun_vecs = []
+        positions = []
+        zeniths = []
+        for i in range(sunc.count):
+            sun_vec = unitize(np.array([x_sun[i], y_sun[i], z_sun[i]]))
+            sun_vecs.append(sun_vec)
+            positions.append(np.array([x_sun[i], y_sun[i], z_sun[i]]))
+            zeniths.append(zeni[i])
+
+        sunc.sun_vecs = np.array(sun_vecs)
+        sunc.positions = np.array(positions)
+        sunc.zeniths = np.array(zeniths)
+        sunc.dni = df["dni"].to_numpy()
+        sunc.dhi = df["dhi"].to_numpy()
+
+    def _remove_suns_below_horizon(self, sunc: SunCollection):
+        """
+        Remove sun positions below the horizon.
+        """
+        over_horizon = sunc.zeniths < (math.pi / 2.0)
+        over = over_horizon
+        count_over = np.sum(np.array(over_horizon, dtype=np.int32))
+        count_below = len(over_horizon) - count_over
+
+        info(f"Date range resulting in {len(over)} total sun positions")
+        info(f"Removing {count_below} suns that are below the horizon.")
+        info(f"Remaining suns for analysis: {len(over) - count_below}")
+
+        sunc.sun_vecs = sunc.sun_vecs[over, :]
+        sunc.positions = sunc.positions[over, :]
+        sunc.dni = sunc.dni[over]
+        sunc.dhi = sunc.dhi[over]
+        sunc.zeniths = sunc.zeniths[over]
+
+        filtered_timestamps = []
+        for ts, valid in zip(sunc.time_stamps, over):
+            if valid:
+                filtered_timestamps.append(ts)
+
+        sunc.time_stamps = filtered_timestamps
+        sunc.count = len(sunc.time_stamps)
+
+    # Create 3D geometry for sunpath visualization.
+
+    def _build_sunpath_mesh(self):
+        """Build sunpath mesh by combining analemmas and day paths."""
+        self.w = self.r / 300
+
+        # Get analemmas mesh and sun positions represented as a point cloud
+        sun_pos_dict = self._calc_analemmas(2019, 2)
+        self.analemmas_meshes = self._create_mesh_strip(sun_pos_dict, self.w)
+        self.analemmas_pc = self._create_sunpath_pc(sun_pos_dict)
+
+        # Get every sun position for each minute in a year as points in a point cloud
+        dates = pd.date_range(start="2019-01-01", end="2019-12-31", freq="1D")
+        sun_pos_dict = self._calc_daypaths(dates, 1)
+        self.suns_pc_minute = self._create_sunpath_pc(sun_pos_dict)
+
+        # Get day path loops as mesh strips
+        days = pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"])
+        days_dict = self._calc_daypaths(days, 2)
+        self.daypath_meshes = self._create_mesh_strip(days_dict, self.w)
+
+        # Create pc representation of current sun positions
+        self.sun_pc = self._create_sun_spheres()
+
+        mesh1 = concatenate_meshes(self.analemmas_meshes)
+        mesh2 = concatenate_meshes(self.daypath_meshes)
+        self.mesh = concatenate_meshes([mesh1, mesh2])
+
+        info("Sunpath mesh representation created")
 
     def _calc_analemmas(self, year: int, sample_rate: int):
         """
@@ -339,114 +587,6 @@ class Sunpath:
 
         return days_dict
 
-    def _create_suns(self, p: SolarParameters, include_night: bool = False):
-        """
-        Create sun positions and append weather data.
-
-        Parameters
-        ----------
-        p : SolarParameters
-            Parameters for solar calculations.
-        include_night : bool, optional
-            Flag to include night times in the sunpath (default is False).
-        """
-        self.sunc = SunCollection()
-        self._create_sun_timestamps()
-        self._calc_suns_positions()
-        if not include_night:
-            self._remove_suns_below_horizon()
-
-        self._generate_synthetic_weather_data()
-
-    def _create_sun_timestamps(self):
-        """
-        Create sun timestamps for the given date range based on the DataFrame index.
-        """
-        self.sunc.time_stamps = list(pd.to_datetime(self.df.index))
-        self.sunc.count = len(self.sunc.time_stamps)
-
-    def _calc_suns_positions(self):
-        """
-        Calculate sun positions for the timestamps.
-
-        """
-        self.sunc.date_times = self.df.index
-        solpos = solarposition.get_solarposition(self.df.index, self.lat, self.lon)
-        elev = np.radians(solpos.apparent_elevation.to_list())
-        azim = np.radians(solpos.azimuth.to_list()) - np.radians(90.0)
-        zeni = np.radians(solpos.apparent_zenith.to_list())
-        x_sun = self.r * np.cos(elev) * np.cos(-azim) + self.origin[0]
-        y_sun = self.r * np.cos(elev) * np.sin(-azim) + self.origin[1]
-        z_sun = self.r * np.sin(elev) + self.origin[2]
-        sun_vecs = []
-        positions = []
-        zeniths = []
-        for i in range(self.sunc.count):
-            sun_vec = unitize(np.array([x_sun[i], y_sun[i], z_sun[i]]))
-            sun_vecs.append(sun_vec)
-            positions.append(np.array([x_sun[i], y_sun[i], z_sun[i]]))
-            zeniths.append(zeni[i])
-            self.over_horizon.append(zeni[i] < (math.pi / 2.0))
-
-        self.sunc.sun_vecs = np.array(sun_vecs)
-        self.sunc.positions = np.array(positions)
-        self.sunc.zeniths = np.array(zeniths)
-        self.sunc.dni = self.df["dni"].to_numpy()
-        self.sunc.dhi = self.df["dhi"].to_numpy()
-
-    def _remove_suns_below_horizon(self):
-        """
-        Remove sun positions below the horizon.
-        """
-        over = self.over_horizon
-        count = over.count(False)
-
-        info(f"Date range resulting in {len(over)} total sun positions")
-        info(f"Removing {count} suns that are below the horizon.")
-        info(f"Remaining suns for analysis: {len(over) - count}")
-
-        self.sunc.sun_vecs = self.sunc.sun_vecs[over, :]
-        self.sunc.positions = self.sunc.positions[over, :]
-        self.sunc.dni = self.sunc.dni[over]
-        self.sunc.dhi = self.sunc.dhi[over]
-        self.sunc.zeniths = self.sunc.zeniths[over]
-
-        filtered_timestamps = []
-        for ts, valid in zip(self.sunc.time_stamps, over):
-            if valid:
-                filtered_timestamps.append(ts)
-
-        self.sunc.time_stamps = filtered_timestamps
-        self.sunc.count = len(self.sunc.time_stamps)
-
-    def _build_sunpath_mesh(self):
-        """Build sunpath mesh by combining analemmas and day paths."""
-        self.w = self.r / 300
-
-        # Get analemmas mesh and sun positions represented as a point cloud
-        sun_pos_dict = self._calc_analemmas(2019, 2)
-        self.analemmas_meshes = self._create_mesh_strip(sun_pos_dict, self.w)
-        self.analemmas_pc = self._create_sunpath_pc(sun_pos_dict)
-
-        # Get every sun position for each minute in a year as points in a point cloud
-        dates = pd.date_range(start="2019-01-01", end="2019-12-31", freq="1D")
-        sun_pos_dict = self._calc_daypaths(dates, 1)
-        self.suns_pc_minute = self._create_sunpath_pc(sun_pos_dict)
-
-        # Get day path loops as mesh strips
-        days = pd.to_datetime(["2019-06-21", "2019-03-21", "2019-12-21"])
-        days_dict = self._calc_daypaths(days, 2)
-        self.daypath_meshes = self._create_mesh_strip(days_dict, self.w)
-
-        # Create pc representation of current sun positions
-        self.sun_pc = self._create_sun_spheres()
-
-        mesh1 = concatenate_meshes(self.analemmas_meshes)
-        mesh2 = concatenate_meshes(self.daypath_meshes)
-        self.mesh = concatenate_meshes([mesh1, mesh2])
-
-        info("Sunpath mesh representation created")
-
     def _create_mesh_strip(self, sun_pos_dict, width: float):
         """
         Create mesh strip for visualizing analemmas
@@ -525,27 +665,29 @@ class Sunpath:
         pc = PointCloud(points=points)
         return pc
 
-    def _generate_synthetic_weather_data(self):
+    # Generate synthetic weather data for the sunpath.
+
+    def _generate_synthetic_weather_data(self, sunc: SunCollection):
         """
         Generate synthetic weather data for the sunpath.
         """
         down_scale = 0.8
 
-        base_level_dni = down_scale * self.sunc.max_dni * 0.6
-        year_amp_dni = down_scale * self.sunc.max_dni * 0.4
+        base_level_dni = down_scale * sunc.max_dni * 0.6
+        year_amp_dni = down_scale * sunc.max_dni * 0.4
 
-        base_level_dhi = down_scale * self.sunc.max_dhi * 0.2
-        year_amp_dhi = down_scale * self.sunc.max_dhi * 0.8
+        base_level_dhi = down_scale * sunc.max_dhi * 0.2
+        year_amp_dhi = down_scale * sunc.max_dhi * 0.8
 
-        current_day = self.sunc.time_stamps[0].day
+        current_day = sunc.time_stamps[0].day
 
         sun_indices = []
-        synth_dhi = np.zeros(self.sunc.count)
-        synth_dni = np.zeros(self.sunc.count)
+        synth_dhi = np.zeros(sunc.count)
+        synth_dni = np.zeros(sunc.count)
 
-        for i in range(self.sunc.count):
-            next = self.sunc.time_stamps[i].day
-            ts = self.sunc.time_stamps[i]
+        for i in range(sunc.count):
+            next = sunc.time_stamps[i].day
+            ts = sunc.time_stamps[i]
             if current_day == next:
                 sun_indices.append(i)
             else:
@@ -566,8 +708,8 @@ class Sunpath:
             self._gen_synth_day(synth_dni, sun_indices, amp_dni)
             self._gen_synth_day(synth_dhi, sun_indices, amp_dhi)
 
-        self.sunc.synth_dhi = synth_dhi
-        self.sunc.synth_dni = synth_dni
+        sunc.synth_dhi = synth_dhi
+        sunc.synth_dni = synth_dni
 
     def _gen_synth_day(self, synth_data: np.array, indices: list[int], amp: float):
         hours = np.linspace(0, np.pi, len(indices))

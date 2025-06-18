@@ -34,6 +34,7 @@ public:
     EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask);
     EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, int skyType);
     EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D rays, fArray1D areas);
+    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D skyRays, fArray1D areas, fArray2D sunRays);
     virtual ~EmbreeSolar();
 
     void CreateDevice();
@@ -80,7 +81,9 @@ public:
     bool CalcVisMatrix_Occ8();
     bool CalcVisProjMatrix();
     bool CalcIrradiance(fArray2D arr);
-    bool Run2PhaseAnalysis(fArray2D sunSkyMat);
+
+    bool Run2PhaseAnalysis(fArray2D sunSkyMatrix);
+    bool Run3PhaseAnalysis(fArray2D skyMatrix);
 
     bool Accumulate();
 
@@ -91,6 +94,7 @@ private:
     Skydome *mSkydome = NULL;
     Sunrays *mSunrays = NULL;
     Pydome *mPydome = NULL;
+    Pydome *mSundome = NULL;
 
     RTCScene mScene;
     RTCDevice mDevice;

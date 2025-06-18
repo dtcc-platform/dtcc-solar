@@ -1,23 +1,23 @@
 #include "pydome.h"
 
+Pydome::Pydome(fArray2D rays)
+{
+    mRayOrigin = {0.0, 0.0, 0.0};
+    mRayCount = (int)rays.size();
+
+    InitRays(rays);
+    CreateRays();
+    BundleRays();
+    info("Pydome instance created, ready for raytracing.");
+}
+
 Pydome::Pydome(fArray2D rays, fArray1D solidAngles)
 {
     mRayOrigin = {0.0, 0.0, 0.0};
     mRayCount = (int)rays.size();
     mRaySolidAngle = solidAngles;
-    for (long unsigned int i = 0; i < rays.size(); i++)
-    {
-        if (rays[i].size() == 3)
-        {
-            std::vector<float> rayDir = {rays[i][0], rays[i][1], rays[i][2]};
-            rayDir = UnitizeVector(rayDir); // Ensure the ray direction is a unit vector
-            mRayDirections.push_back(rayDir);
-        }
-        else
-            error("Invalid vertex size in constructor EmbreeSolar::Pydome.");
-    }
 
-    InitRays();
+    InitRays(rays);
     CreateRays();
     BundleRays();
     info("Pydome instance created, ready for raytracing.");
@@ -62,8 +62,20 @@ float Pydome::GetDomeSolidAngle()
     return mDomeSolidAngle;
 }
 
-void Pydome::InitRays()
+void Pydome::InitRays(fArray2D rays)
 {
+    for (long unsigned int i = 0; i < rays.size(); i++)
+    {
+        if (rays[i].size() == 3)
+        {
+            std::vector<float> rayDir = {rays[i][0], rays[i][1], rays[i][2]};
+            rayDir = UnitizeVector(rayDir); // Ensure the ray direction is a unit vector
+            mRayDirections.push_back(rayDir);
+        }
+        else
+            error("Invalid vertex size in constructor EmbreeSolar::Pydome.");
+    }
+
     mBundle8Count = ceil((float)mRayCount / 8.0f);
 
     debug("Skydome rays data:");

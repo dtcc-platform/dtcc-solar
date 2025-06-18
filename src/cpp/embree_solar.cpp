@@ -176,6 +176,46 @@ EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, f
     info("Model setup with mesh geometry complete.");
 }
 
+EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, fArray2D skyRays, fArray1D areas, fArray2D sunRays)
+{
+    info("Creating embree instance with mesh geometry.");
+    set_log_level(INFO);
+
+    Eigen::setNbThreads(std::thread::hardware_concurrency());
+    Eigen::initParallel();
+    info("Eigen using " + str(Eigen::nbThreads()) + " threads.");
+
+    mVertexCount = (int)vertices.size();
+    mFaceCount = (int)faces.size();
+    mFaceNormals = new Vector[mFaceCount];
+
+    mApplyMask = false;
+    mMaskCount = 0;
+    mFaceMask = std::vector<bool>(mFaceCount, true);
+    mMaskCount = 0;
+    for (int i = 0; i < mFaceCount; i++)
+        if (mFaceMask[i])
+            mMaskCount++;
+
+    CreateDevice();
+    CreateScene();
+    CreateGeom(vertices, faces);
+    CalcFaceMidPoints();
+    CalcFaceNormals();
+
+    mPydome = new Pydome(skyRays, areas);
+    mSundome = new Pydome(sunRays);
+
+    mHasSunResults = false;
+    mHasSkyResults = false;
+    mHasIrrResults = false;
+    mHasVisResults = false;
+    mHasProjResults = false;
+    mHasVisProjResults = false;
+
+    info("Model setup with mesh geometry complete.");
+}
+
 EmbreeSolar::~EmbreeSolar()
 {
     delete mSkydome;
@@ -742,16 +782,13 @@ bool EmbreeSolar::CalcProjMatrix()
 
     fArray2D surfaceNormals = GetFaceNormals();
     fArray2D rayDirections = mPydome->GetRayDirections();
-
     size_t numSurfaces = surfaceNormals.size();
     size_t numRays = rayDirections.size();
-
-    mProjectionMatrix = std::vector<std::vector<float>>(numSurfaces, std::vector<float>(numRays, 0.0f));
+    mProjectionMatrix = fArray2D(numSurfaces, fArray1D(numRays, 0.0f));
 
     for (size_t i = 0; i < numSurfaces; ++i)
     {
         auto n = surfaceNormals[i];
-        // n = UnitizeVector(n); // Ensure the normal is a unit vector
         for (size_t j = 0; j < numRays; ++j)
         {
             auto r = rayDirections[j];
@@ -780,9 +817,9 @@ bool EmbreeSolar::CalcVisMatrix_Occ1()
     float thisPortion = 0.0f;
     float domeSolidAngle = mPydome->GetDomeSolidAngle();
     // Compute diffuse sky portion by iterating over all faces in the mesh
-    mVisibilityMatrix = std::vector<std::vector<float>>(mFaceCount, std::vector<float>(mPydome->GetRayCount(), 1.0f));
-    mSkyViewFactor = std::vector<float>(mFaceCount, 0);
-    auto start = std::chrono::high_resolution_clock::now();
+    mVisibilityMatrix = fArray2D(mFaceCount, fArray1D(mPydome->GetRayCount(), 1.0f));
+    mSkyViewFactor = fArray1D(mFaceCount, 0);
+    auto start = hrClock::now();
     info("Calculating visibility matrix with rtcOccluded1 for " + str(mMaskCount) + " faces and " + str(mPydome->GetRayCount()) + " rays.");
     for (int i = 0; i < mFaceCount; i++)
     {
@@ -795,6 +832,7 @@ bool EmbreeSolar::CalcVisMatrix_Occ1()
             {
                 RTCRay ray = mPydome->GetRays()[j];
                 rtcOccluded1(mScene, &ray);
+
                 if (ray.tfar == -std::numeric_limits<float>::infinity())
                 {
                     hitCounter++;
@@ -811,8 +849,8 @@ bool EmbreeSolar::CalcVisMatrix_Occ1()
     }
 
     info("Visibility matrix calculated successfully. Found " + str(hitCounter) + " intersections in " + str(hitAttempts) + " attempts.");
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float> duration = end - start;
+    auto end = hrClock::now();
+    fDuration duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
     mHasVisResults = true;
     return true;
@@ -831,9 +869,9 @@ bool EmbreeSolar::CalcVisMatrix_Occ8()
     float thisPortion = 0.0f;
     float domeSolidAngle = mPydome->GetDomeSolidAngle();
     // Compute diffuse sky portion by iterating over all faces in the mesh
-    mVisibilityMatrix = std::vector<std::vector<float>>(mFaceCount, std::vector<float>(mPydome->GetRayCount(), 1.0f));
-    mSkyViewFactor = std::vector<float>(mFaceCount, 0);
-    auto start = std::chrono::high_resolution_clock::now();
+    mVisibilityMatrix = fArray2D(mFaceCount, fArray1D(mPydome->GetRayCount(), 1.0f));
+    mSkyViewFactor = fArray1D(mFaceCount, 0);
+    auto start = hrClock::now();
     info("Calculating visibility matrix with rtcOccluded8 for " + str(mMaskCount) + " faces and " + str(mPydome->GetRayCount()) + " rays.");
     for (int i = 0; i < mFaceCount; i++)
     {
@@ -867,8 +905,8 @@ bool EmbreeSolar::CalcVisMatrix_Occ8()
     }
 
     info("Visibility matrix calculated successfully. Found " + str(hitCounter) + " intersections in " + str(hitAttempts) + " attempts.");
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float> duration = end - start;
+    auto end = hrClock::now();
+    fDuration duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
     mHasVisResults = true;
     return true;
@@ -883,7 +921,7 @@ bool EmbreeSolar::CalcVisProjMatrix()
     }
 
     int rayCount = mPydome->GetRayCount();
-    mVisProjMatrix = std::vector<std::vector<float>>(mFaceCount, std::vector<float>(rayCount, 0.0f));
+    mVisProjMatrix = fArray2D(mFaceCount, fArray1D(rayCount, 0.0f));
 
     for (int i = 0; i < mFaceCount; i++)
     {
@@ -920,19 +958,14 @@ bool EmbreeSolar::CalcIrradiance(fArray2D arr)
         return false;
     }
 
-    auto start = std::chrono::high_resolution_clock::now();
+    MatrixXfRM VP = VectorToEigen(mVisProjMatrix);
+    MatrixXfRM S = VectorToEigen(arr);
+    MatrixXfRM E(mFaceCount, timeSteps);
 
-    // MatrixXf VP = VectorToEigen(mVisProjMatrix);
-    // MatrixXf S = VectorToEigen(arr);
-    // MatrixXf E = VP * S;
-
-    MatrixXfRM VP = VectorToEigen(mVisProjMatrix); // 100,000 × 580
-    MatrixXfRM S = VectorToEigen(arr);             // 580 × 4,400
-    MatrixXfRM E(mFaceCount, timeSteps);           // Output
+    auto start = hrClock::now();
     E.noalias() = VP * S;
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float> duration = end - start;
+    auto end = hrClock::now();
+    fDuration duration = end - start;
 
     mIrradianceMatrix = EigenToVector(E);
     mHasIrrResults = true;
@@ -958,6 +991,30 @@ bool EmbreeSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
 
     // Calculate irradiance
     if (!CalcIrradiance(sunSkyMat))
+        return false;
+
+    info("2-phase analysis completed successfully.");
+    return true;
+}
+
+bool EmbreeSolar::Run3PhaseAnalysis(fArray2D skyMatrix)
+{
+    info("Running 3-phase analysis...");
+
+    // Calculate projection matrix
+    if (!CalcProjMatrix())
+        return false;
+
+    // Calculate visibility matrix
+    if (!CalcVisMatrix_Occ1())
+        return false;
+
+    // Calculate the visibility-projection matrix
+    if (!CalcVisProjMatrix())
+        return false;
+
+    // Calculate irradiance
+    if (!CalcIrradiance(skyMatrix))
         return false;
 
     info("2-phase analysis completed successfully.");
