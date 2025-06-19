@@ -3,7 +3,7 @@ import numpy as np
 from dtcc_solar.utils import SolarParameters, calc_face_areas, concatenate_meshes
 from dtcc_solar import py_embree_solar as embree
 from dtcc_solar.utils import SunCollection, OutputCollection, Sky
-from dtcc_solar.utils import Rays
+from dtcc_solar.utils import Rays, SunMatrixType
 from dtcc_solar.skydome import Skydome
 from dtcc_solar.sunpath import Sunpath
 from dtcc_core.model import Mesh, PointCloud
@@ -72,8 +72,6 @@ class SolarEngine:
         self,
         analysis_mesh: Mesh,
         shading_mesh: Mesh = None,
-        sky: Sky = None,
-        rays: Rays = None,
         center_mesh: bool = False,
     ):
         """
@@ -95,8 +93,6 @@ class SolarEngine:
 
         self.analysis_mesh = analysis_mesh
         self.shading_mesh = shading_mesh
-        self.sky = sky
-        self.rays = rays
         (self.mesh, self.face_mask) = self._join_meshes(analysis_mesh, shading_mesh)
         self.origin = np.array([0, 0, 0])
         self.horizon_z = 0
@@ -105,12 +101,6 @@ class SolarEngine:
         self.dome_radius = 0
         self.path_width = 0
         self._preprocess_mesh(center_mesh)
-
-        if sky is None:
-            self.sky = Sky.Tregenza145
-
-        if rays is None:
-            self.rays = Rays.Bundle8
 
         info("Solar engine created")
 
@@ -196,26 +186,18 @@ class SolarEngine:
 
         self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
-    def get_skydome_ray_count(self):
-        """
-        Get the count of skydome rays.
-
-        Returns
-        -------
-        int
-            The count of skydome rays.
-        """
-        return self.embree.get_skydome_ray_count()
-
-    def run_analysis_2(
+    def run_2_phase_analysis(
         self,
         sunp: Sunpath,
-        tot_matrix: np.ndarray,
         skydome: Skydome,
+        tot_matrix: np.ndarray,
     ):
 
         ray_dirs = np.array(skydome.ray_dirs)
         solid_angles = np.array(skydome.solid_angles)
+
+        # for i in range(len(self.face_mask)):
+        #    print(f"Face {i + 1}/{len(self.face_mask)}: {self.face_mask[i]}")
 
         self.embree = embree.PyEmbreeSolar(
             self.mesh.vertices,
@@ -253,112 +235,13 @@ class SolarEngine:
 
         check_energy_balance(skydome, tot_matrix, irr_mat, vis_mat, face_normals)
 
-        sun_pc = PointCloud(points=self.sunpath_radius * sunp.sunc.positions)
+        sun_pc = PointCloud(points=sunp.sunc.positions)
 
         window = Window(1200, 800)
         scene = Scene()
         scene.add_mesh("Mesh", self.mesh, data=dict_data)
-        scene.add_pointcloud("Suns", sun_pc, 0.3)
+        scene.add_pointcloud("Suns", sun_pc, 0.1)
         window.render(scene)
-
-    def run_analysis(self, p: SolarParameters, sunp: Sunpath, outc: OutputCollection):
-        """
-        Run the solar analysis with the provided parameters and sunpath.
-
-        Parameters
-        ----------
-        p : SolarParameters
-            Parameters for the solar analysis.
-        sunp : Sunpath
-            Sunpath data for the analysis.
-        outc : OutputCollection
-            Output collection for storing the results.
-        """
-        # Creating instance of embree solar
-        info(f"Creating embree instance")
-        self.embree = embree.PyEmbreeSolar(
-            self.mesh.vertices,
-            self.mesh.faces,
-            self.face_mask,
-            int(self.sky),
-        )
-        info(f"Embree instance created successfully.")
-        info(f"Running analysis...")
-
-        # Run raytracing
-        if p.sun_analysis:
-            self._sun_raycasting(sunp.sunc)
-            self.embree.accumulate()
-
-        if p.sky_analysis:
-            self._sky_raycasting()
-
-        # Calculate irradiance base on raytracing results and weather data
-
-        # Save results to output collection
-        if p.sun_analysis:
-            n_suns = sunp.sunc.count
-            outc.face_sun_angles = self.embree.get_accumulated_angles() / n_suns
-            outc.sun_hours = n_suns - self.embree.get_accumulated_occlusion()
-            outc.shadow_hours = self.embree.get_accumulated_occlusion()
-
-        if p.sky_analysis:
-            outc.facehit_sky = self.embree.get_face_skyhit_results()
-            outc.sky_view_factor = self.embree.get_sky_view_factor_results()
-
-        outc.data_mask = self.face_mask
-
-    def _sun_raycasting(self, sunc: SunCollection):
-        """Perform sun raycasting analysis."""
-        if self.rays == Rays.Bundle1:
-            success = self.embree.sun_raytrace_occ1(sunc.sun_vecs)
-        elif self.rays == Rays.Bundle8:
-            success = self.embree.sun_raytrace_occ8(sunc.sun_vecs)
-
-        if success:
-            info(f"Sun raycasting completed succefully.")
-        else:
-            error("Something went wrong with sun raycasting in embree.")
-
-    def _sky_raycasting(self):
-        """Perform sky raycasting analysis."""
-        success = False
-        if self.rays == Rays.Bundle1:
-            success = self.embree.sky_raytrace_occ1()
-        elif self.rays == Rays.Bundle8:
-            success = self.embree.sky_raytrace_occ8()
-
-        if success:
-            info(f"Sky raycasting completed succefully.")
-        else:
-            error("Something went wrong with sky raycasting in embree.")
-
-    def view_results(
-        self,
-        p: SolarParameters,
-        sunpath: Sunpath,
-        outc: OutputCollection,
-    ):
-        """
-        View the results of the solar analysis.
-
-        Parameters
-        ----------
-        p : SolarParameters
-            Parameters for the solar analysis.
-        sunpath : Sunpath
-            Sunpath data for the analysis.
-        outc : OutputCollection
-            Output collection containing the results.
-        """
-        viewer = Viewer()
-        analysis_data = viewer.process_data(outc, p)
-        viewer.build_sunpath_diagram(sunpath, p)
-        viewer.add_mesh("Analysed mesh", mesh=self.analysis_mesh, data=analysis_data)
-        if self.shading_mesh is not None:
-            shading_data = np.zeros(len(self.shading_mesh.faces))
-            viewer.add_mesh("Shading mesh", mesh=self.shading_mesh, data=shading_data)
-        viewer.show()
 
 
 def check_energy_balance(

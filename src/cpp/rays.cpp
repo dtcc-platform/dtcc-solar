@@ -1,6 +1,6 @@
-#include "pydome.h"
+#include "rays.h"
 
-Pydome::Pydome(fArray2D rays)
+Rays::Rays(fArray2D rays)
 {
     mRayOrigin = {0.0, 0.0, 0.0};
     mRayCount = (int)rays.size();
@@ -11,7 +11,7 @@ Pydome::Pydome(fArray2D rays)
     info("Pydome instance created, ready for raytracing.");
 }
 
-Pydome::Pydome(fArray2D rays, fArray1D solidAngles)
+Rays::Rays(fArray2D rays, fArray1D solidAngles)
 {
     mRayOrigin = {0.0, 0.0, 0.0};
     mRayCount = (int)rays.size();
@@ -23,46 +23,63 @@ Pydome::Pydome(fArray2D rays, fArray1D solidAngles)
     info("Pydome instance created, ready for raytracing.");
 }
 
-std::vector<float> Pydome::GetSolidAngles()
+Rays::~Rays()
+{
+    // Deallocate dynamically allocated C-style 2D array for ray validity
+    if (mRays8Valid)
+    {
+        for (int i = 0; i < mBundle8Count; ++i)
+        {
+            delete[] mRays8Valid[i];
+        }
+        delete[] mRays8Valid;
+        mRays8Valid = nullptr;
+    }
+
+    // No need to manually clear vectors — they clean themselves up.
+    // But you can explicitly clear them for clarity or memory management:
+    mRayDirections.clear();
+    mRays.clear();
+    mRays8.clear();
+    mRaySolidAngle.clear();
+}
+
+std::vector<float> Rays::GetSolidAngles()
 {
     return mRaySolidAngle;
 }
-std::vector<RTCRay> &Pydome::GetRays()
+
+std::vector<RTCRay> &Rays::GetRays()
 {
     return mRays;
 }
 
-std::vector<RTCRay8> &Pydome::GetRays8()
+std::vector<RTCRay8> &Rays::GetRays8()
 {
     return mRays8;
 }
 
-int **Pydome::GetValid8()
+int **Rays::GetValid8()
 {
     return mRays8Valid;
 }
 
-int Pydome::GetRayCount()
+int Rays::GetRayCount()
 {
     return mRayCount;
 }
 
-int Pydome::GetBundle8Count()
+int Rays::GetBundle8Count()
 {
     return mBundle8Count;
 }
 
-fArray2D Pydome::GetRayDirections()
+fArray2D Rays::GetRayDirections()
 {
     return mRayDirections;
 }
 
-float Pydome::GetDomeSolidAngle()
-{
-    return mDomeSolidAngle;
-}
-
-void Pydome::InitRays(fArray2D rays)
+void Rays::InitRays(fArray2D rays)
 {
     for (long unsigned int i = 0; i < rays.size(); i++)
     {
@@ -95,7 +112,7 @@ void Pydome::InitRays(fArray2D rays)
     }
 }
 
-void Pydome::CreateRays()
+void Rays::CreateRays()
 {
     for (int i = 0; i < mRayCount; i++)
     {
@@ -114,7 +131,7 @@ void Pydome::CreateRays()
     }
 }
 
-void Pydome::BundleRays()
+void Rays::BundleRays()
 {
     int bundleIndex8 = -1;
     int rayIndex8 = 0;
@@ -159,7 +176,7 @@ void Pydome::BundleRays()
     }
 }
 
-void Pydome::TranslateRays(Vertex new_origin)
+void Rays::TranslateRays(Vertex new_origin)
 {
     for (int i = 0; i < mRayCount; i++)
     {
@@ -169,7 +186,7 @@ void Pydome::TranslateRays(Vertex new_origin)
     }
 }
 
-void Pydome::Translate8Rays(Vertex new_origin)
+void Rays::Translate8Rays(Vertex new_origin)
 {
     for (int i = 0; i < mBundle8Count; i++)
     {

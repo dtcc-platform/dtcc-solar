@@ -39,6 +39,8 @@ class Reinhart(Skydome):
             84.0,
         ]
 
+        self.create_mesh()
+
     def create_mesh(self):
 
         dome_area = self.calc_hemisphere_area()

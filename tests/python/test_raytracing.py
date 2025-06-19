@@ -51,7 +51,7 @@ class TestRaytracing:
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
-        self.solar_engine.run_analysis(p, sunpath, outputc)
+        self.solar_engine.run_2_phase_analysis(p, sunpath, outputc)
 
         # occ = len(self.city_mesh.faces) == len(outputc.occlusion[0])
         # ang = len(self.city_mesh.faces) == len(outputc.face_sun_angles[0])
@@ -67,7 +67,7 @@ class TestRaytracing:
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
-        self.solar_engine.run_analysis(p, sunpath, outputc)
+        self.solar_engine.run_2_phase_analysis(p, sunpath, outputc)
 
         nfaces = len(self.solar_engine.mesh.faces)
         nang = len(outputc.face_sun_angles)
@@ -83,7 +83,7 @@ class TestRaytracing:
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
-        self.solar_engine.run_analysis(p, sunpath, outputc)
+        self.solar_engine.run_2_phase_analysis(p, sunpath, outputc)
 
         nfaces = len(self.solar_engine.mesh.faces)
         nang = len(outputc.face_sun_angles)
@@ -102,7 +102,7 @@ class TestRaytracing:
 
         sunpath = Sunpath(p, self.solar_engine.sunpath_radius)
         outputc = OutputCollection()
-        self.solar_engine.run_analysis(p, sunpath, outputc)
+        self.solar_engine.run_2_phase_analysis(p, sunpath, outputc)
 
         facehit_sky = outputc.facehit_sky
         ray_count = len(facehit_sky) * len(facehit_sky[0])

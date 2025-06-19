@@ -9,13 +9,13 @@
 #include "common.h"
 #include "logging.h"
 
-class Pydome
+class Rays
 {
 
 public:
-    Pydome(fArray2D rays);
-    Pydome(fArray2D rays, fArray1D areas);
-    ~Pydome();
+    Rays(fArray2D rays);
+    Rays(fArray2D rays, fArray1D areas);
+    ~Rays();
 
     void InitRays(fArray2D rays);
     void CreateRays();
@@ -49,8 +49,6 @@ private:
 
     std::vector<RTCRay> mRays;
     std::vector<RTCRay8> mRays8;
-
-    float mDomeSolidAngle = 2 * M_PI; // Solid angle of the dome, 2 * pi steradians
 
     int **mRays8Valid;
 };

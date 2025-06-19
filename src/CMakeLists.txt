@@ -10,7 +10,7 @@ pybind11_add_module(${BINDINGS}
     ${SRC_DIR}/embree_solar.cpp
     ${SRC_DIR}/skydome.cpp
     ${SRC_DIR}/sunrays.cpp
-    ${SRC_DIR}/pydome.cpp
+    ${SRC_DIR}/rays.cpp
 )
 
 # Link Embree

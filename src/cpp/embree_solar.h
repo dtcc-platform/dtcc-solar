@@ -15,7 +15,7 @@
 #include "common.h"
 #include "sunrays.h"
 #include "skydome.h"
-#include "pydome.h"
+#include "rays.h"
 #include "logging.h"
 
 #ifdef PYTHON_MODULE
@@ -31,10 +31,8 @@ class EmbreeSolar
 public:
     EmbreeSolar();
     EmbreeSolar(fArray2D vertices, iArray2D faces);
-    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask);
-    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, int skyType);
-    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D rays, fArray1D areas);
-    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D skyRays, fArray1D areas, fArray2D sunRays);
+    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D sunSkyRays, fArray1D solidAngles);
+    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D skyRays, fArray1D solidAngles, fArray2D sunRays);
     virtual ~EmbreeSolar();
 
     void CreateDevice();
@@ -42,59 +40,36 @@ public:
     void CreateGeom(fArray2D vertices, iArray2D faces);
     void CreateGeomPlane();
     void CalcFaceMidPoints();
-
-    int GetSkydomeRayCount();
+    void CalcFaceNormals();
 
     iArray2D GetMeshFaces();
     fArray2D GetMeshVertices();
     fArray2D GetFaceNormals();
 
-    iArray2D GetOccludedResults();
-    fArray2D GetAngleResults();
-
-    iArray2D GetFaceSkyHitResults();
-    fArray1D GetSkyViewFactorResults();
-
-    iArray2D GetSkydomeFaces();
-    fArray2D GetSkydomeVertices();
-    fArray2D GetSkydomeRayDirections();
-
-    fArray2D GetPydomeRayDirections();
     fArray2D GetVisibilityResults();
     fArray2D GetProjectionResults();
     fArray2D GetIrradianceResults();
 
-    std::vector<float> GetAccumulatedAngles();
-    std::vector<float> GetAccumulatedOcclusion();
+    bool CalcProjMatrix(Rays *rays, fArray2D &projMatrix);
+    bool CalcVisMatrix_Occ1(Rays *rays, fArray2D &visMatrix);
+    bool CalcVisMatrix_Occ8(Rays *rays, fArray2D &visMatrix);
+    bool CalcVisProjMatrix(Rays *rays, fArray2D &visMatrix, fArray2D &projMatrix, fArray2D &visProjMatrix);
 
-    void Raytrace_occ1(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
-    void Raytrace_occ8(std::vector<float> &angles, std::vector<int> &occluded, int &hitCounter);
-
-    bool SunRaytrace_Occ1(fArray2D sun_vecs);
-    bool SunRaytrace_Occ8(fArray2D sun_vecs);
-
-    bool SkyRaytrace_Occ1();
-    bool SkyRaytrace_Occ8();
-
-    bool CalcProjMatrix(Pydome *rayDome, fArray2D &projMatrix);
-    bool CalcVisMatrix_Occ1(Pydome *rayDome, fArray2D &visMatrix);
-    bool CalcVisMatrix_Occ8(Pydome *rayDome, fArray2D &visMatrix);
-    bool CalcVisProjMatrix(fArray2D &visMatrix, fArray2D &projMatrix, fArray2D &visProjMatrix);
-    bool CalcIrradiance(fArray2D arr, fArray2D &visProjMatrix, fArray2D &irradianceMatrix);
+    bool CalcIrradiance2Phase(Rays *rays, fArray2D &skySunMatrix, fArray2D &visProjMatrix, fArray2D &irrMatrix);
+    bool CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, fArray2D &skyMatrix, fArray2D &sunMatrix, fArray2D &skyVisProjMatrix, fArray2D &sunVisProjMatrix, fArray2D &irrMatrix);
 
     bool Run2PhaseAnalysis(fArray2D sunSkyMatrix);
-    bool Run3PhaseAnalysis(fArray2D skyMatrix);
+    bool Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix);
 
-    bool Accumulate();
-
-    void CalcFaceNormals();
     void ErrorFunction(void *userPtr, enum RTCError error, const char *str);
 
 private:
-    Skydome *mSkydome = NULL;
-    Sunrays *mSunrays = NULL;
-    Pydome *mPydome = NULL;
-    Pydome *mSundome = NULL;
+    // Skydome *mSkydome = NULL;
+    // Sunrays *mSunrays = NULL;
+
+    Rays *mSunSkyRays = NULL;
+    Rays *mSkyRays = NULL;
+    Rays *mSunRays = NULL;
 
     RTCScene mScene;
     RTCDevice mDevice;
@@ -114,13 +89,6 @@ private:
     bool mApplyMask;
     std::vector<bool> mFaceMask;
 
-    bool mHasSunResults;
-    bool mHasSkyResults;
-    bool mHasIrrResults;
-    bool mHasVisResults;
-    bool mHasProjResults;
-    bool mHasVisProjResults;
-
     iArray2D mOccluded;
     fArray2D mAngles;
 
@@ -134,4 +102,6 @@ private:
     fArray2D mVisibilityMatrix;
     fArray2D mVisProjMatrix;
     fArray2D mIrradianceMatrix;
+
+    float mDomeSolidAngle = 2 * M_PI; // Solid angle of the dome, 2 * pi steradians
 };

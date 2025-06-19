@@ -257,10 +257,10 @@ class Sunpath:
         # Just for logging: show what normalization would do to the index
         self._print_normalization_effect(df.index)
 
-        df_interp = self._interpolate(df, 20)
+        df_interp = self._interpolate(df, 10)
         # Add date column *after* interpolation
         df_interp["date"] = df_interp.index.normalize()
-        df_reduced = self._reduce_days(df_interp, day_step=5)
+        df_reduced = self._reduce_days(df_interp, day_step=10)
 
         info(f"Total DNI in original intervals: {np.sum(df['dni']):.2f} Wh/m²")
         info(f"Total DHI in original intervals: {np.sum(df['dhi']):.2f} Wh/m²")
@@ -397,6 +397,9 @@ class Sunpath:
 
         if create_synthetic:
             self._generate_synthetic_weather_data(sunc)
+
+        pc = PointCloud(points=sunc.positions)
+        pc.view()
 
     def _calc_suns_positions(self, sunc: SunCollection, df: DataFrame):
         """

@@ -22,6 +22,8 @@ class Tregenza(Skydome):
         self.band_patches = [30, 30, 24, 24, 18, 12, 6, 1]
         self.elevs_deg = [0.0, 12.0, 24.0, 36.0, 48.0, 60.0, 72.0, 84.0]
 
+        self.create_mesh()
+
     def create_mesh(self):
 
         elev_step = math.radians(12.0)

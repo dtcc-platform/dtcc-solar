@@ -42,9 +42,10 @@ class MeshType(IntEnum):
     shading = 2
 
 
-class Mode(IntEnum):
-    single_sun = 1
-    multiple_sun = 2
+class SunMatrixType(IntEnum):
+    straight = 1
+    flat_smear = 2
+    smooth_smear = 3
 
 
 class Analyse(Enum):

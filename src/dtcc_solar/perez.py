@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from dtcc_solar.coefficients import calc_perez_coeffs
 from dtcc_solar.plotting import sub_plots_2d, sub_plot_dict, plot_coeffs_dict
 from dtcc_solar.plotting import show_plot, plot_debug_1, plot_debug_2
-from dtcc_solar.utils import SkyResults, SunResults
+from dtcc_solar.utils import SkyResults, SunResults, SunMatrixType
 
 
 """
@@ -159,6 +159,28 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
     f = max(f, 0.0)  # Ensure non-negative luminance
 
     return f
+
+
+def calc_sky_sun_matrix(
+    sunpath: Sunpath,
+    skydome: Skydome,
+    type: SunMatrixType = SunMatrixType.smooth_smear,
+    da: float = 15.0,
+):
+    sky_res = calc_sky_matrix(sunpath, skydome)
+
+    if type == SunMatrixType.straight:
+        sun_res = calc_sun_matrix(sunpath, skydome)
+    elif type == SunMatrixType.flat_smear:
+        sun_res = calc_sun_mat_flat_smear(sunpath, skydome, da)
+    elif type == SunMatrixType.smooth_smear:
+        sun_res = calc_sun_mat_smooth_smear(sunpath, skydome, da)
+
+    calc_tot_error(sky_res, skydome, sun_res, sunpath)
+
+    tot_matrix = sky_res.sky_matrix + sun_res.sun_matrix
+
+    return tot_matrix
 
 
 def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:

@@ -46,7 +46,6 @@ def perez_test():
     # load_radiance(wea_file)
 
     skydome = Reinhart()
-    skydome.create_mesh()
 
     sunpath_radius = 1.5
     sunpath = Sunpath(p, sunpath_radius)
@@ -72,7 +71,7 @@ def perez_test():
     # Compare total measured radiation with the sum of radiation on skydomes
     calc_tot_error(sky_results, skydome, sun_results, sunpath)
 
-    skydome.view(name="Skydome", data=face_data_dict, sun_pos_pc=sun_pc)
+    skydome.view(name="Skydome", data_dict=face_data_dict, sun_pos_pc=sun_pc)
 
 
 def embree_perez_test():
@@ -80,8 +79,8 @@ def embree_perez_test():
 
     path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
     # filename = "../../../data/validation/boxes_sharp_f5248.obj"
-    filename = "../../../data/validation/boxes_soft_f5248.obj"
-    # filename = "../../../data/models/CitySurfaceS.stl"
+    # filename = "../../../data/validation/boxes_soft_f5248.obj"
+    filename = "../../../data/models/CitySurfaceS.stl"
 
     lat_lnd = 51.5
     long_lnd = 5.5e-2
@@ -99,31 +98,24 @@ def embree_perez_test():
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
-    skydome = Reinhart()
     # skydome = Tregenza()
-    skydome.create_mesh()
+    skydome = Reinhart()
 
     sunpath_radius = 1.5
     sunpath = Sunpath(p, sunpath_radius)
-    outputc = OutputCollection()
 
-    sky_res = calc_sky_matrix(sunpath, skydome)
-    sun_res = calc_sun_mat_smooth_smear(sunpath, skydome, da=20)
-    calc_tot_error(sky_res, skydome, sun_res, sunpath)
-
-    tot_matrix = sky_res.sky_matrix + sun_res.sun_matrix
+    sky = calc_sky_matrix(sunpath, skydome)
+    sun = calc_sun_mat_smooth_smear(sunpath, skydome, da=20)
+    tot = sky.sky_matrix + sun.sun_matrix
 
     face_data_dict = {
-        "sky matrix": sky_res.sky_matrix,
-        "sun matrix": sun_res.sun_matrix,
-        "total matrix": tot_matrix,
-        "solid angles": sky_res.solid_angles,
-        "ksis": sky_res.ksis,
-        "gammas": sky_res.gammas,
+        "sky matrix": sky.sky_matrix,
+        "sun matrix": sun.sun_matrix,
+        "total matrix": tot,
+        "solid angles": sky.solid_angles,
+        "ksis": sky.ksis,
+        "gammas": sky.gammas,
     }
-
-    for key, value in face_data_dict.items():
-        info(f"{key}: {value.shape}")
 
     sun_pc = PointCloud(points=sunpath.sunc.positions)
     skydome.view("skydome", data_dict=face_data_dict, sun_pos_pc=sun_pc)
@@ -131,7 +123,7 @@ def embree_perez_test():
     # Setup model, run analysis and view results
     engine = SolarEngine(mesh)
 
-    engine.run_analysis_2(sunpath, tot_matrix, skydome)
+    engine.run_2_phase_analysis(sunpath, skydome, tot)
 
 
 def sunpath_test():
@@ -159,7 +151,6 @@ def sunpath_test():
     sunpath = Sunpath(p, sunpath_radius)
 
     df = sunpath.df
-
     df_itp = sunpath.df_itp
 
     plt.figure(figsize=(12, 4))
@@ -183,15 +174,11 @@ def analyse_mesh_1(solar_parameters: SolarParameters):
     mesh = io.load_mesh(p.file_name)
 
     # Setup model, run analysis and view results
-    engine = SolarEngine(mesh, sky=Sky.Reinhart580, rays=Rays.Bundle8)
+    skydome = Reinhart()
+    engine = SolarEngine(mesh)
     sunpath = Sunpath(p, engine.sunpath_radius)
-    outputc = OutputCollection()
-    engine.run_analysis(p, sunpath, outputc)
-    engine.view_results(p, sunpath, outputc)
-
-    filename = os.path.splitext(p.file_name)[0]
-    filename = filename + "_results.json"
-    export_results_to_json(len(mesh.faces), p, outputc, filename)
+    matrix = calc_sky_sun_matrix(sunpath, skydome, da=20)
+    engine.run_2_phase_analysis(sunpath, skydome, matrix)
 
 
 def analyse_mesh_2(solar_parameters: SolarParameters):
@@ -204,11 +191,11 @@ def analyse_mesh_2(solar_parameters: SolarParameters):
     # analysis_mesh = subdivide_mesh(analysis_mesh, 3.5)
 
     # Setup model, run analysis and view results
-    engine = SolarEngine(analysis_mesh, shading_mesh, sky=Sky.Tregenza145)
+    skydome = Reinhart()
+    engine = SolarEngine(analysis_mesh, shading_mesh)
     sunpath = Sunpath(p, engine.sunpath_radius)
-    outputc = OutputCollection()
-    engine.run_analysis(p, sunpath, outputc)
-    engine.view_results(p, sunpath, outputc)
+    matrix = calc_sky_sun_matrix(sunpath, skydome, da=20)
+    engine.run_2_phase_analysis(sunpath, skydome, matrix)
 
 
 def analyse_mesh_3(solar_parameters: SolarParameters):
@@ -218,14 +205,14 @@ def analyse_mesh_3(solar_parameters: SolarParameters):
     p = solar_parameters
     mesh = io.load_mesh(p.file_name)
     (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.2, 0.8], [0.2, 0.8])
-    analysis_mesh = subdivide_mesh(analysis_mesh, 3.5)
+    # analysis_mesh = subdivide_mesh(analysis_mesh, 3.5)
 
     # Setup model, run analysis and view results
-    engine = SolarEngine(analysis_mesh, shading_mesh, sky=Sky.Reinhart580)
+    skydome = Reinhart()
+    engine = SolarEngine(analysis_mesh, shading_mesh)
     sunpath = Sunpath(p, engine.sunpath_radius)
-    outputc = OutputCollection()
-    engine.run_analysis(p, sunpath, outputc)
-    engine.view_results(p, sunpath, outputc)
+    matrix = calc_sky_sun_matrix(sunpath, skydome, da=20)
+    engine.run_2_phase_analysis(sunpath, skydome, matrix)
 
 
 if __name__ == "__main__":
@@ -283,8 +270,8 @@ if __name__ == "__main__":
     )
 
     # perez_test()
-    embree_perez_test()
+    # embree_perez_test()
     # sunpath_test()
     # analyse_mesh_1(p_1)
-    # analyse_mesh_2(p_2)
+    analyse_mesh_2(p_2)
     # analyse_mesh_3(p_1)

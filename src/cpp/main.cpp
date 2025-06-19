@@ -17,17 +17,5 @@ int main()
     sun_vecs.push_back(sunVec2);
     sun_vecs.push_back(sunVec3);
 
-    // Run sun analysis
-    raytracer->SunRaytrace_Occ1(sun_vecs);
-    raytracer->SunRaytrace_Occ4(sun_vecs);
-    raytracer->SunRaytrace_Occ8(sun_vecs);
-    raytracer->SunRaytrace_Occ16(sun_vecs);
-
-    // Run sky analysis
-    raytracer->SkyRaytrace_Occ1();
-    raytracer->SkyRaytrace_Occ4();
-    raytracer->SkyRaytrace_Occ8();
-    raytracer->SkyRaytrace_Occ16();
-
     return 0;
 }
