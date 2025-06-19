@@ -772,19 +772,19 @@ bool EmbreeSolar::Accumulate()
     return true;
 }
 
-bool EmbreeSolar::CalcProjMatrix()
+bool EmbreeSolar::CalcProjMatrix(Pydome *raydome, fArray2D &mProjectionMatrix)
 {
-    if (!mPydome)
+    if (!raydome)
     {
-        error("Pydome is not initialized. Cannot compute projection matrix.");
+        error("RayDome is not initialized. Cannot compute projection matrix.");
         return false;
     }
 
     fArray2D surfaceNormals = GetFaceNormals();
-    fArray2D rayDirections = mPydome->GetRayDirections();
+    fArray2D rayDirections = raydome->GetRayDirections();
     size_t numSurfaces = surfaceNormals.size();
     size_t numRays = rayDirections.size();
-    mProjectionMatrix = fArray2D(numSurfaces, fArray1D(numRays, 0.0f));
+    // mProjectionMatrix = fArray2D(numSurfaces, fArray1D(numRays, 0.0f));
 
     for (size_t i = 0; i < numSurfaces; ++i)
     {
@@ -803,7 +803,7 @@ bool EmbreeSolar::CalcProjMatrix()
     return true;
 }
 
-bool EmbreeSolar::CalcVisMatrix_Occ1()
+bool EmbreeSolar::CalcVisMatrix_Occ1(Pydome *raydome, fArray2D &visMatrix)
 {
     if (!mPydome)
     {
@@ -817,7 +817,7 @@ bool EmbreeSolar::CalcVisMatrix_Occ1()
     float thisPortion = 0.0f;
     float domeSolidAngle = mPydome->GetDomeSolidAngle();
     // Compute diffuse sky portion by iterating over all faces in the mesh
-    mVisibilityMatrix = fArray2D(mFaceCount, fArray1D(mPydome->GetRayCount(), 1.0f));
+    // mVisibilityMatrix = fArray2D(mFaceCount, fArray1D(mPydome->GetRayCount(), 1.0f));
     mSkyViewFactor = fArray1D(mFaceCount, 0);
     auto start = hrClock::now();
     info("Calculating visibility matrix with rtcOccluded1 for " + str(mMaskCount) + " faces and " + str(mPydome->GetRayCount()) + " rays.");
@@ -838,7 +838,7 @@ bool EmbreeSolar::CalcVisMatrix_Occ1()
                     hitCounter++;
                     thisPortion = mPydome->GetSolidAngles()[j] / domeSolidAngle;
                     hitPortion = hitPortion + thisPortion;
-                    mVisibilityMatrix[i][j] = 0.0f;
+                    visMatrix[i][j] = 0.0f;
                 }
                 hitAttempts++;
             }
@@ -856,7 +856,7 @@ bool EmbreeSolar::CalcVisMatrix_Occ1()
     return true;
 }
 
-bool EmbreeSolar::CalcVisMatrix_Occ8()
+bool EmbreeSolar::CalcVisMatrix_Occ8(Pydome *raydome, fArray2D &visMatrix)
 {
     if (!mPydome)
     {
@@ -869,7 +869,7 @@ bool EmbreeSolar::CalcVisMatrix_Occ8()
     float thisPortion = 0.0f;
     float domeSolidAngle = mPydome->GetDomeSolidAngle();
     // Compute diffuse sky portion by iterating over all faces in the mesh
-    mVisibilityMatrix = fArray2D(mFaceCount, fArray1D(mPydome->GetRayCount(), 1.0f));
+    // mVisibilityMatrix = fArray2D(mFaceCount, fArray1D(mPydome->GetRayCount(), 1.0f));
     mSkyViewFactor = fArray1D(mFaceCount, 0);
     auto start = hrClock::now();
     info("Calculating visibility matrix with rtcOccluded8 for " + str(mMaskCount) + " faces and " + str(mPydome->GetRayCount()) + " rays.");
@@ -893,7 +893,7 @@ bool EmbreeSolar::CalcVisMatrix_Occ8()
                         hitCounter++;
                         thisPortion = mPydome->GetSolidAngles()[rayIndex] / domeSolidAngle;
                         hitPortion = hitPortion + thisPortion;
-                        mVisibilityMatrix[i][rayIndex] = 0.0f;
+                        visMatrix[i][rayIndex] = 0.0f;
                     }
                     hitAttempts++;
                 }
@@ -912,7 +912,7 @@ bool EmbreeSolar::CalcVisMatrix_Occ8()
     return true;
 }
 
-bool EmbreeSolar::CalcVisProjMatrix()
+bool EmbreeSolar::CalcVisProjMatrix(fArray2D &visMatrix, fArray2D &projMatrix, fArray2D &visProjMatrix)
 {
     if (!mPydome || !mHasProjResults || !mHasVisResults)
     {
@@ -921,14 +921,13 @@ bool EmbreeSolar::CalcVisProjMatrix()
     }
 
     int rayCount = mPydome->GetRayCount();
-    mVisProjMatrix = fArray2D(mFaceCount, fArray1D(rayCount, 0.0f));
 
     for (int i = 0; i < mFaceCount; i++)
     {
         for (int j = 0; j < rayCount; j++)
         {
             // Calculate the projection matrix for each face
-            mVisProjMatrix[i][j] = mVisibilityMatrix[i][j] * mProjectionMatrix[i][j];
+            visProjMatrix[i][j] = visMatrix[i][j] * projMatrix[i][j];
         }
     }
 
@@ -936,11 +935,11 @@ bool EmbreeSolar::CalcVisProjMatrix()
     return true;
 }
 
-bool EmbreeSolar::CalcIrradiance(fArray2D arr)
+bool EmbreeSolar::CalcIrradiance(fArray2D arr, fArray2D &visProjMatrix, fArray2D &irradianceMatrix)
 {
     auto arrShape = GetShape(arr);
     info("Input array has shape row: " + str(arrShape.first) + " columns: " + str(arrShape.second));
-    auto vpShape = GetShape(mVisProjMatrix);
+    auto vpShape = GetShape(visProjMatrix);
     info("Vis-Proj matrix has shape row: " + str(vpShape.first) + " columns: " + str(vpShape.second));
 
     int timeSteps = arrShape.second;
@@ -958,7 +957,7 @@ bool EmbreeSolar::CalcIrradiance(fArray2D arr)
         return false;
     }
 
-    MatrixXfRM VP = VectorToEigen(mVisProjMatrix);
+    MatrixXfRM VP = VectorToEigen(visProjMatrix);
     MatrixXfRM S = VectorToEigen(arr);
     MatrixXfRM E(mFaceCount, timeSteps);
 
@@ -967,7 +966,7 @@ bool EmbreeSolar::CalcIrradiance(fArray2D arr)
     auto end = hrClock::now();
     fDuration duration = end - start;
 
-    mIrradianceMatrix = EigenToVector(E);
+    irradianceMatrix = EigenToVector(E);
     mHasIrrResults = true;
     info("Irradiance calculation with Eigne completed in " + str(duration.count()) + " seconds.");
     return true;
@@ -975,28 +974,43 @@ bool EmbreeSolar::CalcIrradiance(fArray2D arr)
 
 bool EmbreeSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
 {
+    int numRays = mPydome->GetRayCount();
+
+    fArray2D projMatrix = fArray2D(mFaceCount, fArray1D(numRays, 0.0f));
+    fArray2D visMatrix = fArray2D(mFaceCount, fArray1D(numRays, 1.0f));
+    fArray2D visProjMatrix = fArray2D(mFaceCount, fArray1D(numRays, 0.0f));
+    fArray2D irrMatrix = fArray2D(mFaceCount, fArray1D(sunSkyMat[0].size(), 0.0f));
+
     info("Running 2-phase analysis...");
 
     // Calculate projection matrix
-    if (!CalcProjMatrix())
+    if (!CalcProjMatrix(mPydome, projMatrix))
         return false;
 
     // Calculate visibility matrix
-    if (!CalcVisMatrix_Occ1())
+    if (!CalcVisMatrix_Occ1(mPydome, visMatrix))
         return false;
 
     // Calculate the visibility-projection matrix
-    if (!CalcVisProjMatrix())
+    if (!CalcVisProjMatrix(visMatrix, projMatrix, visProjMatrix))
         return false;
 
     // Calculate irradiance
-    if (!CalcIrradiance(sunSkyMat))
+    if (!CalcIrradiance(sunSkyMat, visProjMatrix, irrMatrix))
         return false;
 
     info("2-phase analysis completed successfully.");
+
+    // Store the matrices
+    mProjectionMatrix = projMatrix;
+    mVisibilityMatrix = visMatrix;
+    mVisProjMatrix = visProjMatrix;
+    mIrradianceMatrix = irrMatrix;
+
     return true;
 }
 
+/*
 bool EmbreeSolar::Run3PhaseAnalysis(fArray2D skyMatrix)
 {
     info("Running 3-phase analysis...");
@@ -1019,7 +1033,7 @@ bool EmbreeSolar::Run3PhaseAnalysis(fArray2D skyMatrix)
 
     info("2-phase analysis completed successfully.");
     return true;
-}
+}*/
 
 #ifdef PYTHON_MODULE
 
@@ -1059,10 +1073,6 @@ PYBIND11_MODULE(py_embree_solar, m)
              { py::array out = py::cast(self.SkyRaytrace_Occ1()); return out; })
         .def("sky_raytrace_occ8", [](EmbreeSolar &self)
              { py::array out = py::cast(self.SkyRaytrace_Occ8()); return out; })
-        .def("py_raytrace_occ1", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.CalcVisMatrix_Occ1()); return out; })
-        .def("py_raytrace_occ8", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.CalcVisMatrix_Occ8()); return out; })
         .def("get_angle_results", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetAngleResults()); return out; })
         .def("get_occluded_results", [](EmbreeSolar &self)

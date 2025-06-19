@@ -76,11 +76,11 @@ public:
     bool SkyRaytrace_Occ1();
     bool SkyRaytrace_Occ8();
 
-    bool CalcProjMatrix();
-    bool CalcVisMatrix_Occ1();
-    bool CalcVisMatrix_Occ8();
-    bool CalcVisProjMatrix();
-    bool CalcIrradiance(fArray2D arr);
+    bool CalcProjMatrix(Pydome *rayDome, fArray2D &projMatrix);
+    bool CalcVisMatrix_Occ1(Pydome *rayDome, fArray2D &visMatrix);
+    bool CalcVisMatrix_Occ8(Pydome *rayDome, fArray2D &visMatrix);
+    bool CalcVisProjMatrix(fArray2D &visMatrix, fArray2D &projMatrix, fArray2D &visProjMatrix);
+    bool CalcIrradiance(fArray2D arr, fArray2D &visProjMatrix, fArray2D &irradianceMatrix);
 
     bool Run2PhaseAnalysis(fArray2D sunSkyMatrix);
     bool Run3PhaseAnalysis(fArray2D skyMatrix);
