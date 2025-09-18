@@ -17,6 +17,7 @@ using bArray1D = std::vector<bool>;
 using hrClock = std::chrono::high_resolution_clock;
 using fDuration = std::chrono::duration<float>;
 using Eigen::MatrixXf;
+using Eigen::VectorXf;
 using MatrixXfRM = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 #define EIGEN_USE_THREADS
 

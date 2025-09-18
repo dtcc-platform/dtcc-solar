@@ -7,7 +7,8 @@ import pandas as pd
 from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar import utils
 from dtcc_solar.utils import SunCollection, unitize
-from dtcc_solar.utils import SolarParameters
+from dtcc_solar.utils import SolarParameters, SunPathType, SunSkyMapping
+from dtcc_solar.interpolate import Interpolator
 from pvlib import solarposition
 from dtcc_solar.utils import concatenate_meshes, hours_count
 from pandas import Timestamp, DatetimeIndex, DataFrame
@@ -60,7 +61,7 @@ class Sunpath:
     w: float
 
     sunc: SunCollection
-    sunc_itp: SunCollection  # Interpolated sun positions for smoother paths
+    sunc_interp: SunCollection  # Interpolated sun positions for smoother paths
     origin: np.ndarray
     sun_pc: list[PointCloud]
     suns_pc_minute: PointCloud
@@ -71,10 +72,17 @@ class Sunpath:
 
     over_horizon: list[bool]  # List of bools for if sun position is over the horizon
 
-    df: pd.DataFrame  # DataFrame with time index and 'dni' and 'dhi' columns
     dt_index: pd.DatetimeIndex  # Datetime index for the DataFrame
+    df: pd.DataFrame  # DataFrame with time index and 'dni' and 'dhi' columns
+    df_original: pd.DataFrame  # Original DataFrame before interpolation
 
-    def __init__(self, p: SolarParameters, radius: float, include_night: bool = False):
+    def __init__(
+        self,
+        p: SolarParameters,
+        radius: float,
+        include_night: bool = False,
+        interpolate_df: bool = False,
+    ):
         """
         Initializes the Sunpath object with given parameters.
 
@@ -87,23 +95,23 @@ class Sunpath:
         include_night : bool, optional
             Whether to include night time in the sunpath (default is False).
         """
-        self.lat = p.latitude
-        self.lon = p.longitude
+        self.origin = np.array([0, 0, 0])
         self.r = radius
         self.over_horizon = []
-        self.origin = np.array([0, 0, 0])
         self.sungroups = None
         self.sundome = None
         self.tz_offset = self._get_epw_timezone(p)
         self.dt_index = self._get_datetime_index(p)
-        self.df = self._get_irradiance_dataframe(p, self.dt_index)
-        self.df_itp = self._get_irradiance_dataframe_interp(self.df)
+        self.df = self._get_irradiance_dataframe(p)
+
+        # Reduce number of solar positions by interpolation
+        if interpolate_df:
+            interpolator = Interpolator(self.df)
+            self.df_original = self.df.copy()
+            self.df = interpolator.df_reduced
 
         self.sunc = SunCollection()
         self._create_suns(self.sunc, self.df, include_night)
-
-        self.sunc_itp = SunCollection()
-        self._create_suns(self.sunc_itp, self.df_itp, include_night)
 
         if p.display:
             self._build_sunpath_mesh()
@@ -153,17 +161,11 @@ class Sunpath:
                 raise ValueError("Could not parse time zone from EPW header.") from e
 
         info(f"EPW Time Zone Offset: {tz_offset} hours")
+        info(f"EPW Latitude: {latitude}°")
+        info(f"EPW Longitude: {longitude}°")
 
-        lat_diff = abs(latitude - p.latitude)
-        lon_diff = abs(longitude - p.longitude)
-
-        if lat_diff > 1.0 or lon_diff > 1.0:
-            warning(
-                f"Latitude/Longitude mismatch: EPW ({latitude}, {longitude}), "
-                f"Parameters ({p.latitude}, {p.longitude})"
-            )
-
-        debug("Test")
+        self.lat = latitude
+        self.lon = longitude
 
         return tz_offset
 
@@ -189,9 +191,7 @@ class Sunpath:
 
         return index
 
-    def _get_irradiance_dataframe(
-        self, p: SolarParameters, datetime_index: pd.DatetimeIndex
-    ) -> DataFrame:
+    def _get_irradiance_dataframe(self, p: SolarParameters) -> DataFrame:
         """
         Extract DNI and DHI data from an EPW file and align it with the given datetime index.
 
@@ -231,7 +231,7 @@ class Sunpath:
         irradiance_df.columns = ["dni", "dhi"]
 
         # Step 5: Reindex to match requested times
-        result_df = irradiance_df.reindex(datetime_index)
+        result_df = irradiance_df.reindex(self.dt_index)
 
         # check if the results_df is tz settings
         info(f"DataFrame tz: {result_df.index.tz}")
@@ -241,135 +241,6 @@ class Sunpath:
         # print(result_df.tail(24))
 
         return result_df
-
-    def _get_irradiance_dataframe_interp(self, df_original: DataFrame) -> DataFrame:
-        """
-        Interpolates hourly irradiance data to 20-minute intervals and reduces to representative days.
-
-        Parameters:
-        df_original (DataFrame): Original hourly data with 'dni' and 'dhi'.
-
-        Returns:
-        DataFrame: Reduced, interpolated DataFrame conserving total energy.
-        """
-        df = df_original.copy()
-
-        # Just for logging: show what normalization would do to the index
-        self._print_normalization_effect(df.index)
-
-        df_interp = self._interpolate(df, 10)
-        # Add date column *after* interpolation
-        df_interp["date"] = df_interp.index.normalize()
-        df_reduced = self._reduce_days(df_interp, day_step=10)
-
-        info(f"Total DNI in original intervals: {np.sum(df['dni']):.2f} Wh/m²")
-        info(f"Total DHI in original intervals: {np.sum(df['dhi']):.2f} Wh/m²")
-        info(f"Total DNI in interp intervals: {np.sum(df_interp['dni']):.2f} Wh/m²")
-        info(f"Total DHI in interp intervals: {np.sum(df_interp['dhi']):.2f} Wh/m²")
-        info(f"Total DNI in reduced intervals: {np.sum(df_reduced['dni']):.2f} Wh/m²")
-        info(f"Total DHI in reduced intervals: {np.sum(df_reduced['dhi']):.2f} Wh/m²")
-
-        return df_reduced
-
-    def _interpolate(self, df: DataFrame, min_step: int = 20) -> DataFrame:
-        """
-        Interpolates a DataFrame with hourly DateTimeIndex to t-minute intervals.
-
-        Parameters:
-        df (DataFrame): Input DataFrame with hourly steps and 'dni', 'dhi' columns.
-
-        Returns:
-        DataFrame: Interpolated DataFrame at t-minute intervals, scaled to Wh per t min.
-        """
-        t_str = f"{min_step}min"
-
-        new_index = pd.date_range(start=df.index[0], end=df.index[-1], freq=t_str)
-
-        df_interp = df.reindex(new_index)
-        df_interp[["dni", "dhi"]] = df_interp[["dni", "dhi"]].interpolate(method="time")
-        df_interp[["dni", "dhi"]] *= min_step / 60.0  # Convert from Wh/h to Wh per t
-
-        return df_interp
-
-    def _normalize_datetime_index(self, index: DatetimeIndex) -> DataFrame:
-
-        index_n = index.normalize()
-
-        start_before = index_n[0].replace(tzinfo=None)
-        end_before = index_n[-1].replace(tzinfo=None)
-
-        start_after = (start_before.normalize()).replace(tzinfo=None)
-        end_after = (end_before.normalize()).replace(tzinfo=None)
-
-        info("Warning: Time intervals have been changed")
-        info("--------------------------------------------------------------------")
-        info(f"Time period before norm: {start_before} → {end_before}")
-        info(f"Time period after norm:  {start_after} → {end_after}")
-        info("-------------------------------------------------------------------")
-
-        return index_n
-
-    def _reduce_days(self, df_interp: DataFrame, day_step=10) -> DataFrame:
-        """
-        Reduces the DataFrame to one representative day per group of `step` days.
-        Scales the selected day's `dni` and `dhi` so the total energy is conserved.
-
-        Parameters:
-        df_interp (DataFrame): DataFrame with 20-minute intervals and 'date' column.
-        step (int): Number of days per group.
-
-        Returns:
-        DataFrame: Reduced DataFrame.
-        """
-        df = df_interp.copy()
-        unique_days = sorted(df["date"].unique())
-        n_days = len(unique_days)
-
-        reduced_rows = []
-
-        for i in range(0, n_days, day_step):
-            group_days = unique_days[i : i + day_step]
-            if len(group_days) == 0:
-                continue
-
-            rep_day = group_days[-1]
-
-            group_data = df[df["date"].isin(group_days)]
-            rep_data = df[df["date"] == rep_day].copy()
-
-            group_dni_total = group_data["dni"].sum()
-            group_dhi_total = group_data["dhi"].sum()
-
-            rep_dni_total = rep_data["dni"].sum()
-            rep_dhi_total = rep_data["dhi"].sum()
-
-            dni_factor = group_dni_total / rep_dni_total if rep_dni_total > 0 else 0
-            dhi_factor = group_dhi_total / rep_dhi_total if rep_dhi_total > 0 else 0
-
-            rep_data["dni"] *= dni_factor
-            rep_data["dhi"] *= dhi_factor
-
-            reduced_rows.append(rep_data)
-
-        df_reduced = pd.concat(reduced_rows)
-        df_reduced.drop(columns="date", inplace=True)
-
-        return df_reduced
-
-    def _print_normalization_effect(self, index: DatetimeIndex):
-        """
-        Logs how normalization affects the start and end of a DateTimeIndex.
-        """
-        start_before = index[0]
-        end_before = index[-1]
-        start_after = start_before.normalize()
-        end_after = end_before.normalize()
-
-        info("Warning: Time intervals are normalized to midnight for day grouping.")
-        info("--------------------------------------------------------------------")
-        info(f"Time period before normalization: {start_before} → {end_before}")
-        info(f"Time period after normalization:  {start_after} → {end_after}")
-        info("--------------------------------------------------------------------")
 
     def _create_suns(
         self,
@@ -397,9 +268,6 @@ class Sunpath:
 
         if create_synthetic:
             self._generate_synthetic_weather_data(sunc)
-
-        pc = PointCloud(points=sunc.positions)
-        pc.view()
 
     def _calc_suns_positions(self, sunc: SunCollection, df: DataFrame):
         """

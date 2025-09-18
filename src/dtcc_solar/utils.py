@@ -27,49 +27,31 @@ class ResultsType(Enum):
     shadow_hours = 11
 
 
-class Sky(IntEnum):
-    Tregenza145 = 1
-    Reinhart580 = 2
+class SkyType(IntEnum):
+    TREGENZA_145 = 1
+    REINHART_580 = 2
 
 
 class Rays(IntEnum):
-    Bundle1 = 1
-    Bundle8 = 2
+    BUNDLE_1 = 1
+    BUNDLE_8 = 2
 
 
-class MeshType(IntEnum):
-    analysis = 1
-    shading = 2
+class SunSkyMapping(IntEnum):
+    NONE = 0
+    STRAIGHT = 1
+    SMEAR_FLAT = 2
+    SMEAR_SMOOTH = 3
 
 
-class SunMatrixType(IntEnum):
-    straight = 1
-    flat_smear = 2
-    smooth_smear = 3
+class AnalysisType(IntEnum):
+    TWO_PHASE = 1
+    THREE_PHASE = 2
 
 
-class Analyse(Enum):
-    Time = 1
-    Day = 2
-    Year = 3
-    Times = 4
-
-
-@dataclass
-class DTCCTime:
-    year: int
-    month: int
-    day: int
-    hour: int
-    minute: int
-
-    def to_datetime(self) -> datetime:
-        return datetime(self.year, self.month, self.day, self.hour, self.minute)
-
-    def hours_until(self, other: "DTCCTime") -> float:
-        """Returns the number of hours from this time to the other time."""
-        delta = other.to_datetime() - self.to_datetime()
-        return delta.total_seconds() / 3600
+class SunPathType(IntEnum):
+    NORMAL = 1  # Normal sun path with 1 h steps
+    INTERPOLATED = 2  # Interpolated sun path for better sun patch discretisation
 
 
 @dataclass
@@ -131,18 +113,13 @@ class OutputCollection:
 
 @dataclass
 class SolarParameters:
-    file_name: str = "Undefined model input file"
     weather_file: str = "Undefined weather data file"
-    latitude: float = 51.5
-    longitude: float = -0.12
     display: bool = True
-    export: bool = False
-    sun_analysis: bool = True
-    sky_analysis: bool = False
-    start: pd.Timestamp = field(
-        default_factory=lambda: pd.Timestamp("2019-06-01 00:00")
-    )
-    end: pd.Timestamp = field(default_factory=lambda: pd.Timestamp("2019-06-30 23:00"))
+    sun_path_type: SunPathType = SunPathType.NORMAL
+    analysis_type: AnalysisType = AnalysisType.TWO_PHASE
+    sun_sky_mapping: SunSkyMapping = SunSkyMapping.SMEAR_SMOOTH
+    start: Timestamp = field(default_factory=lambda: Timestamp("2019-06-01 00:00"))
+    end: Timestamp = field(default_factory=lambda: Timestamp("2019-06-30 23:00"))
 
 
 def hours_count(start: pd.Timestamp, end: pd.Timestamp) -> int:
@@ -158,7 +135,7 @@ class SkyResults:
     # Number of suns
     count: int = 0
     # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
-    sky_matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
+    matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
     # 2D array of relative luminance F (unitless) per patch and timestep [n x t]
     relative_luminance: np.ndarray = field(default_factory=lambda: np.empty(0))
     # 2D array of norm relative luminance F (unitless) per patch and timestep [n x t]
@@ -184,7 +161,7 @@ class SunResults:
     # Number of suns
     count: int = 0
     # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
-    sun_matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
+    matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
     # 2D array of relative luminance F (unitless) per patch and timestep [n x t]
 
 

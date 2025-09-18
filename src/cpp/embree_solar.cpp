@@ -149,17 +149,6 @@ EmbreeSolar::~EmbreeSolar()
     }
 
     // Delete geometry arrays
-    if (mFaces != nullptr)
-    {
-        delete[] mFaces;
-        mFaces = nullptr;
-    }
-
-    if (mVertices != nullptr)
-    {
-        delete[] mVertices;
-        mVertices = nullptr;
-    }
 
     if (mFaceMidPts != nullptr)
     {
@@ -175,13 +164,22 @@ EmbreeSolar::~EmbreeSolar()
 
     // Release Embree geometry, scene, and device
     if (mGeometry)
+    {
         rtcReleaseGeometry(mGeometry);
+        mGeometry = nullptr;
+    }
 
     if (mScene)
+    {
         rtcReleaseScene(mScene);
+        mScene = nullptr;
+    }
 
     if (mDevice)
+    {
         rtcReleaseDevice(mDevice);
+        mDevice = nullptr;
+    }
 }
 
 iArray2D EmbreeSolar::GetMeshFaces()
@@ -229,19 +227,49 @@ fArray2D EmbreeSolar::GetFaceNormals()
     return vertices;
 }
 
-fArray2D EmbreeSolar::GetVisibilityResults()
+fArray2D EmbreeSolar::GetVisibilityMatrixTot()
 {
-    return mVisibilityMatrix;
+    return mVisMatrixTot;
 }
 
-fArray2D EmbreeSolar::GetProjectionResults()
+fArray2D EmbreeSolar::GetProjectionMatrixTot()
 {
-    return mProjectionMatrix;
+    return mProjMatrixTot;
 }
 
-fArray2D EmbreeSolar::GetIrradianceResults()
+fArray2D EmbreeSolar::GetIrradianceMatrixTot()
 {
-    return mIrradianceMatrix;
+    return mIrrMatrixTot;
+}
+
+fArray2D EmbreeSolar::GetVisibilityMatrixSky()
+{
+    return mIrrMatrixSky;
+}
+
+fArray2D EmbreeSolar::GetProjectionMatrixSky()
+{
+    return mIrrMatrixSky;
+}
+
+fArray2D EmbreeSolar::GetIrradianceMatrixSky()
+{
+    return mIrrMatrixSky;
+}
+
+fArray2D EmbreeSolar::GetVisibilityMatrixSun()
+{
+    return mVisMatrixSun;
+}
+
+fArray2D EmbreeSolar::GetProjectionMatrixSun()
+{
+    return mProjMatrixSun;
+}
+
+fArray2D EmbreeSolar::GetIrradianceMatrixSun()
+{
+    return mIrrMatrixSky;
 }
 
 void EmbreeSolar::CreateDevice()
@@ -303,7 +331,6 @@ void EmbreeSolar::CreateGeom(fArray2D vertices, iArray2D faces)
 
     rtcCommitGeometry(mGeometry);
     rtcAttachGeometry(mScene, mGeometry);
-    rtcReleaseGeometry(mGeometry);
     rtcCommitScene(mScene);
 
     info("Geometry created from vertices and faces.");
@@ -357,7 +384,6 @@ void EmbreeSolar::CreateGeomPlane()
 
     rtcCommitGeometry(mGeometry);
     rtcAttachGeometry(mScene, mGeometry);
-    rtcReleaseGeometry(mGeometry);
     rtcCommitScene(mScene);
 }
 
@@ -549,10 +575,13 @@ bool EmbreeSolar::CalcVisProjMatrix(Rays *rays, fArray2D &visMatrix, fArray2D &p
 
 bool EmbreeSolar::CalcIrradiance2Phase(Rays *rays, fArray2D &skySunMatrix, fArray2D &visProjMatrix, fArray2D &irradianceMatrix)
 {
-    auto ssMatShape = GetShape(skySunMatrix);
-    info("Input array has shape row: " + str(ssMatShape.first) + " columns: " + str(ssMatShape.second));
     auto vpShape = GetShape(visProjMatrix);
-    info("Vis-Proj matrix has shape row: " + str(vpShape.first) + " columns: " + str(vpShape.second));
+    info("Vis-Proj-Matrix has shape: (" + str(vpShape.first) + ", " + str(vpShape.second) + ")");
+
+    auto ssMatShape = GetShape(skySunMatrix);
+    info("Sky-Sun-Matrix has shape: (" + str(ssMatShape.first) + ", " + str(ssMatShape.second) + ")");
+
+    info("Irradiance matrix shape: (" + str(vpShape.first) + ", " + str(ssMatShape.second) + ")");
 
     int timeSteps = ssMatShape.second;
     int rayCount = rays->GetRayCount();
@@ -583,7 +612,7 @@ bool EmbreeSolar::CalcIrradiance2Phase(Rays *rays, fArray2D &skySunMatrix, fArra
     return true;
 }
 
-bool EmbreeSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, fArray2D &skyMatrix, fArray2D &sunMatrix, fArray2D &skyVisProjMatrix, fArray2D &sunVisProjMatrix, fArray2D &irrMatrix)
+bool EmbreeSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, fArray2D &skyMatrix, fArray2D &sunMatrix, fArray2D &skyVisProjMatrix, fArray2D &sunVisProjMatrix, fArray2D &skyIrrMatrix, fArray2D &sunIrrMatrix)
 {
     auto skyMatShape = GetShape(skyMatrix);
     auto sunMatShape = GetShape(sunMatrix);
@@ -611,16 +640,16 @@ bool EmbreeSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, fArray2D &s
     MatrixXfRM sunS = VectorToEigen(sunMatrix);
     MatrixXfRM sunE(mFaceCount, skyTimeSteps);
 
+    // Since sunS is a diagonal matrix, we can optimize the multiplication
+    VectorXf diagSun = sunS.diagonal();
     auto start2 = hrClock::now();
-    skyE.noalias() = skyVP * skyS;
+    sunE.noalias() = sunVP * diagSun.asDiagonal();
     auto end2 = hrClock::now();
     fDuration durationSun = end2 - start2;
-    info("Irradiance from sky calculated with Eigne in " + str(durationSun.count()) + " seconds.");
+    info("Irradiance from sun calculated with Eigne in " + str(durationSun.count()) + " seconds.");
 
-    MatrixXfRM E(mFaceCount, skyTimeSteps);
-    // Combine the two irradiance matrices
-    E.noalias() = skyE + sunE;
-    irrMatrix = EigenToVector(E);
+    skyIrrMatrix = EigenToVector(skyE);
+    sunIrrMatrix = EigenToVector(sunE);
 
     return true;
 }
@@ -655,10 +684,10 @@ bool EmbreeSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
     info("2-phase analysis completed successfully.");
 
     // Store the matrices
-    mProjectionMatrix = projMatrix;
-    mVisibilityMatrix = visMatrix;
-    mVisProjMatrix = visProjMatrix;
-    mIrradianceMatrix = irrMatrix;
+    mProjMatrixTot = projMatrix;
+    mVisMatrixTot = visMatrix;
+    mVisProjMatrixTot = visProjMatrix;
+    mIrrMatrixTot = irrMatrix;
 
     return true;
 }
@@ -679,7 +708,8 @@ bool EmbreeSolar::Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix)
     fArray2D skyVisProjMatrix = fArray2D(mFaceCount, fArray1D(numSkyRays, 0.0f));
     fArray2D sunVisProjMatrix = fArray2D(mFaceCount, fArray1D(numSunRays, 0.0f));
 
-    fArray2D irrMatrix = fArray2D(mFaceCount, fArray1D(skyMatrix[0].size(), 0.0f));
+    fArray2D skyIrrMatrix = fArray2D(mFaceCount, fArray1D(skyMatrix[0].size(), 0.0f));
+    fArray2D sunIrrMatrix = fArray2D(mFaceCount, fArray1D(sunMatrix[0].size(), 0.0f));
 
     // Calculate sky projection matrix
     if (!CalcProjMatrix(mSkyRays, skyProjMatrix))
@@ -706,8 +736,19 @@ bool EmbreeSolar::Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix)
         return false;
 
     // Calculate irradiance
-    if (!CalcIrradiance3Phase(mSkyRays, mSunRays, skyMatrix, sunMatrix, skyVisProjMatrix, sunVisProjMatrix, irrMatrix))
+    if (!CalcIrradiance3Phase(mSkyRays, mSunRays, skyMatrix, sunMatrix, skyVisProjMatrix, sunVisProjMatrix, skyIrrMatrix, sunIrrMatrix))
         return false;
+
+    // Store the matrices for later retrieval
+    mProjMatrixSky = skyProjMatrix;
+    mProjMatrixSun = sunProjMatrix;
+    mVisMatrixSky = skyVisMatrix;
+    mVisMatrixSun = sunVisMatrix;
+    mVisProjMatrixSky = skyVisProjMatrix;
+    mVisProjMatrixSun = sunVisProjMatrix;
+
+    mIrrMatrixSky = skyIrrMatrix;
+    mIrrMatrixSun = sunIrrMatrix;
 
     info("2-phase analysis completed successfully.");
     return true;
@@ -734,12 +775,24 @@ PYBIND11_MODULE(py_embree_solar, m)
              { py::array out = py::cast(self.Run2PhaseAnalysis(sun_sky_mat)); return out; })
         .def("run_3_phase_analysis", [](EmbreeSolar &self, std::vector<std::vector<float>> sky_mat, std::vector<std::vector<float>> sun_mat)
              { py::array out = py::cast(self.Run3PhaseAnalysis(sky_mat, sun_mat)); return out; })
-        .def("get_irradiance_results", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.GetIrradianceResults()); return out; })
-        .def("get_visibility_results", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.GetVisibilityResults()); return out; })
-        .def("get_projection_results", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.GetProjectionResults()); return out; });
+        .def("get_visibility_matrix_tot", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetVisibilityMatrixTot()); return out; })
+        .def("get_projection_matrix_tot", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetProjectionMatrixTot()); return out; })
+        .def("get_irradiance_matrix_tot", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetIrradianceMatrixTot()); return out; })
+        .def("get_visibility_matrix_sky", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetVisibilityMatrixSky()); return out; })
+        .def("get_projection_matrix_sky", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetProjectionMatrixSky()); return out; })
+        .def("get_irradiance_matrix_sky", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetIrradianceMatrixSky()); return out; })
+        .def("get_visibility_matrix_sun", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetVisibilityMatrixSun()); return out; })
+        .def("get_projection_matrix_sun", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetProjectionMatrixSun()); return out; })
+        .def("get_irradiance_matrix_sun", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetIrradianceMatrixSun()); return out; });
 }
 
 #endif

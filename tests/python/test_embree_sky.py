@@ -7,7 +7,7 @@ from dtcc_solar import py_embree_solar as embree
 from dtcc_core.model import Mesh, PointCloud
 from pprint import pp
 from dtcc_viewer import Scene, Window
-from dtcc_solar.utils import calc_face_mid_points, calc_face_incircle, Sky
+from dtcc_solar.utils import calc_face_mid_points, calc_face_incircle, SkyType
 
 
 class TestEmbreeSolar:
@@ -19,7 +19,7 @@ class TestEmbreeSolar:
         self.mesh = meshes.load_mesh(self.file_name)
         self.mask = np.ones(len(self.mesh.faces), dtype=bool)
         self.embree = embree.PyEmbreeSolar(
-            self.mesh.vertices, self.mesh.faces, self.mask, Sky.Tregenza145
+            self.mesh.vertices, self.mesh.faces, self.mask, SkyType.TREGENZA_145
         )
 
     def test_skydome(self):

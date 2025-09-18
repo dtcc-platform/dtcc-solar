@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from dtcc_solar.coefficients import calc_perez_coeffs
 from dtcc_solar.plotting import sub_plots_2d, sub_plot_dict, plot_coeffs_dict
 from dtcc_solar.plotting import show_plot, plot_debug_1, plot_debug_2
-from dtcc_solar.utils import SkyResults, SunResults, SunMatrixType
+from dtcc_solar.utils import SkyResults, SunResults, SunSkyMapping
 
 
 """
@@ -161,26 +161,37 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
     return f
 
 
-def calc_sky_sun_matrix(
+def calc_2_phase_matrix(
     sunpath: Sunpath,
     skydome: Skydome,
-    type: SunMatrixType = SunMatrixType.smooth_smear,
+    type: SunSkyMapping = SunSkyMapping.SMEAR_SMOOTH,
     da: float = 15.0,
-):
+) -> list[SkyResults, SunResults]:
     sky_res = calc_sky_matrix(sunpath, skydome)
 
-    if type == SunMatrixType.straight:
+    if type == SunSkyMapping.STRAIGHT:
         sun_res = calc_sun_matrix(sunpath, skydome)
-    elif type == SunMatrixType.flat_smear:
+    elif type == SunSkyMapping.SMEAR_FLAT:
         sun_res = calc_sun_mat_flat_smear(sunpath, skydome, da)
-    elif type == SunMatrixType.smooth_smear:
+    elif type == SunSkyMapping.SMEAR_SMOOTH:
         sun_res = calc_sun_mat_smooth_smear(sunpath, skydome, da)
 
     calc_tot_error(sky_res, skydome, sun_res, sunpath)
 
-    tot_matrix = sky_res.sky_matrix + sun_res.sun_matrix
+    return (sky_res, sun_res)
 
-    return tot_matrix
+
+def calc_3_phase_matrices(
+    sunpath: Sunpath,
+    skydome: Skydome,
+) -> tuple[np.ndarray, np.ndarray]:
+    sky_res = calc_sky_matrix(sunpath, skydome)
+
+    sun_res = calc_sun_matrix_from_sunpath(sunpath, skydome)
+
+    calc_tot_error(sky_res, skydome, sun_res, sunpath)
+
+    return sky_res.matrix, sun_res.matrix
 
 
 def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
@@ -307,7 +318,7 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     perez_results.relative_luminance = rel_lum
     perez_results.relative_lum_norm = nor_lum
     perez_results.solid_angles = solid_angles
-    perez_results.sky_matrix = sky_mat
+    perez_results.matrix = sky_mat
     perez_results.ksis = all_ksis
     perez_results.gammas = all_gammas
     perez_results.ignored_dhi = ignored_dhi
@@ -328,8 +339,8 @@ def calc_tot_error(
 
     patch_zeniths = np.array(skydome.patch_zeniths)
 
-    sun_dni = np.sum(np.sum(sun_res.sun_matrix, axis=1))
-    sky_dhi = np.sum(np.sum(sky_res.sky_matrix, axis=1) * np.cos(patch_zeniths))
+    sun_dni = np.sum(np.sum(sun_res.matrix, axis=1))
+    sky_dhi = np.sum(np.sum(sky_res.matrix, axis=1) * np.cos(patch_zeniths))
 
     sum_dni = np.sum(sunp.sunc.dni)
     sum_dhi = np.sum(sunp.sunc.dhi)
@@ -357,24 +368,9 @@ def calc_sun_matrix(sunpath: Sunpath, skydome: Skydome) -> SunResults:
         sun_matrix[patch_index, i] = sunpath.sunc.dni[i]
 
     sun_results = SunResults()
-    sun_results.sun_matrix = sun_matrix
+    sun_results.matrix = sun_matrix
 
     return sun_results
-
-
-def find_closest_patch(sun_vec, ray_dirs):
-    """
-    Find the index of the sky patch whose direction is closest to the sun vector.
-
-    Parameters:
-    - sun_vec: (3,) unit vector of sun direction
-    - ray_dirs: (N, 3) array of unit vectors for sky patches
-
-    Returns:
-    - index: int, index of the closest patch
-    """
-    dots = np.dot(ray_dirs, sun_vec)  # shape (N,)
-    return np.argmax(dots)  # max dot = min angle
 
 
 def calc_sun_mat_flat_smear(sunpath: Sunpath, skydome: Skydome, da=15.0) -> SunResults:
@@ -412,7 +408,7 @@ def calc_sun_mat_flat_smear(sunpath: Sunpath, skydome: Skydome, da=15.0) -> SunR
     print(f"Average number of patches hit per sun: {np.mean(total_hits):.2f}")
     print(f"Max patches hit: {np.max(total_hits)}")
 
-    return SunResults(sun_matrix=sun_matrix)
+    return SunResults(matrix=sun_matrix)
 
 
 def calc_sun_mat_smooth_smear(sunpath: Sunpath, skydome: Skydome, da=15) -> SunResults:
@@ -468,7 +464,36 @@ def calc_sun_mat_smooth_smear(sunpath: Sunpath, skydome: Skydome, da=15) -> SunR
     info(f"Max patches hit: {np.max(total_hits)}")
     info(f"Average error in smeared sun matrix: {np.mean(errors):.4f}")
 
-    return SunResults(sun_matrix=sun_matrix)
+    return SunResults(matrix=sun_matrix)
+
+
+def calc_sun_matrix_from_sunpath(sunpath: Sunpath) -> SunResults:
+
+    sun_matrix = np.zeros((len(sunpath.sunc.sun_vecs), len(sunpath.sunc.sun_vecs)))
+    dni = sunpath.sunc.dni
+
+    for i in range(len(sunpath.sunc.sun_vecs)):
+        sun_matrix[i, i] = dni[i]
+
+    sun_res = SunResults()
+    sun_res.matrix = sun_matrix
+
+    return sun_res
+
+
+def find_closest_patch(sun_vec, ray_dirs):
+    """
+    Find the index of the sky patch whose direction is closest to the sun vector.
+
+    Parameters:
+    - sun_vec: (3,) unit vector of sun direction
+    - ray_dirs: (N, 3) array of unit vectors for sky patches
+
+    Returns:
+    - index: int, index of the closest patch
+    """
+    dots = np.dot(ray_dirs, sun_vec)  # shape (N,)
+    return np.argmax(dots)  # max dot = min angle
 
 
 def avg_patch_spacing(skydome: Skydome) -> float:

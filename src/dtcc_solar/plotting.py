@@ -9,7 +9,7 @@ def sub_plots_2d(res: SkyResults, t1, t2):
     axs = axs.flatten()  # Flatten to simplify indexing
 
     subplot2d(axs[0], res.relative_luminance, t1, t2, title="Relative Luminance")
-    subplot2d(axs[1], res.sky_matrix, t1, t2, title="Sky Vector Matrix")
+    subplot2d(axs[1], res.matrix, t1, t2, title="Sky Vector Matrix")
 
     plt.tight_layout()
 
