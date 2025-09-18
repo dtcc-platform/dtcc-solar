@@ -184,14 +184,14 @@ def calc_2_phase_matrix(
 def calc_3_phase_matrices(
     sunpath: Sunpath,
     skydome: Skydome,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[SkyResults, SunResults]:
     sky_res = calc_sky_matrix(sunpath, skydome)
 
-    sun_res = calc_sun_matrix_from_sunpath(sunpath, skydome)
+    sun_res = calc_sun_matrix_from_sunpath(sunpath)
 
     calc_tot_error(sky_res, skydome, sun_res, sunpath)
 
-    return sky_res.matrix, sun_res.matrix
+    return sky_res, sun_res
 
 
 def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:

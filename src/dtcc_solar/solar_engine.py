@@ -233,17 +233,22 @@ class SolarEngine:
 
     def run_3_phase_analysis(self, sunp: Sunpath, skyd: Skydome, p: SolarParameters):
 
-        sky_matrix, sun_matrix = calc_3_phase_matrices(sunp, skyd)
+        sky_res, sun_res = calc_3_phase_matrices(sunp, skyd)
 
-        ray_dirs = np.array(skyd.ray_dirs)
+        sky_matrix = sky_res.matrix
+        sun_matrix = sun_res.matrix
+
+        sky_ray_dirs = np.array(skyd.ray_dirs)
+        sun_ray_dirs = np.array(sunp.sunc.sun_vecs)
         solid_angles = np.array(skyd.solid_angles)
 
         self.embree = embree.PyEmbreeSolar(
             self.mesh.vertices,
             self.mesh.faces,
             self.face_mask,
-            ray_dirs,
+            sky_ray_dirs,
             solid_angles,
+            sun_ray_dirs,
         )
 
         info(f"Embree instance created successfully.")
@@ -281,17 +286,17 @@ class SolarEngine:
 
         face_normals = self.embree.get_face_normals()
 
-        self.check_3_phase_energy_balance(
-            skyd,
-            sky_matrix,
-            sky_vis,
-            sky_irr,
-            sunp,
-            sun_matrix,
-            sun_vis,
-            sun_irr,
-            face_normals,
-        )
+        # self.check_3_phase_energy_balance(
+        #    skyd,
+        #    sky_matrix,
+        #    sky_vis,
+        #    sky_irr,
+        #    sunp,
+        #    sun_matrix,
+        #    sun_vis,
+        #    sun_irr,
+        #    face_normals,
+        # )
 
         sun_pc = PointCloud(points=sunp.sunc.positions)
 

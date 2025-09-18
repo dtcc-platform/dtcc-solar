@@ -69,7 +69,6 @@ class Sunpath:
     analemmas_meshes: list[Mesh]  # Analemmas for each hour in a year
     daypath_meshes: list[Mesh]  # Day paths for three dates in a year
     analemmas_pc: PointCloud  # Analemmas for each hour in a year as a point cloud
-
     over_horizon: list[bool]  # List of bools for if sun position is over the horizon
 
     dt_index: pd.DatetimeIndex  # Datetime index for the DataFrame

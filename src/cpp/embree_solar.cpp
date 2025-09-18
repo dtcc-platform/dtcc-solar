@@ -699,6 +699,9 @@ bool EmbreeSolar::Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix)
     int numSkyRays = mSkyRays->GetRayCount();
     int numSunRays = mSunRays->GetRayCount();
 
+    info("Number of sky rays: " + str(numSkyRays));
+    info("Number of sun rays: " + str(numSunRays));
+
     fArray2D skyProjMatrix = fArray2D(mFaceCount, fArray1D(numSkyRays, 0.0f));
     fArray2D sunProjMatrix = fArray2D(mFaceCount, fArray1D(numSunRays, 0.0f));
 
@@ -750,7 +753,7 @@ bool EmbreeSolar::Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix)
     mIrrMatrixSky = skyIrrMatrix;
     mIrrMatrixSun = sunIrrMatrix;
 
-    info("2-phase analysis completed successfully.");
+    info("3-phase analysis completed successfully.");
     return true;
 }
 

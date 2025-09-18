@@ -114,6 +114,9 @@ def sunpath_test():
     plt.show()
 
 
+# -------- 2 phase analysis --------
+
+
 def analyse_mesh_1():
     print("-------- Solar Mesh Analysis Started -------")
     filename = "../../../data/validation/boxes_sharp_f5248.obj"
@@ -189,6 +192,32 @@ def analyse_mesh_3():
     engine.run_2_phase_analysis(sunpath, skydome, p)
 
 
+# -------- 3 phase analysis --------
+
+
+def analyse_mesh_4():
+    print("-------- Solar Mesh Analysis Started -------")
+    filename = "../../../data/validation/boxes_sharp_f5248.obj"
+    # filename = "../../../data/validation/boxes_soft_f5248.obj"
+    mesh = io.load_mesh(filename)
+    path = "../../../data/weather/"
+    sth_epw = "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
+
+    # Stockholm
+    p = SolarParameters(
+        weather_file=path + sth_epw,
+        sun_path_type=SunPathType.NORMAL,
+        start=pd.Timestamp("2019-01-01 00:00:00"),
+        end=pd.Timestamp("2019-12-31 23:00:00"),
+    )
+
+    # Setup model, run analysis and view results
+    skydome = Reinhart()
+    engine = SolarEngine(mesh)
+    sunpath = Sunpath(p, engine.sunpath_radius)
+    engine.run_3_phase_analysis(sunpath, skydome, p)
+
+
 if __name__ == "__main__":
     os.system("clear")
     set_log_level("INFO")
@@ -197,5 +226,6 @@ if __name__ == "__main__":
     # embree_perez_test()
     # sunpath_test()
     # analyse_mesh_1()
-    analyse_mesh_2()
+    # analyse_mesh_2()
     # analyse_mesh_3()
+    analyse_mesh_4()
