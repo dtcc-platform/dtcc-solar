@@ -48,12 +48,19 @@ message("Pybind11 DIR ${pybind11_DIR}")
 find_package(pybind11 REQUIRED)
 
 # Find Eigen
-find_path(EIGEN3_INCLUDE_DIR Eigen/Dense PATHS /opt/homebrew/include/eigen3)
-if(NOT EIGEN3_INCLUDE_DIR)
-  message(FATAL_ERROR "Eigen not found. Ensure it's installed (e.g., via brew or vcpkg) and accessible.")
-endif()
-include_directories(${EIGEN3_INCLUDE_DIR})
-message(STATUS "Eigen found at: ${EIGEN3_INCLUDE_DIR}")
+#find_path(EIGEN3_INCLUDE_DIR Eigen/Dense PATHS /opt/homebrew/include/eigen3)
+
+#if(NOT EIGEN3_INCLUDE_DIR)
+#  message(FATAL_ERROR "Eigen not found. Ensure it's installed (e.g., via brew or vcpkg) and accessible.")
+#endif()
+#include_directories(${EIGEN3_INCLUDE_DIR})
+#message(STATUS "Eigen found at: ${EIGEN3_INCLUDE_DIR}")
+
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+
+get_target_property(EIGEN_INCLUDES Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
+message(STATUS "Eigen include dirs: ${EIGEN_INCLUDES}")
+
 
 # Find OpenMP
 if(WIN32)

@@ -14,6 +14,7 @@ from csv import reader
 from pandas import Timestamp, DatetimeIndex
 from dtcc_solar.logging import info, debug, warning, error
 from datetime import datetime
+import matplotlib.pyplot as plt
 
 
 class ResultsType(Enum):
@@ -573,3 +574,16 @@ def create_ls_circle(center, radius, num_segments):
     vertices = np.array(vertices)
     circle_ls = LineString(vertices=vertices)
     return circle_ls
+
+
+def plot_matrix(matrix: np.ndarray, cmap: str = "gray"):
+    # Flip so the largest dimension is along x-axis
+    if matrix.shape[0] > matrix.shape[1]:
+        matrix = matrix.T
+
+    plt.imshow(matrix, cmap=cmap, vmin=0, vmax=1, aspect="auto")
+    plt.colorbar(label="Value")
+    plt.title("Matrix in grayscale")
+    plt.xlabel("X (largest dimension)")
+    plt.ylabel("Y")
+    plt.show()

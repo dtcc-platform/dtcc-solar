@@ -311,7 +311,7 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
     n_suns = len(sun_vecs)
     info("-----------------------------------------------------")
-    info("Perez sky model calculation summary:")
+    info("Sky matrix calculation summary (Perez):")
     info(f"  Evaluated {eval_count} sun positions of {n_suns} which passed the checks.")
     info(f"  Conditions: dhi > 0 and sun zenith < {math.degrees(zenith_limit)} °")
     info(f"  For {small_norms} cases the norm factor <  {norm_limit} => uniform sky")

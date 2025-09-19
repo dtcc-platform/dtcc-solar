@@ -24,7 +24,8 @@ target_link_libraries(${BINDINGS}
 )
 
 # Add include path for Eigen
-target_include_directories(${BINDINGS} PRIVATE ${EIGEN3_INCLUDE_DIR})
+#target_include_directories(${BINDINGS} PRIVATE ${EIGEN3_INCLUDE_DIR})
+target_link_libraries(${BINDINGS} PRIVATE Eigen3::Eigen)
 
 # Platform-specific definitions
 target_compile_definitions(${BINDINGS} PRIVATE -DTRILIBRARY -DANSI_DECLARATORS)

@@ -582,11 +582,10 @@ bool EmbreeSolar::CalcVisProjMatrix(Rays *rays, fArray2D &visMatrix, fArray2D &p
 bool EmbreeSolar::CalcIrradiance2Phase(Rays *rays, fArray2D &skySunMatrix, fArray2D &visProjMatrix, fArray2D &irradianceMatrix)
 {
     auto vpShape = GetShape(visProjMatrix);
-    info("Vis-Proj-Matrix has shape: (" + str(vpShape.first) + ", " + str(vpShape.second) + ")");
-
     auto ssMatShape = GetShape(skySunMatrix);
-    info("Sky-Sun-Matrix has shape: (" + str(ssMatShape.first) + ", " + str(ssMatShape.second) + ")");
 
+    info("Vis-Proj-Matrix has shape: (" + str(vpShape.first) + ", " + str(vpShape.second) + ")");
+    info("Sky-Sun-Matrix has shape: (" + str(ssMatShape.first) + ", " + str(ssMatShape.second) + ")");
     info("Irradiance matrix shape: (" + str(vpShape.first) + ", " + str(ssMatShape.second) + ")");
 
     int timeSteps = ssMatShape.second;
@@ -622,6 +621,20 @@ bool EmbreeSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, fArray2D &s
 {
     auto skyMatShape = GetShape(skyMatrix);
     auto sunMatShape = GetShape(sunMatrix);
+
+    auto skyVisProjShape = GetShape(skyVisProjMatrix);
+    auto sunVisProjShape = GetShape(sunVisProjMatrix);
+
+    auto skyIrrShape = GetShape(skyIrrMatrix);
+    auto sunIrrShape = GetShape(sunIrrMatrix);
+
+    info("Sky-Matrix has shape: (" + str(skyMatShape.first) + ", " + str(skyMatShape.second) + ")");
+    info("Sky-Vis-Proj-Matrix has shape: (" + str(skyVisProjShape.first) + ", " + str(skyVisProjShape.second) + ")");
+    info("Sky-Irradiance-Matrix has shape: (" + str(skyIrrShape.first) + ", " + str(skyIrrShape.second) + ")");
+
+    info("Sun-Matrix has shape: (" + str(sunMatShape.first) + ", " + str(sunMatShape.second) + ")");
+    info("Sun-Vis-Proj-Matrix has shape: (" + str(sunVisProjShape.first) + ", " + str(sunVisProjShape.second) + ")");
+    info("Sun-Irradiance-Matrix has shape: (" + str(sunIrrShape.first) + ", " + str(sunIrrShape.second) + ")");
 
     int skyTimeSteps = skyMatShape.second;
     // int sunTimeSteps = sunMatShape.second;

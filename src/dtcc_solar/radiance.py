@@ -1,5 +1,6 @@
 import subprocess
 import os
+from unittest import result
 import numpy as np
 from io import StringIO
 from dtcc_solar.logging import info, debug, warning, error
@@ -49,33 +50,80 @@ def epw_to_wea(epw_path: str) -> str | None:
         return None
 
 
-def load_radiance(wea_file):
+def compute_radiance_matrices(wea_file):
 
     info("Computing radiance sky matrix from WEA file")
     a = os.path.exists("/usr/local/radiance/bin/gendaymtx")
     info(f"Radiance gendaymtx found: {a}")
 
-    command = ["/usr/local/radiance/bin/gendaymtx", "-v", "-O1", "-d", wea_file]
-    # command = [gdm, "-v", "-O1", "-d", wea_file, "-o", "sky_matrix"]
+    # Compute sky matrix
+    sky_command = ["/usr/local/radiance/bin/gendaymtx", "-O1", "-d", wea_file]
+    result = run_subprocess(sky_command)
+    sky_matrix = get_matrix(result)
 
-    result = subprocess.run(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-    )
+    # Compute sun matrix
+    sun_command = ["/usr/local/radiance/bin/gendaymtx", "-O1", "-s", wea_file]
+    result = run_subprocess(sun_command)
+    sun_matrix = get_matrix(result)
 
-    info("Radiance gendaymtx executed via subprocess.run")
+    tot_matrix = sky_matrix + sun_matrix
 
-    print(type(result.stdout))
+    return sky_matrix, sun_matrix, tot_matrix
 
-    # matrix = np.loadtxt(StringIO(result.stdout))
 
-    print("Radiance gendaymtx output:")
+def run_subprocess(command: list) -> subprocess.CompletedProcess | None:
+    try:
+        result = subprocess.run(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        return result
+    except FileNotFoundError:
+        print(f"Error: '{command[0]}' not found. Is Radiance installed? Check path.")
+        return None
+
+
+def get_matrix(result):
+
     if result.returncode != 0:
         print("Error during gendaymtx execution:")
         print(result.stderr)
     else:
-        print(result.stdout)
+        print("First 10 lines of output:")
+        for line in result.stdout.splitlines()[:10]:
+            print(repr(line))
 
-    # print(matrix.shape)
+        lines = result.stdout.splitlines()
+
+        # Find where numeric data starts (first line beginning with a digit)
+        start_idx = next(i for i, l in enumerate(lines) if l.strip() and l[0].isdigit())
+
+        matrix = np.loadtxt(StringIO("\n".join(lines[start_idx:])))
+
+        print("Matrix shape:", matrix.shape)
+        print("First few rows:\n", matrix[:5, :5])  # preview top-left corner
+
+        # Parse header
+        meta = {}
+        for line in lines:
+            if "=" in line:
+                key, val = line.split("=", 1)
+                meta[key.strip()] = (
+                    int(val.strip()) if val.strip().isdigit() else val.strip()
+                )
+
+        nrows = int(meta["NROWS"])
+        ncols = int(meta["NCOLS"])
+        ncomp = int(meta["NCOMP"])
+
+        # Reshape full array
+        reshaped = matrix.reshape((nrows, ncols, ncomp))
+        print("Full shape (with ground):", reshaped.shape)  # (146, 8760, 3)
+
+        # Drop the ground patch (last row)
+        final_matrix = reshaped[:-1, :, :]
+        print("Sky-only shape:", final_matrix.shape)  # (145, 8760, 3)
+
+    return final_matrix
 
 
 def run_radiance(wea_file: str, output_dir: str = "."):

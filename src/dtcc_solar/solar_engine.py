@@ -3,7 +3,7 @@ import numpy as np
 from pprint import pp
 from dtcc_solar.utils import SolarParameters, calc_face_areas, concatenate_meshes
 from dtcc_solar import py_embree_solar as embree
-from dtcc_solar.utils import SunCollection, OutputCollection, SkyType
+from dtcc_solar.utils import SunCollection, OutputCollection, SkyType, plot_matrix
 from dtcc_solar.utils import Rays, SunMapping, split_mesh_by_face_mask
 from dtcc_solar.skydome import Skydome
 from dtcc_solar.sunpath import Sunpath
@@ -13,6 +13,7 @@ from dtcc_solar.logging import info, debug, warning, error
 from dtcc_viewer import Window, Scene
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.perez import calc_2_phase_matrix, calc_3_phase_matrices
+import matplotlib.pyplot as plt
 
 
 class SolarEngine:
@@ -231,6 +232,8 @@ class SolarEngine:
 
         self.check_2_phase_energy_balance(skyd, matrix, irr_vec, vis_mat, face_normals)
 
+        self.plot_matrices(vis_mat, matrix)
+
         sun_pc = PointCloud(points=sunp.sunc.positions)
 
         window = Window(1200, 800)
@@ -306,6 +309,9 @@ class SolarEngine:
         #    sun_irr,
         #    face_normals,
         # )
+
+        self.plot_matrices(sky_vis_mat, sky_matrix)
+        self.plot_matrices(sun_vis_mat, sun_matrix)
 
         sun_pc = PointCloud(points=sunp.sunc.positions)
 
@@ -450,3 +456,8 @@ class SolarEngine:
         info("-----------------------------------------------------")
 
         return valid_indices
+
+    def plot_matrices(self, vis_mat, tot_mat):
+
+        plot_matrix(vis_mat, cmap="gray")
+        plot_matrix(tot_mat, cmap="jet")

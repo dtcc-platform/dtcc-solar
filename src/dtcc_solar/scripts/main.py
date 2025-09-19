@@ -13,7 +13,7 @@ from dtcc_core.io import load_city
 from dtcc_core.model import PointCloud
 from dtcc_solar.perez import *
 from dtcc_solar.city_utils import *
-from dtcc_solar.radiance import load_radiance, epw_to_wea
+from dtcc_solar.radiance import compute_radiance_matrices, epw_to_wea
 from pprint import pp
 
 import matplotlib.pyplot as plt
@@ -114,13 +114,22 @@ def sunpath_test():
     plt.show()
 
 
+def radiance_test():
+
+    path = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+    wea = epw_to_wea(path)
+    sky, sun, tot = compute_radiance_matrices(wea)
+
+    pass
+
+
 # -------- 2 phase analysis --------
 
 
 def analyse_mesh_1():
     print("-------- Solar Mesh Analysis Started -------")
-    filename = "../../../data/validation/boxes_sharp_f5248.obj"
-    # filename = "../../../data/validation/boxes_soft_f5248.obj"
+    # filename = "../../../data/validation/boxes_sharp_f5248.obj"
+    filename = "../../../data/validation/boxes_soft_f5248.obj"
     mesh = io.load_mesh(filename)
     engine = SolarEngine(mesh)
 
@@ -227,7 +236,8 @@ if __name__ == "__main__":
     # perez_test()
     # embree_perez_test()
     # sunpath_test()
-    analyse_mesh_1()
+    radiance_test()
+    # analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
     # analyse_mesh_4()
