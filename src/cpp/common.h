@@ -14,11 +14,14 @@ using iArray2D = std::vector<std::vector<int>>;
 using fArray1D = std::vector<float>;
 using iArray1D = std::vector<int>;
 using bArray1D = std::vector<bool>;
-using hrClock = std::chrono::high_resolution_clock;
-using fDuration = std::chrono::duration<float>;
 using Eigen::MatrixXf;
 using Eigen::VectorXf;
 using MatrixXfRM = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+// Use typedef instead of using-alias for MSVC compatibility
+typedef std::chrono::high_resolution_clock hrClock;
+typedef std::chrono::duration<float> fDuration;
+
 #define EIGEN_USE_THREADS
 
 /* vertex and triangle layout */

@@ -56,13 +56,15 @@ def compute_radiance_matrices(wea_file):
     a = os.path.exists("/usr/local/radiance/bin/gendaymtx")
     info(f"Radiance gendaymtx found: {a}")
 
+    path = "/usr/local/radiance/bin/gendaymtx"
+
     # Compute sky matrix
-    sky_command = ["/usr/local/radiance/bin/gendaymtx", "-O1", "-d", wea_file]
+    sky_command = [path, "-O1", "-d", wea_file]
     result = run_subprocess(sky_command)
     sky_matrix = get_matrix(result)
 
     # Compute sun matrix
-    sun_command = ["/usr/local/radiance/bin/gendaymtx", "-O1", "-s", wea_file]
+    sun_command = [path, "-O1", "-s", wea_file]
     result = run_subprocess(sun_command)
     sun_matrix = get_matrix(result)
 
@@ -116,11 +118,11 @@ def get_matrix(result):
         ncomp = int(meta["NCOMP"])
 
         # Reshape full array
-        reshaped = matrix.reshape((nrows, ncols, ncomp))
-        print("Full shape (with ground):", reshaped.shape)  # (146, 8760, 3)
+        final_matrix = matrix.reshape((nrows, ncols, ncomp))
+        print("Full shape:", final_matrix.shape)  # (146, 8760, 3)
 
         # Drop the ground patch (last row)
-        final_matrix = reshaped[:-1, :, :]
+        final_matrix = final_matrix[:-1, :, :]
         print("Sky-only shape:", final_matrix.shape)  # (145, 8760, 3)
 
     return final_matrix
