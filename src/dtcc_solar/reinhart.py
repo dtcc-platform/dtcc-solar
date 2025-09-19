@@ -79,9 +79,13 @@ class Reinhart(Skydome):
         self.mesh = Mesh(vertices=mesh_vertices, faces=mesh_faces)
 
         # Should be ≈ 6.283 (2π)
-        tot_solid_angle = np.sum(self.solid_angles)
-        info("Total solid angle: " + str(tot_solid_angle) + ", expected: 6.283")
-        info(f"Reinhart skydome mesh with {self.patch_counter} patches created.")
+        tot_solid_angle = np.round(np.sum(self.solid_angles), 3)
+        info("-----------------------------------------------------")
+        info(f"Reinhart skydome created:")
+        info(f"  Number of patches: {self.patch_counter}")
+        info(f"  Number of direction vectors: {len(self.ray_dirs)}")
+        info(f"  Total solid angle: ~{tot_solid_angle}, expected: ~6.283")
+        info("-----------------------------------------------------")
 
     def create_zenith_patch(self, elev1):
         """Creating 4 zenith patches to cover the zenith area."""

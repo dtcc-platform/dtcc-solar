@@ -7,7 +7,7 @@ import pandas as pd
 from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar import utils
 from dtcc_solar.utils import SunCollection, unitize
-from dtcc_solar.utils import SolarParameters, SunPathType, SunSkyMapping
+from dtcc_solar.utils import SolarParameters, SunPathType, SunMapping
 from dtcc_solar.interpolate import Interpolator
 from pvlib import solarposition
 from dtcc_solar.utils import concatenate_meshes, hours_count
@@ -63,17 +63,20 @@ class Sunpath:
     sunc: SunCollection
     sunc_interp: SunCollection  # Interpolated sun positions for smoother paths
     origin: np.ndarray
-    sun_pc: list[PointCloud]
+    sun_pc: PointCloud
     suns_pc_minute: PointCloud
     mesh: Mesh  # Combination of annalemmas and day paths
     analemmas_meshes: list[Mesh]  # Analemmas for each hour in a year
     daypath_meshes: list[Mesh]  # Day paths for three dates in a year
     analemmas_pc: PointCloud  # Analemmas for each hour in a year as a point cloud
-    over_horizon: list[bool]  # List of bools for if sun position is over the horizon
+    above_horizon: list[bool]  # List of bools for if sun position is above the horizon
 
     dt_index: pd.DatetimeIndex  # Datetime index for the DataFrame
     df: pd.DataFrame  # DataFrame with time index and 'dni' and 'dhi' columns
     df_original: pd.DataFrame  # Original DataFrame before interpolation
+
+    count_below: int = 0
+    count_above: int = 0
 
     def __init__(
         self,
@@ -96,12 +99,22 @@ class Sunpath:
         """
         self.origin = np.array([0, 0, 0])
         self.r = radius
-        self.over_horizon = []
+        self.above_horizon = []
         self.sungroups = None
         self.sundome = None
         self.tz_offset = self._get_epw_timezone(p)
         self.dt_index = self._get_datetime_index(p)
         self.df = self._get_irradiance_dataframe(p)
+
+        info("-----------------------------------------------------")
+        info("Data retrieved from EPW file:")
+        info(f"  Time Zone Offset: {self.tz_offset} hours")
+        info(f"  Latitude: {self.lat}°")
+        info(f"  Longitude: {self.lon}°")
+        info(f"  DataFrame tz: {self.df.index.tz}")
+        info(f"  DNI values count: {len(self.df['dni'].values)}")
+        info(f"  DHI values count: {len(self.df['dhi'].values)}")
+        info("-----------------------------------------------------")
 
         # Reduce number of solar positions by interpolation
         if interpolate_df:
@@ -111,6 +124,8 @@ class Sunpath:
 
         self.sunc = SunCollection()
         self._create_suns(self.sunc, self.df, include_night)
+
+        self.sunc.info_print()
 
         if p.display:
             self._build_sunpath_mesh()
@@ -141,15 +156,14 @@ class Sunpath:
         with open(p.weather_file, "r") as file:
             first_line = file.readline()
             parts = first_line.strip().split(",")
-            info("--------------------------------------------")
+            info("-----------------------------------------------------")
             info("From EPW header:")
-            info("--------------------------------------------")
             for i, part in enumerate(parts):
                 label = "Unknown label  "
                 if i < len(labels):
                     label = labels[i]
-                info(f"{label}: {part}")
-            info("--------------------------------------------")
+                info(f"  {label}: {part}")
+            info("-----------------------------------------------------")
             try:
                 # According to EPW format, field 8 is the time zone (index 7)
                 latitude = float(parts[6])
@@ -158,10 +172,6 @@ class Sunpath:
 
             except (IndexError, ValueError) as e:
                 raise ValueError("Could not parse time zone from EPW header.") from e
-
-        info(f"EPW Time Zone Offset: {tz_offset} hours")
-        info(f"EPW Latitude: {latitude}°")
-        info(f"EPW Longitude: {longitude}°")
 
         self.lat = latitude
         self.lon = longitude
@@ -232,13 +242,6 @@ class Sunpath:
         # Step 5: Reindex to match requested times
         result_df = irradiance_df.reindex(self.dt_index)
 
-        # check if the results_df is tz settings
-        info(f"DataFrame tz: {result_df.index.tz}")
-
-        # Sanity check
-        # print(result_df.head(24))
-        # print(result_df.tail(24))
-
         return result_df
 
     def _create_suns(
@@ -267,6 +270,14 @@ class Sunpath:
 
         if create_synthetic:
             self._generate_synthetic_weather_data(sunc)
+
+        remain = len(self.above_horizon) - self.count_below
+        info("-----------------------------------------------------")
+        info("Sun Collection created from data frame:")
+        info(f"  Date range resulting in {len(self.above_horizon)} total sun positions")
+        info(f"  Removed {self.count_below} suns that were below the horizon.")
+        info(f"  Remaining suns for analysis: {remain}")
+        info("-----------------------------------------------------")
 
     def _calc_suns_positions(self, sunc: SunCollection, df: DataFrame):
         """
@@ -298,23 +309,19 @@ class Sunpath:
         """
         Remove sun positions below the horizon.
         """
-        over_horizon = sunc.zeniths < (math.pi / 2.0)
-        over = over_horizon
-        count_over = np.sum(np.array(over_horizon, dtype=np.int32))
-        count_below = len(over_horizon) - count_over
+        self.above_horizon = sunc.zeniths < (math.pi / 2.0)
+        above = self.above_horizon
+        self.count_above = np.sum(np.array(self.above_horizon, dtype=np.int32))
+        self.count_below = len(self.above_horizon) - self.count_above
 
-        info(f"Date range resulting in {len(over)} total sun positions")
-        info(f"Removing {count_below} suns that are below the horizon.")
-        info(f"Remaining suns for analysis: {len(over) - count_below}")
-
-        sunc.sun_vecs = sunc.sun_vecs[over, :]
-        sunc.positions = sunc.positions[over, :]
-        sunc.dni = sunc.dni[over]
-        sunc.dhi = sunc.dhi[over]
-        sunc.zeniths = sunc.zeniths[over]
+        sunc.sun_vecs = sunc.sun_vecs[above, :]
+        sunc.positions = sunc.positions[above, :]
+        sunc.dni = sunc.dni[above]
+        sunc.dhi = sunc.dhi[above]
+        sunc.zeniths = sunc.zeniths[above]
 
         filtered_timestamps = []
-        for ts, valid in zip(sunc.time_stamps, over):
+        for ts, valid in zip(sunc.time_stamps, above):
             if valid:
                 filtered_timestamps.append(ts)
 
@@ -349,7 +356,12 @@ class Sunpath:
         mesh2 = concatenate_meshes(self.daypath_meshes)
         self.mesh = concatenate_meshes([mesh1, mesh2])
 
-        info("Sunpath mesh representation created")
+        info("-----------------------------------------------------")
+        info("Sunpath geometry created for visualisation:")
+        info(f"  Analemmas: {len(self.analemmas_meshes)} meshes")
+        info(f"  Day paths: {len(self.daypath_meshes)} meshes")
+        info(f"  Sun count in visualisation point cloud: {len(self.sun_pc.points)}")
+        info("-----------------------------------------------------")
 
     def _calc_analemmas(self, year: int, sample_rate: int):
         """

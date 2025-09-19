@@ -6,7 +6,7 @@ import trimesh
 import json
 import fast_simplification as fs
 from enum import Enum, IntEnum
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import List, Dict, Tuple
 from collections import defaultdict
 from dtcc_core.model import Mesh, LineString
@@ -37,7 +37,7 @@ class Rays(IntEnum):
     BUNDLE_8 = 2
 
 
-class SunSkyMapping(IntEnum):
+class SunMapping(IntEnum):
     NONE = 0
     STRAIGHT = 1
     SMEAR_FLAT = 2
@@ -65,10 +65,10 @@ class Vec3:
 class SunCollection:
     # Number of suns
     count: int = 0
-    # Sun positions
-    positions: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Time stamps
     time_stamps: List[Timestamp] = field(default_factory=list)
+    # Sun positions
+    positions: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Normalised sun vectors
     sun_vecs: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
@@ -85,6 +85,19 @@ class SunCollection:
     synth_dni: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Sythetic data for dhi
     synth_dhi: np.ndarray = field(default_factory=lambda: np.empty(0))
+
+    def info_print(self) -> None:
+        info("-----------------------------------------------------")
+        info("Sun Collection:")
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, np.ndarray):
+                info(f"  {f.name:15}: array shape={value.shape}, dtype={value.dtype}")
+            elif isinstance(value, list):
+                info(f"  {f.name:15}: list length={len(value)}")
+            else:
+                info(f"  {f.name:15}: {value}")
+        info("-----------------------------------------------------")
 
 
 @dataclass
@@ -110,6 +123,19 @@ class OutputCollection:
     # Data mask
     data_mask: np.ndarray = field(default_factory=lambda: np.empty(0))
 
+    def info_print(self) -> None:
+        info("-----------------------------------------------------")
+        info("Output Collection:")
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, np.ndarray):
+                info(f"  {f.name:15}: array shape={value.shape}, dtype={value.dtype}")
+            elif isinstance(value, list):
+                info(f"  {f.name:15}: list length={len(value)}")
+            else:
+                info(f"  {f.name:15}: {value}")
+        info("-----------------------------------------------------")
+
 
 @dataclass
 class SolarParameters:
@@ -117,9 +143,23 @@ class SolarParameters:
     display: bool = True
     sun_path_type: SunPathType = SunPathType.NORMAL
     analysis_type: AnalysisType = AnalysisType.TWO_PHASE
-    sun_sky_mapping: SunSkyMapping = SunSkyMapping.SMEAR_SMOOTH
+    sun_mapping: SunMapping = SunMapping.SMEAR_SMOOTH
     start: Timestamp = field(default_factory=lambda: Timestamp("2019-06-01 00:00"))
     end: Timestamp = field(default_factory=lambda: Timestamp("2019-06-30 23:00"))
+
+    def info_print(self) -> None:
+        info("-----------------------------------------------------")
+        info("Solar Parameters:")
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, Enum):
+                value = value.name  # use enum name instead of int
+            info(f"  {f.name:15}: {value}")
+        info("-----------------------------------------------------")
+
+    def __post_init__(self):
+        # Automatically print when object is created
+        self.info_print()
 
 
 def hours_count(start: pd.Timestamp, end: pd.Timestamp) -> int:

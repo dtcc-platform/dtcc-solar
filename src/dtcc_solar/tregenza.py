@@ -63,9 +63,13 @@ class Tregenza(Skydome):
         self.mesh = Mesh(vertices=mesh_vertices, faces=mesh_faces)
 
         # Should be ≈ 6.283 (2π)
-        tot_solid_angle = np.sum(self.solid_angles)
-        info("Total solid angle: " + str(tot_solid_angle) + ", expected: 6.283")
-        info("Tregenza skydome mesh created.")
+        tot_solid_angle = np.round(np.sum(self.solid_angles), 3)
+        info("-----------------------------------------------------")
+        info(f"Tregenza skydome created:")
+        info(f"  Number of patches: {self.patch_counter}")
+        info(f"  Number of direction vectors: {len(self.ray_dirs)}")
+        info(f"  Total solid angle: ~{tot_solid_angle}, expected: ~6.283")
+        info("-----------------------------------------------------")
 
     def create_zenith_patch(self, elev):
         """Creating one zenith patch as a cone with 6 triangular faces"""

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import datetime
 from pandas import Timestamp, DatetimeIndex, DataFrame
-from dtcc_solar.utils import SunCollection, SunSkyMapping
+from dtcc_solar.utils import SunCollection, SunMapping
 from dtcc_solar.utils import SolarParameters, SunPathType
 from dtcc_solar.logging import info, debug, warning, error
 

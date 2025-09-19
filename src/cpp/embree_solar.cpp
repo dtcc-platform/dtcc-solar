@@ -62,6 +62,7 @@ EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces)
 
 EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, fArray2D sunSkyRays, fArray1D solidAngles)
 {
+    info("-----------------------------------------------------");
     info("Creating embree instance with mesh geometry.");
     set_log_level(INFO);
 
@@ -93,10 +94,12 @@ EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, f
     mSunSkyRays = new Rays(sunSkyRays, solidAngles);
 
     info("Model setup with mesh geometry complete.");
+    info("-----------------------------------------------------");
 }
 
 EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, fArray2D skyRays, fArray1D solidAngles, fArray2D sunRays)
 {
+    info("-----------------------------------------------------");
     info("Creating embree instance with mesh geometry.");
     set_log_level(INFO);
 
@@ -125,6 +128,7 @@ EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, f
     mSunRays = new Rays(sunRays);
 
     info("Model setup with mesh geometry complete.");
+    info("-----------------------------------------------------");
 }
 
 EmbreeSolar::~EmbreeSolar()
@@ -496,7 +500,8 @@ bool EmbreeSolar::CalcVisMatrix_Occ1(Rays *rays, fArray2D &visMatrix)
         }
     }
 
-    info("Visibility matrix calculated successfully. Found " + str(hitCounter) + " intersections in " + str(hitAttempts) + " attempts.");
+    info("Visibility matrix calculated successfully");
+    info("Found " + str(hitCounter) + " intersections in " + str(hitAttempts) + " attempts");
     auto end = hrClock::now();
     fDuration duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
@@ -546,7 +551,8 @@ bool EmbreeSolar::CalcVisMatrix_Occ8(Rays *rays, fArray2D &visMatrix)
         }
     }
 
-    info("Visibility matrix calculated successfully. Found " + str(hitCounter) + " intersections in " + str(hitAttempts) + " attempts.");
+    info("Visibility matrix calculated successfully");
+    info("Found " + str(hitCounter) + " intersections in " + str(hitAttempts) + " attempts");
     auto end = hrClock::now();
     fDuration duration = end - start;
     info("Time elapsed: " + str(duration.count()) + " seconds.");
@@ -656,6 +662,7 @@ bool EmbreeSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, fArray2D &s
 
 bool EmbreeSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
 {
+    info("-----------------------------------------------------");
     info("Running 2-phase analysis: E = VP * S");
 
     int numRays = mSunSkyRays->GetRayCount();
@@ -682,6 +689,7 @@ bool EmbreeSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
         return false;
 
     info("2-phase analysis completed successfully.");
+    info("-----------------------------------------------------");
 
     // Store the matrices
     mProjMatrixTot = projMatrix;
@@ -694,6 +702,7 @@ bool EmbreeSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
 
 bool EmbreeSolar::Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix)
 {
+    info("-----------------------------------------------------");
     info("Running 3-phase analysis: E = VP_sky * S_sky + VP_sun * S_sun");
 
     int numSkyRays = mSkyRays->GetRayCount();
@@ -754,6 +763,7 @@ bool EmbreeSolar::Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix)
     mIrrMatrixSun = sunIrrMatrix;
 
     info("3-phase analysis completed successfully.");
+    info("-----------------------------------------------------");
     return true;
 }
 

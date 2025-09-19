@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from dtcc_solar.coefficients import calc_perez_coeffs
 from dtcc_solar.plotting import sub_plots_2d, sub_plot_dict, plot_coeffs_dict
 from dtcc_solar.plotting import show_plot, plot_debug_1, plot_debug_2
-from dtcc_solar.utils import SkyResults, SunResults, SunSkyMapping
+from dtcc_solar.utils import SkyResults, SunResults, SunMapping
 
 
 """
@@ -164,16 +164,16 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
 def calc_2_phase_matrix(
     sunpath: Sunpath,
     skydome: Skydome,
-    type: SunSkyMapping = SunSkyMapping.SMEAR_SMOOTH,
+    type: SunMapping = SunMapping.SMEAR_SMOOTH,
     da: float = 15.0,
 ) -> list[SkyResults, SunResults]:
     sky_res = calc_sky_matrix(sunpath, skydome)
 
-    if type == SunSkyMapping.STRAIGHT:
+    if type == SunMapping.STRAIGHT:
         sun_res = calc_sun_matrix(sunpath, skydome)
-    elif type == SunSkyMapping.SMEAR_FLAT:
+    elif type == SunMapping.SMEAR_FLAT:
         sun_res = calc_sun_mat_flat_smear(sunpath, skydome, da)
-    elif type == SunSkyMapping.SMEAR_SMOOTH:
+    elif type == SunMapping.SMEAR_SMOOTH:
         sun_res = calc_sun_mat_smooth_smear(sunpath, skydome, da)
 
     calc_tot_error(sky_res, skydome, sun_res, sunpath)
@@ -223,7 +223,7 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     zenith_limit = math.radians(89.9)  # Limit for zenith angle for numerical stability
     norm_limit = 0.01  # Normalisation factor limit for uniform sky
 
-    small_norm_count = 0
+    small_norms = 0
     eval_count = 0
 
     ignored_dhi = 0.0
@@ -263,7 +263,7 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
             if norm <= norm_limit:
                 # Uniform sky: distribute DHI equally per solid angle
-                small_norm_count += 1
+                small_norms += 1
                 weight = np.cos(ksis) * np.sum(solid_angles)  # (sr)
                 R_uniform = dhi[i] / weight  # (W/m²·sr)
                 Rvs = np.full_like(ksis, R_uniform)
@@ -309,8 +309,13 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
             sky_mat[:, i] = 0.0
             ignored_dhi += dhi[i]
 
-    info(f"Evaluated {eval_count} sun positions out of {len(sun_vecs)}.")
-    info(f"Number of norm factors smaller then {norm_limit}: {small_norm_count}")
+    n_suns = len(sun_vecs)
+    info("-----------------------------------------------------")
+    info("Perez sky model calculation summary:")
+    info(f"  Evaluated {eval_count} sun positions of {n_suns} which passed the checks.")
+    info(f"  Conditions: dhi > 0 and sun zenith < {math.degrees(zenith_limit)} °")
+    info(f"  For {small_norms} cases the norm factor <  {norm_limit} => uniform sky")
+    info("-----------------------------------------------------")
 
     # Store as class attributes
     perez_results = SkyResults()
@@ -352,9 +357,12 @@ def calc_tot_error(
         error_dhi = np.abs(sky_dhi - sum_dhi) / sum_dhi
         error_ign = sky_res.ignored_dhi / sum_dhi
 
-    info(f"Total error in DNI: {100 * error_dni:.3f} %")
-    info(f"Total error in DHI: {100 * error_dhi:.3f} %")
-    info(f"Total ignored DHI: {100 * error_ign:.3f} %")
+    info("-----------------------------------------------------")
+    info("Comparing irradiance from weather data with sky and sun matrices:")
+    info(f"  Total error in DNI: {100 * error_dni:.3f} %")
+    info(f"  Total error in DHI: {100 * error_dhi:.3f} %")
+    info(f"  Total ignored DHI from suns that were removed: {100 * error_ign:.3f} %")
+    info("-----------------------------------------------------")
 
 
 def calc_sun_matrix(sunpath: Sunpath, skydome: Skydome) -> SunResults:
@@ -405,8 +413,11 @@ def calc_sun_mat_flat_smear(sunpath: Sunpath, skydome: Skydome, da=15.0) -> SunR
 
         sun_matrix[valid_indices, i] = dni_vals[i] / len(valid_indices)
 
-    print(f"Average number of patches hit per sun: {np.mean(total_hits):.2f}")
-    print(f"Max patches hit: {np.max(total_hits)}")
+    info("-----------------------------------------------------")
+    info("Sun matrix approximation with flat smear:")
+    info(f"  Average number of patches per sun: {np.mean(total_hits):.2f}")
+    info(f"  Max patches hit: {np.max(total_hits)}")
+    info("-----------------------------------------------------")
 
     return SunResults(matrix=sun_matrix)
 
@@ -460,9 +471,12 @@ def calc_sun_mat_smooth_smear(sunpath: Sunpath, skydome: Skydome, da=15) -> SunR
             error = np.abs(np.sum(dni_contribution) - dni) / dni
             errors.append(error)
 
-    info(f"Average number of patches hit per sun: {np.mean(total_hits):.2f}")
-    info(f"Max patches hit: {np.max(total_hits)}")
-    info(f"Average error in smeared sun matrix: {np.mean(errors):.4f}")
+    info("-----------------------------------------------------")
+    info("Sun matrix approximation with smooth smear:")
+    info(f"  Average number of patches per sun: {np.mean(total_hits):.2f}")
+    info(f"  Max patches hit: {np.max(total_hits)}")
+    info(f"  Average error in smeared sun matrix: {np.mean(errors):.4f}")
+    info("-----------------------------------------------------")
 
     return SunResults(matrix=sun_matrix)
 

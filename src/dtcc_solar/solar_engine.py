@@ -4,7 +4,7 @@ from pprint import pp
 from dtcc_solar.utils import SolarParameters, calc_face_areas, concatenate_meshes
 from dtcc_solar import py_embree_solar as embree
 from dtcc_solar.utils import SunCollection, OutputCollection, SkyType
-from dtcc_solar.utils import Rays, SunSkyMapping, split_mesh_by_face_mask
+from dtcc_solar.utils import Rays, SunMapping, split_mesh_by_face_mask
 from dtcc_solar.skydome import Skydome
 from dtcc_solar.sunpath import Sunpath
 from dtcc_core.model import Mesh, PointCloud
@@ -103,7 +103,14 @@ class SolarEngine:
         self.path_width = 0
         self._preprocess_mesh(center_mesh)
 
-        info("Solar engine created")
+        info("-----------------------------------------------------")
+        info("Solar engine created:")
+        info(f"  Analysis mesh has {len(self.analysis_mesh.faces)} faces.")
+        if self.shading_mesh is not None:
+            info(f"  Shading mesh has {len(self.shading_mesh.faces)} faces.")
+            info(f"  Combined mesh has {len(self.mesh.faces)} faces.")
+        info(f"  Mesh moved to center: {center_mesh}")
+        info("-----------------------------------------------------")
 
     def _join_meshes(self, analysis_mesh: Mesh, shading_mesh: Mesh = None):
         """
@@ -185,12 +192,16 @@ class SolarEngine:
 
     def run_2_phase_analysis(self, sunp: Sunpath, skyd: Skydome, p: SolarParameters):
 
-        (sky_res, sun_res) = calc_2_phase_matrix(sunp, skyd, p.sun_sky_mapping, da=15)
+        (sky_res, sun_res) = calc_2_phase_matrix(sunp, skyd, p.sun_mapping, da=15)
 
         matrix = sun_res.matrix + sky_res.matrix
 
         ray_dirs = np.array(skyd.ray_dirs)
         solid_angles = np.array(skyd.solid_angles)
+
+        info("-----------------------------------------------------")
+        info(f"Creating Embree instance and running analysis...")
+        info("-----------------------------------------------------")
 
         self.embree = embree.PyEmbreeSolar(
             self.mesh.vertices,
@@ -199,9 +210,6 @@ class SolarEngine:
             ray_dirs,
             solid_angles,
         )
-
-        info(f"Embree instance created successfully.")
-        info(f"Running analysis...")
 
         self.embree.run_2_phase_analysis(matrix)
 
@@ -242,6 +250,10 @@ class SolarEngine:
         sun_ray_dirs = np.array(sunp.sunc.sun_vecs)
         solid_angles = np.array(skyd.solid_angles)
 
+        info("-----------------------------------------------------")
+        info(f"Creating Embree instance and running analysis...")
+        info("-----------------------------------------------------")
+
         self.embree = embree.PyEmbreeSolar(
             self.mesh.vertices,
             self.mesh.faces,
@@ -250,9 +262,6 @@ class SolarEngine:
             solid_angles,
             sun_ray_dirs,
         )
-
-        info(f"Embree instance created successfully.")
-        info(f"Running analysis...")
 
         self.embree.run_3_phase_analysis(sky_matrix, sun_matrix)
 
@@ -359,10 +368,13 @@ class SolarEngine:
         mesh_in, mesh_out = split_mesh_by_face_mask(self.mesh, all_visible)
 
         # Report
-        info(f"Total sun + sky horizontal plane irradiance  : {sum_energy:.2f} kWh/m²")
-        info(f"Irradiance on most horizontal visible faces  : {res:.2f} kWh/m²")
-        info(f"Max irradiance (any face): {max_irr:.2f} Wh/m²")
-        info(f"Found {len(valid_indices)} close to upward-facing visible face(s)")
+        info("-----------------------------------------------------")
+        info("Energy balance results:")
+        info(f"  Total sun + sky horizontal plane irradiance : {sum_energy:.2f} kWh/m²")
+        info(f"  Irradiance on most horizontal visible faces : {res:.2f} kWh/m²")
+        info(f"  Max irradiance (any face): {max_irr:.2f} Wh/m²")
+        info(f"  Found {len(valid_indices)} close to upward-facing visible face(s)")
+        info("-----------------------------------------------------")
 
         return mesh_in, mesh_out
 
@@ -423,15 +435,18 @@ class SolarEngine:
         all_faces_max_irr = np.max(np.sum(sky_irr, axis=1) + np.sum(sun_irr, axis=1))
 
         # Report
+        info("-----------------------------------------------------")
+        info("Energy balance results:")
         info(
-            f"Projected total sun + sky irradiance (horizontal): {sum_energy:.2f} Wh/m²"
+            f"  Projected total sun + sky irradiance (horizontal): {sum_energy:.2f} Wh/m²"
         )
         info(
-            f"Irradiance on most upward-facing visible faces    : {hor_faces_mean_irr:.2f} Wh/m²"
+            f"  Irradiance on most upward-facing visible faces    : {hor_faces_mean_irr:.2f} Wh/m²"
         )
         info(
-            f"Maximum irradiance on any face                    : {all_faces_max_irr:.2f} Wh/m²"
+            f"  Maximum irradiance on any face                    : {all_faces_max_irr:.2f} Wh/m²"
         )
-        info(f"Found {len(valid_indices)} upward-facing visible face(s)")
+        info(f"  Found {len(valid_indices)} upward-facing visible face(s)")
+        info("-----------------------------------------------------")
 
         return valid_indices

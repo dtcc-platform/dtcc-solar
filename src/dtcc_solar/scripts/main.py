@@ -40,7 +40,7 @@ def perez_test():
     sunpath_radius = 1.5
     sunpath = Sunpath(p, sunpath_radius)
 
-    (sky_res, sun_res) = calc_2_phase_matrix(sunpath, skydome, p.sun_sky_mapping)
+    (sky_res, sun_res) = calc_2_phase_matrix(sunpath, skydome, p.sun_mapping)
 
     face_data_dict = {
         "relative lumiance": sky_res.relative_luminance,
@@ -122,6 +122,8 @@ def analyse_mesh_1():
     filename = "../../../data/validation/boxes_sharp_f5248.obj"
     # filename = "../../../data/validation/boxes_soft_f5248.obj"
     mesh = io.load_mesh(filename)
+    engine = SolarEngine(mesh)
+
     path = "../../../data/weather/"
     sth_epw = "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
 
@@ -135,7 +137,6 @@ def analyse_mesh_1():
 
     # Setup model, run analysis and view results
     skydome = Reinhart()
-    engine = SolarEngine(mesh)
     sunpath = Sunpath(p, engine.sunpath_radius)
     engine.run_2_phase_analysis(sunpath, skydome, p)
 
@@ -172,6 +173,9 @@ def analyse_mesh_3():
     filename = "../../../data/validation/boxes_soft_f5248.obj"
     mesh = io.load_mesh(filename)
 
+    (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.2, 0.8], [0.2, 0.8])
+    engine = SolarEngine(analysis_mesh, shading_mesh)
+
     path = "../../../data/weather/"
     lnd_epw = "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
 
@@ -183,11 +187,8 @@ def analyse_mesh_3():
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
-    (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.2, 0.8], [0.2, 0.8])
-
     # Setup model, run analysis and view results
     skydome = Reinhart()
-    engine = SolarEngine(analysis_mesh, shading_mesh)
     sunpath = Sunpath(p, engine.sunpath_radius)
     engine.run_2_phase_analysis(sunpath, skydome, p)
 
@@ -199,9 +200,11 @@ def analyse_mesh_4():
     print("-------- Solar Mesh Analysis Started -------")
     filename = "../../../data/validation/boxes_sharp_f5248.obj"
     # filename = "../../../data/validation/boxes_soft_f5248.obj"
-    mesh = io.load_mesh(filename)
     path = "../../../data/weather/"
     sth_epw = "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
+
+    mesh = io.load_mesh(filename)
+    engine = SolarEngine(mesh)
 
     # Stockholm
     p = SolarParameters(
@@ -212,8 +215,7 @@ def analyse_mesh_4():
     )
 
     # Setup model, run analysis and view results
-    skydome = Reinhart()
-    engine = SolarEngine(mesh)
+    skydome = Tregenza()  # Reinhart()
     sunpath = Sunpath(p, engine.sunpath_radius)
     engine.run_3_phase_analysis(sunpath, skydome, p)
 
@@ -225,7 +227,7 @@ if __name__ == "__main__":
     # perez_test()
     # embree_perez_test()
     # sunpath_test()
-    # analyse_mesh_1()
+    analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
-    analyse_mesh_4()
+    # analyse_mesh_4()
