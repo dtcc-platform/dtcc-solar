@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <Eigen/Core>
 #include <Eigen/Dense>
+#include <chrono>
 #define PYTHON_MODULE
 
 #ifndef M_PI
