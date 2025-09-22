@@ -232,7 +232,7 @@ class SolarEngine:
 
         self.check_2_phase_energy_balance(skyd, matrix, irr_vec, vis_mat, face_normals)
 
-        self.plot_matrices(vis_mat, matrix)
+        # self.plot_matrices(vis_mat, matrix)
 
         sun_pc = PointCloud(points=sunp.sunc.positions)
 
@@ -310,8 +310,8 @@ class SolarEngine:
         #    face_normals,
         # )
 
-        self.plot_matrices(sky_vis_mat, sky_matrix)
-        self.plot_matrices(sun_vis_mat, sun_matrix)
+        # self.plot_matrices(sky_vis_mat, sky_matrix)
+        # self.plot_matrices(sun_vis_mat, sun_matrix)
 
         sun_pc = PointCloud(points=sunp.sunc.positions)
 

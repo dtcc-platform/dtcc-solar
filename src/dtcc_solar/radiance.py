@@ -50,29 +50,6 @@ def epw_to_wea(epw_path: str) -> str | None:
         return None
 
 
-def compute_radiance_matrices(wea_file):
-
-    info("Computing radiance sky matrix from WEA file")
-    a = os.path.exists("/usr/local/radiance/bin/gendaymtx")
-    info(f"Radiance gendaymtx found: {a}")
-
-    path = "/usr/local/radiance/bin/gendaymtx"
-
-    # Compute sky matrix
-    sky_command = [path, "-O1", "-d", wea_file]
-    result = run_subprocess(sky_command)
-    sky_matrix = get_matrix(result)
-
-    # Compute sun matrix
-    sun_command = [path, "-O1", "-s", wea_file]
-    result = run_subprocess(sun_command)
-    sun_matrix = get_matrix(result)
-
-    tot_matrix = sky_matrix + sun_matrix
-
-    return sky_matrix, sun_matrix, tot_matrix
-
-
 def run_subprocess(command: list) -> subprocess.CompletedProcess | None:
     try:
         result = subprocess.run(
@@ -86,23 +63,19 @@ def run_subprocess(command: list) -> subprocess.CompletedProcess | None:
 
 def get_matrix(result):
 
+    if result is None:
+        return None
+
     if result.returncode != 0:
         print("Error during gendaymtx execution:")
         print(result.stderr)
     else:
-        print("First 10 lines of output:")
-        for line in result.stdout.splitlines()[:10]:
-            print(repr(line))
-
         lines = result.stdout.splitlines()
 
         # Find where numeric data starts (first line beginning with a digit)
         start_idx = next(i for i, l in enumerate(lines) if l.strip() and l[0].isdigit())
-
         matrix = np.loadtxt(StringIO("\n".join(lines[start_idx:])))
-
         print("Matrix shape:", matrix.shape)
-        print("First few rows:\n", matrix[:5, :5])  # preview top-left corner
 
         # Parse header
         meta = {}
@@ -118,61 +91,43 @@ def get_matrix(result):
         ncomp = int(meta["NCOMP"])
 
         # Reshape full array
-        final_matrix = matrix.reshape((nrows, ncols, ncomp))
-        print("Full shape:", final_matrix.shape)  # (146, 8760, 3)
+        full_matrix = matrix.reshape((nrows, ncols, ncomp))
+        print("Full shape:", full_matrix.shape)  # (146, 8760, 3)
 
         # Drop the ground patch (last row)
-        final_matrix = final_matrix[:-1, :, :]
-        print("Sky-only shape:", final_matrix.shape)  # (145, 8760, 3)
+        drop_matrix = full_matrix[:-1, :, :]
+        print("Sky-only shape:", drop_matrix.shape)  # (145, 8760, 3)
 
-    return final_matrix
+        # Reduce to single irradiance channel (take first component)
+        irr_matrix = drop_matrix[:, :, 0]
+        print("Irradiance shape:", irr_matrix.shape)  # (145, 8760)
+
+    return irr_matrix
 
 
-def run_radiance(wea_file: str, output_dir: str = "."):
-    """
-    Run Radiance gendaymtx to generate Reinhart sky matrices for diffuse and direct components.
-    Saves two files:
-        - reinhart_diffuse.mtx
-        - reinhart_direct.mtx
-    """
-    gdm_path = "/usr/local/radiance/bin/gendaymtx"
-    if not os.path.exists(gdm_path):
-        error(f"Radiance gendaymtx not found at: {gdm_path}")
-        return
+def compute_radiance_matrices(epw_path: str):
 
-    info("Computing Radiance Reinhart sky matrices from WEA file...")
+    wea_file = epw_to_wea(epw_path)
+    if not wea_file:
+        error("Failed to convert EPW to WEA.")
+        return None
 
-    # Output paths
-    diffuse_path = os.path.join(output_dir, "reinhart_diffuse.mtx")
-    direct_path = os.path.join(output_dir, "reinhart_direct.mtx")
+    info("Computing radiance sky matrix from WEA file")
+    a = os.path.exists("/usr/local/radiance/bin/gendaymtx")
+    info(f"Radiance gendaymtx found: {a}")
 
-    # Command for diffuse matrix (sky only)
-    cmd_diffuse = [gdm_path, "-r", "-m", "1", "-d", "-O1", "-skyonly", wea_file]
-    # Command for direct sun matrix
-    cmd_direct = [gdm_path, "-r", "-m", "1", "-D", "-O1", wea_file]
+    path = "/usr/local/radiance/bin/gendaymtx"
 
-    # Run diffuse
-    try:
-        with open(diffuse_path, "w") as f:
-            result = subprocess.run(
-                cmd_diffuse, stdout=f, stderr=subprocess.PIPE, text=True
-            )
-        if result.returncode != 0:
-            error(f"Diffuse matrix error:\n{result.stderr}")
-        else:
-            info(f"Diffuse matrix saved to {diffuse_path}")
-    except Exception as e:
-        error(f"Failed to run diffuse gendaymtx: {e}")
+    # Compute sky matrix (s = sky)
+    sky_command = [path, "-O1", "-s", wea_file]
+    result = run_subprocess(sky_command)
+    sky_matrix = get_matrix(result)
 
-    # Run direct
-    try:
-        with open(direct_path, "w") as f:
-            result = subprocess.run(
-                cmd_direct, stdout=f, stderr=subprocess.PIPE, text=True
-            )
-        if result.returncode != 0:
-            error(f"Direct matrix error:\n{result.stderr}")
-        else:
-            info(f"Direct matrix saved to {direct_path}")
-    except Exception as e:
-        error(f"Failed to run direct gendaymtx: {e}")
+    # Compute sun matrix (d = direct)
+    sun_command = [path, "-O1", "-d", wea_file]
+    result = run_subprocess(sun_command)
+    sun_matrix = get_matrix(result)
+
+    tot_matrix = sky_matrix + sun_matrix
+
+    return sky_matrix, sun_matrix, tot_matrix

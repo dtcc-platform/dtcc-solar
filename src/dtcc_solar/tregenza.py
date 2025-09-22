@@ -1,4 +1,5 @@
 import math
+from matplotlib.pyplot import step
 import numpy as np
 
 from typing import Dict
@@ -37,10 +38,16 @@ class Tregenza(Skydome):
 
             if elev1 != math.radians(84.0):
                 for j in range(patch_count):
-                    azim1 = j * azim_step
-                    azim2 = (j + 1) * azim_step
+                    # azim1 = j * azim_step
+                    # azim2 = (j + 1) * azim_step
+                    # mid_elev = (elev1 + elev2) / 2.0
+                    # mid_azim = (azim1 + azim2) / 2.0
+
+                    step = 2 * math.pi / patch_count
+                    azim1 = j * step - 0.5 * step
+                    azim2 = (j + 1) * step - 0.5 * step
+                    mid_azim = j * step
                     mid_elev = (elev1 + elev2) / 2.0
-                    mid_azim = (azim1 + azim2) / 2.0
 
                     self.create_mesh_quad(azim1, azim2, elev1, elev2)
 

@@ -170,7 +170,7 @@ def calc_2_phase_matrix(
     sky_res = calc_sky_matrix(sunpath, skydome)
 
     if type == SunMapping.STRAIGHT:
-        sun_res = calc_sun_matrix(sunpath, skydome)
+        sun_res = calc_sun_matrix2(sunpath, skydome)
     elif type == SunMapping.SMEAR_FLAT:
         sun_res = calc_sun_mat_flat_smear(sunpath, skydome, da)
     elif type == SunMapping.SMEAR_SMOOTH:
@@ -275,7 +275,7 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
             rel_lum[:, i] = lvs
             nor_lum[:, i] = lvs_norm  # Normalised luminance (W/m²·sr)
-            sky_mat[:, i] = Rvs * solid_angles  # (W/m²)
+            sky_mat[:, i] = Rvs  # * solid_angles  # (W/m²)
 
             projected_sum = np.sum(Rvs * np.cos(ksis) * solid_angles)  # (W/m²)
             error_dhi = (projected_sum - dhi[i]) / dhi[i]  # (unitless)
@@ -347,15 +347,15 @@ def calc_tot_error(
     sun_dni = np.sum(np.sum(sun_res.matrix, axis=1))
     sky_dhi = np.sum(np.sum(sky_res.matrix, axis=1) * np.cos(patch_zeniths))
 
-    sum_dni = np.sum(sunp.sunc.dni)
-    sum_dhi = np.sum(sunp.sunc.dhi)
+    epw_dni = np.sum(sunp.sunc.dni)
+    epw_dhi = np.sum(sunp.sunc.dhi)
 
-    if sum_dni > 0:
-        error_dni = np.abs(sun_dni - sum_dni) / sum_dni
+    if epw_dni > 0:
+        error_dni = np.abs(sun_dni - epw_dni) / epw_dni
 
-    if sum_dhi > 0:
-        error_dhi = np.abs(sky_dhi - sum_dhi) / sum_dhi
-        error_ign = sky_res.ignored_dhi / sum_dhi
+    if epw_dhi > 0:
+        error_dhi = np.abs(sky_dhi - epw_dhi) / epw_dhi
+        error_ign = sky_res.ignored_dhi / epw_dhi
 
     info("-----------------------------------------------------")
     info("Comparing irradiance from weather data with sky and sun matrices:")
@@ -379,6 +379,60 @@ def calc_sun_matrix(sunpath: Sunpath, skydome: Skydome) -> SunResults:
     sun_results.matrix = sun_matrix
 
     return sun_results
+
+
+def calc_sun_matrix2(sunpath: Sunpath, skydome: Skydome, nsuns: int = 4) -> SunResults:
+    """
+    Radiance-consistent sun discretization:
+      - Find the nsuns closest patches to the sun direction
+      - Weight by 1/(1.002 - dot)
+      - Convert DNI [W/m²] to radiance [W/m²/sr] by dividing with the
+        target patch's solid angle (like Radiance AddDirect without -5)
+
+    Returns a (N_patches, N_times) matrix of radiance contributions.
+    """
+    ray_dirs = np.asarray(skydome.ray_dirs, dtype=float)  # (N_patches, 3)
+    solid_angles = np.asarray(skydome.solid_angles, dtype=float)  # (N_patches,)
+    sun_vecs = np.asarray(sunpath.sunc.sun_vecs, dtype=float)  # (N_times, 3)
+    dni = np.asarray(sunpath.sunc.dni, dtype=float)  # (N_times,)
+
+    # Ensure unit vectors (just in case)
+    ray_dirs /= np.linalg.norm(ray_dirs, axis=1, keepdims=True)
+    sun_vecs /= np.linalg.norm(sun_vecs, axis=1, keepdims=True)
+
+    n_patches = ray_dirs.shape[0]
+    n_times = sun_vecs.shape[0]
+    ns = max(1, min(nsuns, n_patches))
+
+    sun_matrix = np.zeros((n_patches, n_times), dtype=float)
+
+    for t in range(n_times):
+        D = dni[t]
+        if D <= 0.0:
+            continue
+
+        svec = sun_vecs[t]
+        # Cosines to all patches (clip for numerical safety)
+        dprod = np.clip(ray_dirs @ svec, -1.0, 1.0)
+
+        # Indices of ns nearest patches (largest dot products)
+        if ns < n_patches:
+            idx = np.argpartition(-dprod, ns)[:ns]
+        else:
+            idx = np.arange(n_patches)
+
+        # Radiance-style proximity weights
+        w = 1.0 / (1.002 - dprod[idx])
+        w_sum = w.sum()
+        if w_sum <= 0.0:
+            continue
+        w /= w_sum
+
+        # Distribute DNI as radiance into selected patches
+        # L = (weight * DNI) / Ω_patch
+        sun_matrix[idx, t] += (w * D) / solid_angles[idx]
+
+    return SunResults(matrix=sun_matrix)
 
 
 def calc_sun_mat_flat_smear(sunpath: Sunpath, skydome: Skydome, da=15.0) -> SunResults:

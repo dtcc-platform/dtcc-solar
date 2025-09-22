@@ -66,6 +66,10 @@ class Vec3:
 class SunCollection:
     # Number of suns
     count: int = 0
+    # Number of suns above the horizon
+    count_above: int = 0
+    # Number of suns below the horizon
+    count_below: int = 0
     # Time stamps
     time_stamps: List[Timestamp] = field(default_factory=list)
     # Sun positions
@@ -79,13 +83,6 @@ class SunCollection:
     # List zenith values
     zeniths: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Max measured dhi value for entire the year (independent of date limits)
-    max_dhi: float = 0.0
-    # Max measured dni value for entire the year (independent of date limits)
-    max_dni: float = 0.0
-    # Sythetic data for dni
-    synth_dni: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Sythetic data for dhi
-    synth_dhi: np.ndarray = field(default_factory=lambda: np.empty(0))
 
     def info_print(self) -> None:
         info("-----------------------------------------------------")
@@ -145,8 +142,8 @@ class SolarParameters:
     sun_path_type: SunPathType = SunPathType.NORMAL
     analysis_type: AnalysisType = AnalysisType.TWO_PHASE
     sun_mapping: SunMapping = SunMapping.SMEAR_SMOOTH
-    start: Timestamp = field(default_factory=lambda: Timestamp("2019-06-01 00:00"))
-    end: Timestamp = field(default_factory=lambda: Timestamp("2019-06-30 23:00"))
+    start: Timestamp = field(default_factory=lambda: Timestamp("2019-01-01 00:00"))
+    end: Timestamp = field(default_factory=lambda: Timestamp("2020-01-01 00:00"))
 
     def info_print(self) -> None:
         info("-----------------------------------------------------")

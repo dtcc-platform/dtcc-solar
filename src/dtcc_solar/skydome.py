@@ -97,10 +97,10 @@ class Skydome(ABC):
         solid_angle = 2 * np.pi * (1 - np.cos(zenith))
         return solid_angle
 
-    def spherical_to_cartesian(self, elev, azim) -> List[float]:
-        x = self.r * math.cos(elev) * math.cos(azim)
-        y = self.r * math.cos(elev) * math.sin(azim)
-        z = self.r * math.sin(elev)
+    def spherical_to_cartesian(self, elev, azim):
+        x = math.cos(elev) * math.sin(azim)  # East
+        y = math.cos(elev) * math.cos(azim)  # North
+        z = math.sin(elev)
         return [x, y, z]
 
     def calc_sphere_cap_area(self, elevation) -> float:

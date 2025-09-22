@@ -46,7 +46,7 @@ class TestSunpathVisual:
     def test_single_sun_pos(self):
         self.p.start_date = "2019-05-30 12:20:00"
         self.p.end_date = "2019-05-30 12:20:00"
-        suns = self.sunpath._create_suns(self.p)
+        suns = self.sunpath._create_sun_collection(self.p)
         if len(suns) > 0:
             pos = suns[0].position
             ax = self.sunvis.initialise_plot(self.radius, "Single sun")
@@ -57,7 +57,7 @@ class TestSunpathVisual:
     def test_multiple_sun_pos(self):
         self.p.start_date = "2019-02-21 12:20:00"
         self.p.end_date = "2019-02-22 12:20:00"
-        suns = self.sunpath._create_suns(self.p)
+        suns = self.sunpath._create_sun_collection(self.p)
         suns_pos = []
         for sun in suns:
             suns_pos.append([sun.position.x, sun.position.y, sun.position.z])

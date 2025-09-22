@@ -14,6 +14,8 @@ from dtcc_core.model import PointCloud
 from dtcc_solar.perez import *
 from dtcc_solar.city_utils import *
 from dtcc_solar.radiance import compute_radiance_matrices, epw_to_wea
+from dtcc_viewer import Window, Scene
+from dtcc_core.model import PointCloud, Mesh
 from pprint import pp
 
 import matplotlib.pyplot as plt
@@ -117,10 +119,101 @@ def sunpath_test():
 def radiance_test():
 
     path = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
-    wea = epw_to_wea(path)
-    sky, sun, tot = compute_radiance_matrices(wea)
+    rad_sky, rad_sun, rad_tot = compute_radiance_matrices(path)
 
-    pass
+    print("Radiance sky matrix shape:", rad_sky.shape)
+    print("Radiance sun matrix shape:", rad_sun.shape)
+    print("Radiance total matrix shape:", rad_tot.shape)
+
+    p = SolarParameters(weather_file=path, sun_mapping=SunMapping.STRAIGHT)
+
+    skydome = Tregenza()
+    sunpath = Sunpath(p, include_night=True)
+
+    np_rays = np.array(skydome.ray_dirs)
+    sun_pc = PointCloud(points=np_rays[0:2, :])
+    window = Window(1200, 800)
+    scene = Scene()
+    scene.add_mesh("Mesh", skydome.mesh)
+    scene.add_pointcloud("Suns", sun_pc, 0.1)
+    window.render(scene)
+
+    (sky_res, sun_res) = calc_2_phase_matrix(sunpath, skydome, p.sun_mapping)
+
+    solid_angles = np.array(skydome.solid_angles)
+    weights = solid_angles[:, np.newaxis]
+
+    print(weights.shape)  # (145, 1)
+
+    dtcc_sky = sky_res.matrix
+    dtcc_sun = sun_res.matrix
+    dtcc_total = dtcc_sky + dtcc_sun
+
+    print("DTCC sky matrix shape:", dtcc_sky.shape)
+    print("DTCC sun matrix shape:", dtcc_sun.shape)
+    print("DTCC total matrix shape:", dtcc_total.shape)
+
+    # Comparing the data
+
+    # W/m2
+    rad_sky_tot = np.sum(rad_sky)
+    rad_sun_tot = np.sum(rad_sun)
+    rad_tot = np.sum(rad_tot)
+
+    print("Radiance sky totals:", rad_sky_tot)
+    print("Radiance sun totals:", rad_sun_tot)
+    print("Radiance total totals:", rad_tot)
+
+    # W/m2
+    dtcc_sky_tot = np.sum(dtcc_sky)
+    dtcc_sun_tot = np.sum(dtcc_sun)
+    dtcc_total = dtcc_sky_tot + dtcc_sun_tot
+
+    print("DTCC sky totals:", dtcc_sky_tot)
+    print("DTCC sun totals:", dtcc_sun_tot)
+    print("DTCC total totals:", dtcc_total)
+
+    sky_diff = math.fabs(rad_sky_tot - dtcc_sky_tot)
+    sun_diff = math.fabs(rad_sun_tot - dtcc_sun_tot)
+    total_diff = math.fabs(rad_tot - dtcc_total)
+
+    print(f"sky error:  {100 * sky_diff / rad_sky_tot} %")
+    print(f"sun error:  {100 * sun_diff / rad_sun_tot} %")
+    print(f"total error:  {100 * total_diff / rad_tot} %")
+
+    rad_sky_patch = np.sum(rad_sky, axis=1)
+    dtcc_sky_patch = np.sum(dtcc_sky, axis=1)
+
+    # rad_sky_patch /= np.sum(rad_sky_patch)
+    # dtcc_sky_patch /= np.sum(dtcc_sky_patch)
+
+    rad_sun_patch = np.sum(rad_sun, axis=1)
+    dtcc_sun_patch = np.sum(dtcc_sun, axis=1)
+
+    # rad_sun_patch /= np.sum(rad_sun_patch)
+    # dtcc_sun_patch /= np.sum(dtcc_sun_patch)
+
+    fig, axes = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
+
+    # Sky
+    axes[0].plot(rad_sky_patch, label="Radiance sky")
+    axes[0].plot(dtcc_sky_patch, label="DTCC sky")
+    axes[0].set_title("Sky")
+    axes[0].set_ylabel("Value")
+    axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
+
+    # Sun
+    axes[1].plot(rad_sun_patch, label="Radiance sun")
+    axes[1].plot(dtcc_sun_patch, label="DTCC sun")
+    axes[1].set_title("Sun")
+    axes[1].set_xlabel("Patch index")
+    axes[1].set_ylabel("Value")
+    axes[1].legend()
+    axes[1].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.show()
 
 
 # -------- 2 phase analysis --------
