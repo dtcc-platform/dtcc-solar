@@ -40,9 +40,7 @@ class Rays(IntEnum):
 
 class SunMapping(IntEnum):
     NONE = 0
-    STRAIGHT = 1
-    SMEAR_FLAT = 2
-    SMEAR_SMOOTH = 3
+    RADIANCE = 1
 
 
 class AnalysisType(IntEnum):
@@ -141,7 +139,7 @@ class SolarParameters:
     display: bool = True
     sun_path_type: SunPathType = SunPathType.NORMAL
     analysis_type: AnalysisType = AnalysisType.TWO_PHASE
-    sun_mapping: SunMapping = SunMapping.SMEAR_SMOOTH
+    sun_mapping: SunMapping = SunMapping.RADIANCE
     start: Timestamp = field(default_factory=lambda: Timestamp("2019-01-01 00:00"))
     end: Timestamp = field(default_factory=lambda: Timestamp("2020-01-01 00:00"))
 

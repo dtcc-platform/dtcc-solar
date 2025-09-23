@@ -23,7 +23,7 @@ It also provides a data class to store the results of the calculations.
 """
 
 
-def compute_sky_clearness(dni, dhi, sun_zenith_rad):
+def compute_sky_clearness_old(dni, dhi, sun_zenith_rad):
     """
     Compute Perez sky clearness ε for the sky luminance distribution model.
 
@@ -46,7 +46,16 @@ def compute_sky_clearness(dni, dhi, sun_zenith_rad):
     return epsilon
 
 
-def calculate_air_mass(sun_zenith):
+def compute_sky_clearness(dni, dhi, sun_zenith_rad):
+    if dhi <= 0:
+        return 12.0  # won't be used anyway when DHI<=0
+    z = sun_zenith_rad
+    eps = ((dni + dhi) / dhi + 1.041 * z**3) / (1 + 1.041 * z**3)
+    # Radiance clamps
+    return min(11.9, max(1.0, eps))
+
+
+def calculate_air_mass_old(sun_zenith):
     """
     Calculates the relative air mass using Kasten, F. 1966.
     Input:
@@ -63,6 +72,10 @@ def calculate_air_mass(sun_zenith):
     m = min(m, 10)  # Clamp to a maximum value
 
     return m
+
+
+def calculate_air_mass(sz):
+    return 1.0 / (math.cos(sz) + 0.15 * (93.885 - math.degrees(sz)) ** -1.253)
 
 
 def calc_julian_day(ts: pd.Timestamp):
@@ -110,7 +123,7 @@ def calc_eccentricity(julian_day):
     return E0
 
 
-def compute_sky_brightness(dhi, m, epsilon, ts: pd.Timestamp, ext=1367):
+def compute_sky_brightness_old(dhi, m, epsilon, ts: pd.Timestamp, ext=1367):
     """
     Computes the sky brightness Δ.
     Inputs:
@@ -133,6 +146,16 @@ def compute_sky_brightness(dhi, m, epsilon, ts: pd.Timestamp, ext=1367):
     #    if delta < 0.2:
     #        delta = 0.2
 
+    return delta
+
+
+def compute_sky_brightness(dhi, m, epsilon, ts, ext=1367):
+    E0 = calc_eccentricity(calc_julian_day(ts))
+    delta = (m * dhi) / (ext * E0)
+    # Radiance-style clamps
+    delta = min(0.6, max(0.01, delta))
+    if 1.065 < epsilon < 2.8 and delta < 0.2:
+        delta = 0.2
     return delta
 
 
@@ -164,17 +187,15 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
 def calc_2_phase_matrix(
     sunpath: Sunpath,
     skydome: Skydome,
-    type: SunMapping = SunMapping.SMEAR_SMOOTH,
+    type: SunMapping = SunMapping.RADIANCE,
     da: float = 15.0,
 ) -> list[SkyResults, SunResults]:
     sky_res = calc_sky_matrix(sunpath, skydome)
 
-    if type == SunMapping.STRAIGHT:
-        sun_res = calc_sun_matrix2(sunpath, skydome)
-    elif type == SunMapping.SMEAR_FLAT:
-        sun_res = calc_sun_mat_flat_smear(sunpath, skydome, da)
-    elif type == SunMapping.SMEAR_SMOOTH:
-        sun_res = calc_sun_mat_smooth_smear(sunpath, skydome, da)
+    if type == SunMapping.NONE:
+        sun_res = calc_sun_matrix(sunpath, skydome)
+    elif type == SunMapping.RADIANCE:
+        sun_res = calc_sun_matrix_rad(sunpath, skydome)
 
     calc_tot_error(sky_res, skydome, sun_res, sunpath)
 
@@ -186,9 +207,7 @@ def calc_3_phase_matrices(
     skydome: Skydome,
 ) -> tuple[SkyResults, SunResults]:
     sky_res = calc_sky_matrix(sunpath, skydome)
-
     sun_res = calc_sun_matrix_from_sunpath(sunpath)
-
     calc_tot_error(sky_res, skydome, sun_res, sunpath)
 
     return sky_res, sun_res
@@ -208,15 +227,6 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
     all_ksis = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
     all_gammas = np.zeros([len(skydome.ray_dirs), len(sun_vecs)])
-
-    keys_1 = ["sun_zenith", "dni", "dhi", "epsilon", "delta", "air_mass"]
-    data_dict_1 = {key: [] for key in keys_1}
-
-    keys_2 = ["Patch_irr_max", "Patch_irr_min", "norm", "error_dhi", "error_lum_norm"]
-    data_dict_2 = {key: [] for key in keys_2}
-
-    coeffs_keys = ["A", "B", "C", "D", "E"]
-    coeffs_dict = {key: [] for key in coeffs_keys}
 
     solid_angles = np.array(skydome.solid_angles)
 
@@ -264,45 +274,17 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
             if norm <= norm_limit:
                 # Uniform sky: distribute DHI equally per solid angle
                 small_norms += 1
-                weight = np.cos(ksis) * np.sum(solid_angles)  # (sr)
-                R_uniform = dhi[i] / weight  # (W/m²·sr)
-                Rvs = np.full_like(ksis, R_uniform)
-                lvs_norm = np.full_like(ksis, 1.0 / len(lvs))
+                L = dhi[i] / math.pi
+                Rvs = np.full_like(ksis, L)  # (W/m²*sr)
             else:
                 # Calculate absolute radiance
                 Rvs = (lvs * dhi[i]) / norm  # (W/m²*sr)
-                lvs_norm = lvs / np.sum(lvs)  # Normalised relative luminance (unitless)
 
             rel_lum[:, i] = lvs
-            nor_lum[:, i] = lvs_norm  # Normalised luminance (W/m²·sr)
-            sky_mat[:, i] = Rvs  # * solid_angles  # (W/m²)
+            sky_mat[:, i] = Rvs  #   (W/m²/sr)
 
             projected_sum = np.sum(Rvs * np.cos(ksis) * solid_angles)  # (W/m²)
-            error_dhi = (projected_sum - dhi[i]) / dhi[i]  # (unitless)
-
-            error_lum_norm = np.sum(lvs_norm) - 1.0
-
-            coeffs_dict["A"].append(A)
-            coeffs_dict["B"].append(B)
-            coeffs_dict["C"].append(C)
-            coeffs_dict["D"].append(D)
-            coeffs_dict["E"].append(E)
-
-            data_dict_1["sun_zenith"].append(sun_zenith[i])
-            data_dict_1["dni"].append(dni[i])
-            data_dict_1["dhi"].append(dhi[i])
-            data_dict_1["epsilon"].append(epsilon)
-            data_dict_1["delta"].append(delta)
-            data_dict_1["air_mass"].append(air_mass)
-
-            data_dict_2["Patch_irr_max"].append(np.max(Rvs))
-            data_dict_2["Patch_irr_min"].append(np.min(Rvs))
-            data_dict_2["norm"].append(norm)
-            data_dict_2["error_dhi"].append(error_dhi)
-            data_dict_2["error_lum_norm"].append(error_lum_norm)
-
             eval_count += 1
-
         else:
             # If no diffuse radiation, set to zero
             rel_lum[:, i] = 0.0
@@ -327,13 +309,6 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     perez_results.ksis = all_ksis
     perez_results.gammas = all_gammas
     perez_results.ignored_dhi = ignored_dhi
-
-    # sub_plot_dict(data_dict_1, 0, 5000)
-    # sub_plot_dict(data_dict_2, 0, 5000)
-    # plot_coeffs_dict(coeffs_dict, 0, len(sun_vecs), title="Perez Coefficients")
-    # plot_debug_1(np.array(debug_gammas), np.array(debug_rvs))
-    # plot_debug_2(np.array(debug_sun_zen), np.array(debug_max_rvs))
-    # show_plot()
 
     return perez_results
 
@@ -373,7 +348,8 @@ def calc_sun_matrix(sunpath: Sunpath, skydome: Skydome) -> SunResults:
 
     for i in range(len(sun_vecs)):
         patch_index = find_closest_patch(sun_vecs[i], ray_dirs)
-        sun_matrix[patch_index, i] = sunpath.sunc.dni[i]
+        patch_solid_angle = skydome.solid_angles[patch_index]
+        sun_matrix[patch_index, i] = sunpath.sunc.dni[i] / patch_solid_angle  # W/m²/sr
 
     sun_results = SunResults()
     sun_results.matrix = sun_matrix
@@ -381,7 +357,9 @@ def calc_sun_matrix(sunpath: Sunpath, skydome: Skydome) -> SunResults:
     return sun_results
 
 
-def calc_sun_matrix2(sunpath: Sunpath, skydome: Skydome, nsuns: int = 4) -> SunResults:
+def calc_sun_matrix_rad(
+    sunpath: Sunpath, skydome: Skydome, nsuns: int = 4
+) -> SunResults:
     """
     Radiance-consistent sun discretization:
       - Find the nsuns closest patches to the sun direction
@@ -407,8 +385,7 @@ def calc_sun_matrix2(sunpath: Sunpath, skydome: Skydome, nsuns: int = 4) -> SunR
     sun_matrix = np.zeros((n_patches, n_times), dtype=float)
 
     for t in range(n_times):
-        D = dni[t]
-        if D <= 0.0:
+        if dni[t] <= 0.0:
             continue
 
         svec = sun_vecs[t]
@@ -426,111 +403,15 @@ def calc_sun_matrix2(sunpath: Sunpath, skydome: Skydome, nsuns: int = 4) -> SunR
         w_sum = w.sum()
         if w_sum <= 0.0:
             continue
-        w /= w_sum
+        w = w / w_sum
 
         # Distribute DNI as radiance into selected patches
         # L = (weight * DNI) / Ω_patch
-        sun_matrix[idx, t] += (w * D) / solid_angles[idx]
+        sun_matrix[idx, t] += (w * dni[t]) / solid_angles[idx]
 
-    return SunResults(matrix=sun_matrix)
-
-
-def calc_sun_mat_flat_smear(sunpath: Sunpath, skydome: Skydome, da=15.0) -> SunResults:
-    """
-    Smeared sun matrix across multiple patches within smear_angle_deg of the sun direction.
-    """
-    sun_vecs = sunpath.sunc.sun_vecs
-    dni_vals = sunpath.sunc.dni
-    ray_dirs = np.array(skydome.ray_dirs)  # Ensure shape (N, 3)
-    N_patches = len(ray_dirs)
-    N_times = len(sun_vecs)
-
-    sun_matrix = np.zeros((N_patches, N_times))
-
-    dot_thresh = np.cos(np.radians(da))
-    total_hits = []
-
-    for i, sun_vec in enumerate(sun_vecs):
-        if dni_vals[i] <= 0.0:
-            continue
-
-        # Normalize sun vector just in case
-        sun_vec = sun_vec / np.linalg.norm(sun_vec)
-
-        # Dot products with all ray directions
-        dots = np.dot(ray_dirs, sun_vec)
-        valid_indices = np.where(dots >= dot_thresh)[0]
-        total_hits.append(len(valid_indices))
-
-        if len(valid_indices) == 0:
-            continue  # fallback to single patch?
-
-        sun_matrix[valid_indices, i] = dni_vals[i] / len(valid_indices)
-
-    info("-----------------------------------------------------")
-    info("Sun matrix approximation with flat smear:")
-    info(f"  Average number of patches per sun: {np.mean(total_hits):.2f}")
-    info(f"  Max patches hit: {np.max(total_hits)}")
-    info("-----------------------------------------------------")
-
-    return SunResults(matrix=sun_matrix)
-
-
-def calc_sun_mat_smooth_smear(sunpath: Sunpath, skydome: Skydome, da=15) -> SunResults:
-    """
-    Smeared sun matrix across multiple patches within smear_angle_deg of the sun direction,
-    with stronger weights near the sun and tapering to zero at da.
-    """
-    sun_vecs = sunpath.sunc.sun_vecs
-    dni_vals = sunpath.sunc.dni
-    ray_dirs = np.array(skydome.ray_dirs)  # Shape: (N_patches, 3)
-    N_patches = len(ray_dirs)
-    N_times = len(sun_vecs)
-
-    sun_matrix = np.zeros((N_patches, N_times))
-
-    smear_angle_rad = np.radians(da)
-    total_hits = []
-    errors = []
-
-    for i, sun_vec in enumerate(sun_vecs):
-        dni = dni_vals[i]
-        if dni <= 0.0:
-            continue
-
-        sun_vec = sun_vec / np.linalg.norm(sun_vec)  # Safety
-
-        # Compute angles between sun and each patch
-        dots = np.clip(np.dot(ray_dirs, sun_vec), -1.0, 1.0)
-        angles = np.arccos(dots)  # In radians
-
-        # Identify patches within smear angle
-        valid_indices = np.where(angles <= smear_angle_rad)[0]
-        total_hits.append(len(valid_indices))
-
-        if len(valid_indices) == 0:
-            continue  # fallback to closest patch?
-
-        valid_angles = angles[valid_indices]
-
-        # Define a falloff weighting function — e.g., cosine taper
-        # w = cos^2(angle / da * pi/2) for smooth falloff to zero
-        relative_angle = valid_angles / smear_angle_rad  # Range: 0 to 1
-        weights = np.cos(relative_angle * math.pi / 2) ** 2
-
-        weight_sum = np.sum(weights)
-        if weight_sum > 0:
-            dni_contribution = dni * (weights / weight_sum)
-            sun_matrix[valid_indices, i] = dni_contribution
-            error = np.abs(np.sum(dni_contribution) - dni) / dni
-            errors.append(error)
-
-    info("-----------------------------------------------------")
-    info("Sun matrix approximation with smooth smear:")
-    info(f"  Average number of patches per sun: {np.mean(total_hits):.2f}")
-    info(f"  Max patches hit: {np.max(total_hits)}")
-    info(f"  Average error in smeared sun matrix: {np.mean(errors):.4f}")
-    info("-----------------------------------------------------")
+        # same as:
+        # for k, patch in enumerate(idx):
+        #    sun_matrix[patch, t] += (w[k] * dni[t]) / solid_angles[patch]
 
     return SunResults(matrix=sun_matrix)
 
@@ -562,14 +443,3 @@ def find_closest_patch(sun_vec, ray_dirs):
     """
     dots = np.dot(ray_dirs, sun_vec)  # shape (N,)
     return np.argmax(dots)  # max dot = min angle
-
-
-def avg_patch_spacing(skydome: Skydome) -> float:
-    n = len(skydome.ray_dirs)
-    angles = []
-    for i in range(n):
-        for j in range(i + 1, n):
-            dot = np.clip(np.dot(skydome.ray_dirs[i], skydome.ray_dirs[j]), -1.0, 1.0)
-            angle = np.arccos(dot)
-            angles.append(np.degrees(angle))
-    return np.mean(angles), np.min(angles), np.max(angles)

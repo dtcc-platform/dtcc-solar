@@ -9,11 +9,12 @@ from dtcc_solar.viewer import Viewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
 from dtcc_solar.tregenza import Tregenza
 from dtcc_solar.reinhart import Reinhart
+from dtcc_solar.weighting import SunPatchWeighting
 from dtcc_core.io import load_city
 from dtcc_core.model import PointCloud
 from dtcc_solar.perez import *
 from dtcc_solar.city_utils import *
-from dtcc_solar.radiance import compute_radiance_matrices, epw_to_wea
+from dtcc_solar.radiance import calc_radiance_matrices, get_tregenza_from_rad
 from dtcc_viewer import Window, Scene
 from dtcc_core.model import PointCloud, Mesh
 from pprint import pp
@@ -116,16 +117,42 @@ def sunpath_test():
     plt.show()
 
 
+def skydome_comparison():
+    path = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+
+    rad_dirs, rad_sa = get_tregenza_from_rad()
+
+    rad_pc = PointCloud(points=np.array(rad_dirs))
+    skydome = Tregenza()
+
+    dtcc_sa = np.array(skydome.solid_angles)
+
+    diff_sa = dtcc_sa - rad_sa
+
+    print("Solid angle differences:")
+    print(np.sum(diff_sa))
+
+    np_rays = np.array(skydome.ray_dirs)
+    # sun_pc = PointCloud(points=np_rays[0:2, :])
+    window = Window(1200, 800)
+    scene = Scene()
+    scene.add_mesh("Mesh", skydome.mesh)
+    scene.add_pointcloud("Suns", rad_pc, 0.05)
+    window.render(scene)
+
+
 def radiance_test():
 
     path = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
-    rad_sky, rad_sun, rad_tot = compute_radiance_matrices(path)
+    rad_sky, rad_sun, rad_tot = calc_radiance_matrices(
+        path, sky_type=SkyType.TREGENZA_145
+    )
 
     print("Radiance sky matrix shape:", rad_sky.shape)
     print("Radiance sun matrix shape:", rad_sun.shape)
     print("Radiance total matrix shape:", rad_tot.shape)
 
-    p = SolarParameters(weather_file=path, sun_mapping=SunMapping.STRAIGHT)
+    p = SolarParameters(weather_file=path, sun_mapping=SunMapping.RADIANCE)
 
     skydome = Tregenza()
     sunpath = Sunpath(p, include_night=True)
@@ -149,29 +176,14 @@ def radiance_test():
     dtcc_sun = sun_res.matrix
     dtcc_total = dtcc_sky + dtcc_sun
 
-    print("DTCC sky matrix shape:", dtcc_sky.shape)
-    print("DTCC sun matrix shape:", dtcc_sun.shape)
-    print("DTCC total matrix shape:", dtcc_total.shape)
-
     # Comparing the data
-
-    # W/m2
     rad_sky_tot = np.sum(rad_sky)
     rad_sun_tot = np.sum(rad_sun)
     rad_tot = np.sum(rad_tot)
 
-    print("Radiance sky totals:", rad_sky_tot)
-    print("Radiance sun totals:", rad_sun_tot)
-    print("Radiance total totals:", rad_tot)
-
-    # W/m2
     dtcc_sky_tot = np.sum(dtcc_sky)
     dtcc_sun_tot = np.sum(dtcc_sun)
     dtcc_total = dtcc_sky_tot + dtcc_sun_tot
-
-    print("DTCC sky totals:", dtcc_sky_tot)
-    print("DTCC sun totals:", dtcc_sun_tot)
-    print("DTCC total totals:", dtcc_total)
 
     sky_diff = math.fabs(rad_sky_tot - dtcc_sky_tot)
     sun_diff = math.fabs(rad_sun_tot - dtcc_sun_tot)
@@ -184,14 +196,8 @@ def radiance_test():
     rad_sky_patch = np.sum(rad_sky, axis=1)
     dtcc_sky_patch = np.sum(dtcc_sky, axis=1)
 
-    # rad_sky_patch /= np.sum(rad_sky_patch)
-    # dtcc_sky_patch /= np.sum(dtcc_sky_patch)
-
     rad_sun_patch = np.sum(rad_sun, axis=1)
     dtcc_sun_patch = np.sum(dtcc_sun, axis=1)
-
-    # rad_sun_patch /= np.sum(rad_sun_patch)
-    # dtcc_sun_patch /= np.sum(dtcc_sun_patch)
 
     fig, axes = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
 
@@ -329,6 +335,7 @@ if __name__ == "__main__":
     # perez_test()
     # embree_perez_test()
     # sunpath_test()
+    # skydome_comparison()
     radiance_test()
     # analyse_mesh_1()
     # analyse_mesh_2()
