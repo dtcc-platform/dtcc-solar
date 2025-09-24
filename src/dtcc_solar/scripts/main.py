@@ -26,8 +26,6 @@ from urllib.request import urlretrieve
 
 
 def only_perez_test():
-    print("-------- Skydome Test -------")
-
     path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
 
     p = SolarParameters(
@@ -60,8 +58,6 @@ def only_perez_test():
 
 
 def embree_perez_test():
-    print("-------- Skydome Test -------")
-
     path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
     # filename = "../../../data/validation/boxes_sharp_f5248.obj"
     # filename = "../../../data/validation/boxes_soft_f5248.obj"
@@ -160,9 +156,9 @@ def radiance_test():
 
 
 def analyse_mesh_1():
-    print("-------- Solar Mesh Analysis Started -------")
     # filename = "../../../data/validation/boxes_sharp_f5248.obj"
-    filename = "../../../data/validation/boxes_soft_f5248.obj"
+    # filename = "../../../data/validation/boxes_soft_f5248.obj"
+    filename = "../../../data/models/City136kSoft.stl"
     mesh = io.load_mesh(filename)
     engine = SolarEngine(mesh)
 
@@ -180,11 +176,10 @@ def analyse_mesh_1():
     # Setup model, run analysis and view results
     skydome = Reinhart()
     sunpath = Sunpath(p, engine.sunpath_radius)
-    engine.run_2_phase_analysis(sunpath, skydome, p)
+    engine.run_3_phase_analysis(sunpath, skydome, p)
 
 
 def analyse_mesh_2():
-    print("-------- Solar Mesh Analysis Started -------")
 
     filename = "../../../data/validation/boxes_sharp_f5248.obj"
     mesh = io.load_mesh(filename)
@@ -209,8 +204,6 @@ def analyse_mesh_2():
 
 
 def analyse_mesh_3():
-    print("-------- Solar Mesh Analysis Started -------")
-
     # filename = "...../../data/validation/boxes_sharp_f5248.obj"
     filename = "../../../data/validation/boxes_soft_f5248.obj"
     mesh = io.load_mesh(filename)

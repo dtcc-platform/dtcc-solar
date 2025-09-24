@@ -50,13 +50,27 @@ public:
     fArray2D GetProjectionMatrixTot();
     fArray2D GetIrradianceMatrixTot();
 
+    fArray1D GetVisibilityVectorTot();
+    fArray1D GetProjectionVectorTot();
+    fArray1D GetIrradianceVectorTot();
+
     fArray2D GetVisibilityMatrixSky();
     fArray2D GetProjectionMatrixSky();
     fArray2D GetIrradianceMatrixSky();
 
+    fArray1D GetVisibilityVectorSky();
+    fArray1D GetProjectionVectorSky();
+    fArray1D GetIrradianceVectorSky();
+
     fArray2D GetVisibilityMatrixSun();
     fArray2D GetProjectionMatrixSun();
     fArray2D GetIrradianceMatrixSun();
+
+    fArray1D GetVisibilityVectorSun();
+    fArray1D GetProjectionVectorSun();
+    fArray1D GetIrradianceVectorSun();
+
+    fArray1D Flatten2D(fArray2D &matrix);
 
     bool CalcProjMatrix(Rays *rays, fArray2D &projMatrix);
     bool CalcVisMatrix_Occ1(Rays *rays, fArray2D &visMatrix);

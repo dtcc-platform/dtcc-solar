@@ -214,13 +214,11 @@ class SolarEngine:
 
         self.embree.run_2_phase_analysis(matrix)
 
-        vis_mat = self.embree.get_visibility_matrix_tot()
-        prj_mat = self.embree.get_projection_matrix_tot()
-        irr_mat = self.embree.get_irradiance_matrix_tot()
+        vis_vec = self.embree.get_visibility_vector_tot()
+        prj_vec = self.embree.get_projection_vector_tot()
+        irr_vec = self.embree.get_irradiance_vector_tot()
 
-        vis_vec = np.sum(vis_mat, axis=1)
-        prj_vec = np.sum(prj_mat, axis=1)
-        irr_vec = np.sum(irr_mat, axis=1) * 0.001  # Convert to kWh/m2
+        irr_vec = irr_vec * 0.001  # Convert to kWh/m2
 
         dict_data = {
             "irradiance [kWh/m2]": irr_vec,
@@ -228,14 +226,7 @@ class SolarEngine:
             "projection": prj_vec,
         }
 
-        face_normals = self.embree.get_face_normals()
-
-        self.check_2_phase_energy_balance(skyd, matrix, irr_vec, vis_mat, face_normals)
-
-        # self.plot_matrices(vis_mat, matrix)
-
         sun_pc = PointCloud(points=sunp.sunc.positions)
-
         window = Window(1200, 800)
         scene = Scene()
         scene.add_mesh("Mesh", self.mesh, data=dict_data)
@@ -270,50 +261,28 @@ class SolarEngine:
 
         self.embree.run_3_phase_analysis(sky_matrix, sun_matrix)
 
-        sky_vis_mat = self.embree.get_visibility_matrix_sky()
-        sky_proj_mat = self.embree.get_projection_matrix_sky()
-        sky_irr_mat = self.embree.get_irradiance_matrix_sky()
+        sky_vis = self.embree.get_visibility_vector_sky()
+        sky_proj = self.embree.get_projection_vector_sky()
+        sky_irr = self.embree.get_irradiance_vector_sky()
 
-        sun_vis_mat = self.embree.get_visibility_matrix_sun()
-        sun_proj_mat = self.embree.get_projection_matrix_sun()
-        sun_irr_mat = self.embree.get_irradiance_matrix_sun()
+        sun_vis = self.embree.get_visibility_vector_sun()
+        sun_proj = self.embree.get_projection_vector_sun()
+        sun_irr = self.embree.get_irradiance_vector_sun()
 
-        sky_vis = np.sum(sky_vis_mat, axis=1)
-        sky_pro = np.sum(sky_proj_mat, axis=1)
-        sky_irr = np.sum(sky_irr_mat, axis=1) * 0.001  # Convert to kWh/m2
-
-        sun_vis = np.sum(sun_vis_mat, axis=1)
-        sun_pro = np.sum(sun_proj_mat, axis=1)
-        sun_irr = np.sum(sun_irr_mat, axis=1) * 0.001  # Convert to kWh/m2
+        sky_irr = sky_irr * 0.001  # Convert to kWh/m2
+        sun_irr = sun_irr * 0.001  # Convert to kWh/m2
 
         tot_irr = sky_irr + sun_irr
 
         dict_data = {
+            "total irradiance [kWh/m2]": tot_irr,
             "sky irradiance [kWh/m2]": sky_irr,
             "sky visibility": sky_vis,
-            "sky projection": sky_pro,
+            "sky projection": sky_proj,
             "sun irradiance [kWh/m2]": sun_irr,
             "sun visibility": sun_vis,
-            "sun projection": sun_pro,
-            "total irradiance [kWh/m2]": tot_irr,
+            "sun projection": sun_proj,
         }
-
-        face_normals = self.embree.get_face_normals()
-
-        # self.check_3_phase_energy_balance(
-        #    skyd,
-        #    sky_matrix,
-        #    sky_vis,
-        #    sky_irr,
-        #    sunp,
-        #    sun_matrix,
-        #    sun_vis,
-        #    sun_irr,
-        #    face_normals,
-        # )
-
-        # self.plot_matrices(sky_vis_mat, sky_matrix)
-        # self.plot_matrices(sun_vis_mat, sun_matrix)
 
         sun_pc = PointCloud(points=sunp.sunc.positions)
 

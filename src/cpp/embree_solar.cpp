@@ -231,6 +231,8 @@ fArray2D EmbreeSolar::GetFaceNormals()
     return vertices;
 }
 
+// Combinded results
+
 fArray2D EmbreeSolar::GetVisibilityMatrixTot()
 {
     return mVisMatrixTot;
@@ -245,6 +247,23 @@ fArray2D EmbreeSolar::GetIrradianceMatrixTot()
 {
     return mIrrMatrixTot;
 }
+
+fArray1D EmbreeSolar::GetVisibilityVectorTot()
+{
+    return Flatten2D(mVisMatrixTot);
+}
+
+fArray1D EmbreeSolar::GetProjectionVectorTot()
+{
+    return Flatten2D(mProjMatrixTot);
+}
+
+fArray1D EmbreeSolar::GetIrradianceVectorTot()
+{
+    return Flatten2D(mIrrMatrixTot);
+}
+
+// Sky results
 
 fArray2D EmbreeSolar::GetVisibilityMatrixSky()
 {
@@ -261,6 +280,23 @@ fArray2D EmbreeSolar::GetIrradianceMatrixSky()
     return mIrrMatrixSky;
 }
 
+fArray1D EmbreeSolar::GetVisibilityVectorSky()
+{
+    return Flatten2D(mVisMatrixSky);
+}
+
+fArray1D EmbreeSolar::GetProjectionVectorSky()
+{
+    return Flatten2D(mProjMatrixSky);
+}
+
+fArray1D EmbreeSolar::GetIrradianceVectorSky()
+{
+    return Flatten2D(mIrrMatrixSky);
+}
+
+// Sun results
+
 fArray2D EmbreeSolar::GetVisibilityMatrixSun()
 {
     return mVisMatrixSun;
@@ -274,6 +310,51 @@ fArray2D EmbreeSolar::GetProjectionMatrixSun()
 fArray2D EmbreeSolar::GetIrradianceMatrixSun()
 {
     return mIrrMatrixSun;
+}
+
+fArray1D EmbreeSolar::GetVisibilityVectorSun()
+{
+    return Flatten2D(mVisMatrixSun);
+}
+
+fArray1D EmbreeSolar::GetProjectionVectorSun()
+{
+    return Flatten2D(mProjMatrixSun);
+}
+
+fArray1D EmbreeSolar::GetIrradianceVectorSun()
+{
+    return Flatten2D(mIrrMatrixSun);
+}
+
+fArray1D EmbreeSolar::Flatten2D(fArray2D &mat)
+{
+    // Collapse a (m x t) matrix into a (m x 1) vector by summing over t
+    if (mat.empty())
+        return {};
+
+    const size_t rows = mat.size();
+    const size_t cols = mat[0].size();
+
+    fArray1D flat;
+    flat.reserve(rows);
+
+    for (const auto &row : mat)
+    {
+        if (row.size() != cols)
+        {
+            throw std::runtime_error("Flatten2D: ragged rows detected");
+        }
+
+        float sum = 0.0f;
+        for (float v : row)
+        {
+            sum += v;
+        }
+        flat.push_back(sum);
+    }
+
+    return flat;
 }
 
 void EmbreeSolar::CreateDevice()
@@ -497,7 +578,7 @@ bool EmbreeSolar::CalcVisMatrix_Occ1(Rays *rays, fArray2D &visMatrix)
             }
             mSkyViewFactor[i] = 1.0 - hitPortion;
             if (i > 0 && i % 10000 == 0)
-                info("Sky raytracing for " + str(i) + " faces completed.");
+                info("Raytracing for " + str(i) + " faces completed.");
         }
     }
 
@@ -548,7 +629,7 @@ bool EmbreeSolar::CalcVisMatrix_Occ8(Rays *rays, fArray2D &visMatrix)
             }
             mSkyViewFactor[i] = 1.0 - hitPortion;
             if (i > 0 && i % 10000 == 0)
-                info("Sky raytracing for " + str(i) + " faces completed.");
+                info("Raytracing for " + str(i) + " faces completed.");
         }
     }
 
@@ -702,14 +783,14 @@ bool EmbreeSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
     if (!CalcIrradiance2Phase(mSunSkyRays, sunSkyMat, visProjMatrix, irrMatrix))
         return false;
 
-    info("2-phase analysis completed successfully.");
-    info("-----------------------------------------------------");
-
     // Store the matrices
     mProjMatrixTot = projMatrix;
     mVisMatrixTot = visMatrix;
     mVisProjMatrixTot = visProjMatrix;
     mIrrMatrixTot = irrMatrix;
+
+    info("2-phase analysis completed successfully.");
+    info("-----------------------------------------------------");
 
     return true;
 }
@@ -808,18 +889,36 @@ PYBIND11_MODULE(py_embree_solar, m)
              { py::array out = py::cast(self.GetProjectionMatrixTot()); return out; })
         .def("get_irradiance_matrix_tot", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetIrradianceMatrixTot()); return out; })
+        .def("get_visibility_vector_tot", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetVisibilityVectorTot()); return out; })
+        .def("get_projection_vector_tot", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetProjectionVectorTot()); return out; })
+        .def("get_irradiance_vector_tot", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetIrradianceVectorTot()); return out; })
         .def("get_visibility_matrix_sky", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetVisibilityMatrixSky()); return out; })
         .def("get_projection_matrix_sky", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetProjectionMatrixSky()); return out; })
         .def("get_irradiance_matrix_sky", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetIrradianceMatrixSky()); return out; })
+        .def("get_visibility_vector_sky", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetVisibilityVectorSky()); return out; })
+        .def("get_projection_vector_sky", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetProjectionVectorSky()); return out; })
+        .def("get_irradiance_vector_sky", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetIrradianceVectorSky()); return out; })
         .def("get_visibility_matrix_sun", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetVisibilityMatrixSun()); return out; })
         .def("get_projection_matrix_sun", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetProjectionMatrixSun()); return out; })
         .def("get_irradiance_matrix_sun", [](EmbreeSolar &self)
-             { py::array out = py::cast(self.GetIrradianceMatrixSun()); return out; });
+             { py::array out = py::cast(self.GetIrradianceMatrixSun()); return out; })
+        .def("get_visibility_vector_sun", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetVisibilityVectorSun()); return out; })
+        .def("get_projection_vector_sun", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetProjectionVectorSun()); return out; })
+        .def("get_irradiance_vector_sun", [](EmbreeSolar &self)
+             { py::array out = py::cast(self.GetIrradianceVectorSun()); return out; });
 }
 
 #endif
