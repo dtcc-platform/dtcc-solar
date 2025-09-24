@@ -171,8 +171,8 @@ def skydome_m4_test():
 
 def analyse_mesh_1():
     # filename = "../../../data/validation/boxes_sharp_f5248.obj"
-    filename = "../../../data/validation/boxes_soft_f5248.obj"
-    # filename = "../../../data/models/City136kSoft.stl"
+    # filename = "../../../data/validation/boxes_soft_f5248.obj"
+    filename = "../../../data/models/City136kSoft.stl"
     mesh = io.load_mesh(filename)
     engine = SolarEngine(mesh)
 

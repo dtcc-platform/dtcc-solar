@@ -772,7 +772,7 @@ bool EmbreeSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
         return false;
 
     // Calculate visibility matrix
-    if (!CalcVisMatrix_Occ1(mSunSkyRays, visMatrix))
+    if (!CalcVisMatrix_Occ8(mSunSkyRays, visMatrix))
         return false;
 
     // Calculate the visibility-projection matrix
@@ -827,11 +827,11 @@ bool EmbreeSolar::Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix)
         return false;
 
     // Calculate sky visibility matrix
-    if (!CalcVisMatrix_Occ1(mSkyRays, skyVisMatrix))
+    if (!CalcVisMatrix_Occ8(mSkyRays, skyVisMatrix))
         return false;
 
     // Calculate sun visibility matrix
-    if (!CalcVisMatrix_Occ1(mSunRays, sunVisMatrix))
+    if (!CalcVisMatrix_Occ8(mSunRays, sunVisMatrix))
         return false;
 
     // Calculate the sky visibility-projection matrix
