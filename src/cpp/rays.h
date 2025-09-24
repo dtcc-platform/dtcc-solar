@@ -45,7 +45,7 @@ private:
     std::vector<std::vector<float>> mRayDirections;
 
     // Ray areas / tot area
-    std::vector<float> mRaySolidAngle;
+    std::vector<float> mRaySolidAngles;
 
     std::vector<RTCRay> mRays;
     std::vector<RTCRay8> mRays8;

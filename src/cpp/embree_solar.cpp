@@ -97,7 +97,7 @@ EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, f
     info("-----------------------------------------------------");
 }
 
-EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, fArray2D skyRays, fArray1D solidAngles, fArray2D sunRays)
+EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, fArray2D skyRays, fArray1D skySolidAngles, fArray2D sunRays, fArray1D sunSolidAngles)
 {
     info("-----------------------------------------------------");
     info("Creating embree instance with mesh geometry.");
@@ -124,8 +124,8 @@ EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, f
     CalcFaceMidPoints();
     CalcFaceNormals();
 
-    mSkyRays = new Rays(skyRays, solidAngles);
-    mSunRays = new Rays(sunRays);
+    mSkyRays = new Rays(skyRays, skySolidAngles);
+    mSunRays = new Rays(sunRays, sunSolidAngles);
 
     info("Model setup with mesh geometry complete.");
     info("-----------------------------------------------------");
@@ -248,12 +248,12 @@ fArray2D EmbreeSolar::GetIrradianceMatrixTot()
 
 fArray2D EmbreeSolar::GetVisibilityMatrixSky()
 {
-    return mIrrMatrixSky;
+    return mVisMatrixSky;
 }
 
 fArray2D EmbreeSolar::GetProjectionMatrixSky()
 {
-    return mIrrMatrixSky;
+    return mProjMatrixSky;
 }
 
 fArray2D EmbreeSolar::GetIrradianceMatrixSky()
@@ -273,7 +273,7 @@ fArray2D EmbreeSolar::GetProjectionMatrixSun()
 
 fArray2D EmbreeSolar::GetIrradianceMatrixSun()
 {
-    return mIrrMatrixSky;
+    return mIrrMatrixSun;
 }
 
 void EmbreeSolar::CreateDevice()
@@ -441,6 +441,7 @@ bool EmbreeSolar::CalcProjMatrix(Rays *rays, fArray2D &mProjectionMatrix)
 
     fArray2D surfaceNormals = GetFaceNormals();
     fArray2D rayDirections = rays->GetRayDirections();
+    fArray1D raySolidAngles = rays->GetSolidAngles();
     size_t numRays = rayDirections.size();
 
     for (int i = 0; i < mFaceCount; ++i)
@@ -452,7 +453,7 @@ bool EmbreeSolar::CalcProjMatrix(Rays *rays, fArray2D &mProjectionMatrix)
             {
                 auto r = rayDirections[j];
                 float dot = n[0] * r[0] + n[1] * r[1] + n[2] * r[2];
-                mProjectionMatrix[i][j] = std::max(0.0f, dot);
+                mProjectionMatrix[i][j] = std::max(0.0f, dot) * raySolidAngles[j];
             }
         }
     }
@@ -790,7 +791,7 @@ PYBIND11_MODULE(py_embree_solar, m)
         .def(py::init<>())
         .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>>())
         .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>, std::vector<bool>, std::vector<std::vector<float>>, std::vector<float>>())
-        .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>, std::vector<bool>, std::vector<std::vector<float>>, std::vector<float>, std::vector<std::vector<float>>>())
+        .def(py::init<std::vector<std::vector<float>>, std::vector<std::vector<int>>, std::vector<bool>, std::vector<std::vector<float>>, std::vector<float>, std::vector<std::vector<float>>, std::vector<float>>())
         .def("get_mesh_faces", [](EmbreeSolar &self)
              { py::array out = py::cast(self.GetMeshFaces()); return out; })
         .def("get_mesh_vertices", [](EmbreeSolar &self)

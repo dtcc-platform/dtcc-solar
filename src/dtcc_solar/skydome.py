@@ -139,6 +139,7 @@ class Skydome(ABC):
         window = Window(1200, 800)
         scene = Scene()
         scene.add_mesh(name, self.mesh, data=mapped_data_dict)
+        scene.add_pointcloud("Patch centers", np.array(self.ray_dirs), size=0.01)
         scene.add_pointcloud("Sun positions", sun_pos_pc, size=0.01)
         scene.add_linestring("Skydome circle", ls_cirlce)
         window.render(scene)

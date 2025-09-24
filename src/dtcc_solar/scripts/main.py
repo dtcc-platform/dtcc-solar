@@ -9,12 +9,11 @@ from dtcc_solar.viewer import Viewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
 from dtcc_solar.tregenza import Tregenza
 from dtcc_solar.reinhart import Reinhart
-from dtcc_solar.weighting import SunPatchWeighting
 from dtcc_core.io import load_city
 from dtcc_core.model import PointCloud
 from dtcc_solar.perez import *
 from dtcc_solar.city_utils import *
-from dtcc_solar.radiance import calc_radiance_matrices, get_tregenza_from_rad
+from dtcc_solar.radiance import calc_radiance_matrices
 from dtcc_viewer import Window, Scene
 from dtcc_core.model import PointCloud, Mesh
 from pprint import pp
@@ -26,7 +25,7 @@ import numpy as np
 from urllib.request import urlretrieve
 
 
-def perez_test():
+def only_perez_test():
     print("-------- Skydome Test -------")
 
     path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
@@ -47,7 +46,6 @@ def perez_test():
 
     face_data_dict = {
         "relative lumiance": sky_res.relative_luminance,
-        "relative lum norm": sky_res.relative_lum_norm,
         "sky matrix": sky_res.matrix,
         "sun matrix": sun_res.matrix,
         "total matrix": sky_res.matrix + sun_res.matrix,
@@ -88,89 +86,23 @@ def embree_perez_test():
     engine.run_2_phase_analysis(sunpath, skydome, p)
 
 
-def sunpath_test():
-    print("-------- Skydome Test -------")
-    path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
-
-    p = SolarParameters(
-        weather_file=path_lnd,
-        start=pd.Timestamp("2019-01-01 00:00:00"),
-        end=pd.Timestamp("2019-12-31 23:00:00"),
-    )
-
-    sunpath_radius = 50
-    sunpath = Sunpath(p, sunpath_radius, interpolate_df=True)
-
-    df = sunpath.df
-    df_original = sunpath.df_original
-
-    plt.figure(figsize=(12, 4))
-    plt.plot(df.index, df["dni"], label="interp DNI")
-    plt.plot(df_original.index, df_original["dni"], label="real DNI")
-    plt.xlabel("Time")
-    plt.ylabel("Wh/m²")
-    plt.title("Irradiance over Time")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.xlim(pd.Timestamp("2019-05-01"), pd.Timestamp("2019-05-30"))
-    plt.show()
-
-
-def skydome_comparison():
-    path = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
-
-    rad_dirs, rad_sa = get_tregenza_from_rad()
-
-    rad_pc = PointCloud(points=np.array(rad_dirs))
-    skydome = Tregenza()
-
-    dtcc_sa = np.array(skydome.solid_angles)
-
-    diff_sa = dtcc_sa - rad_sa
-
-    print("Solid angle differences:")
-    print(np.sum(diff_sa))
-
-    np_rays = np.array(skydome.ray_dirs)
-    # sun_pc = PointCloud(points=np_rays[0:2, :])
-    window = Window(1200, 800)
-    scene = Scene()
-    scene.add_mesh("Mesh", skydome.mesh)
-    scene.add_pointcloud("Suns", rad_pc, 0.05)
-    window.render(scene)
-
-
 def radiance_test():
 
+    # Set path for weather file
     path = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
-    rad_sky, rad_sun, rad_tot = calc_radiance_matrices(
-        path, sky_type=SkyType.TREGENZA_145
-    )
+    # Set path for radiance installation
+    rad_path = "/usr/local/radiance/bin/"
 
-    print("Radiance sky matrix shape:", rad_sky.shape)
-    print("Radiance sun matrix shape:", rad_sun.shape)
-    print("Radiance total matrix shape:", rad_tot.shape)
+    rad_sky, rad_sun, rad_tot = calc_radiance_matrices(
+        path, sky_type=SkyType.REINHART_578, rad_path=rad_path
+    )
 
     p = SolarParameters(weather_file=path, sun_mapping=SunMapping.RADIANCE)
 
-    skydome = Tregenza()
+    skydome = Reinhart()
     sunpath = Sunpath(p, include_night=True)
 
-    np_rays = np.array(skydome.ray_dirs)
-    sun_pc = PointCloud(points=np_rays[0:2, :])
-    window = Window(1200, 800)
-    scene = Scene()
-    scene.add_mesh("Mesh", skydome.mesh)
-    scene.add_pointcloud("Suns", sun_pc, 0.1)
-    window.render(scene)
-
     (sky_res, sun_res) = calc_2_phase_matrix(sunpath, skydome, p.sun_mapping)
-
-    solid_angles = np.array(skydome.solid_angles)
-    weights = solid_angles[:, np.newaxis]
-
-    print(weights.shape)  # (145, 1)
 
     dtcc_sky = sky_res.matrix
     dtcc_sun = sun_res.matrix
@@ -189,9 +121,11 @@ def radiance_test():
     sun_diff = math.fabs(rad_sun_tot - dtcc_sun_tot)
     total_diff = math.fabs(rad_tot - dtcc_total)
 
-    print(f"sky error:  {100 * sky_diff / rad_sky_tot} %")
-    print(f"sun error:  {100 * sun_diff / rad_sun_tot} %")
-    print(f"total error:  {100 * total_diff / rad_tot} %")
+    info("-----------------------------------------------------")
+    info(f"sky error:  {100 * sky_diff / rad_sky_tot} %")
+    info(f"sun error:  {100 * sun_diff / rad_sun_tot} %")
+    info(f"tot error:  {100 * total_diff / rad_tot} %")
+    info("-----------------------------------------------------")
 
     rad_sky_patch = np.sum(rad_sky, axis=1)
     dtcc_sky_patch = np.sum(dtcc_sky, axis=1)
@@ -323,7 +257,7 @@ def analyse_mesh_4():
     )
 
     # Setup model, run analysis and view results
-    skydome = Tregenza()  # Reinhart()
+    skydome = Reinhart()
     sunpath = Sunpath(p, engine.sunpath_radius)
     engine.run_3_phase_analysis(sunpath, skydome, p)
 
@@ -331,13 +265,12 @@ def analyse_mesh_4():
 if __name__ == "__main__":
     os.system("clear")
     set_log_level("INFO")
+    info("#################### DTCC-SOLAR #####################")
 
     # perez_test()
     # embree_perez_test()
-    # sunpath_test()
-    # skydome_comparison()
-    radiance_test()
-    # analyse_mesh_1()
+    # radiance_test()
+    analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
     # analyse_mesh_4()

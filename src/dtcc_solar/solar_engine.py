@@ -193,7 +193,7 @@ class SolarEngine:
 
     def run_2_phase_analysis(self, sunp: Sunpath, skyd: Skydome, p: SolarParameters):
 
-        (sky_res, sun_res) = calc_2_phase_matrix(sunp, skyd, p.sun_mapping, da=15)
+        (sky_res, sun_res) = calc_2_phase_matrix(sunp, skyd, p.sun_mapping)
 
         matrix = sun_res.matrix + sky_res.matrix
 
@@ -251,7 +251,8 @@ class SolarEngine:
 
         sky_ray_dirs = np.array(skyd.ray_dirs)
         sun_ray_dirs = np.array(sunp.sunc.sun_vecs)
-        solid_angles = np.array(skyd.solid_angles)
+        sky_solid_angles = np.array(skyd.solid_angles)
+        sun_solid_angles = np.ones(sunp.sunc.count)
 
         info("-----------------------------------------------------")
         info(f"Creating Embree instance and running analysis...")
@@ -262,8 +263,9 @@ class SolarEngine:
             self.mesh.faces,
             self.face_mask,
             sky_ray_dirs,
-            solid_angles,
+            sky_solid_angles,
             sun_ray_dirs,
+            sun_solid_angles,
         )
 
         self.embree.run_3_phase_analysis(sky_matrix, sun_matrix)

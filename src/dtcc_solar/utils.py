@@ -30,7 +30,7 @@ class ResultsType(Enum):
 
 class SkyType(IntEnum):
     TREGENZA_145 = 1
-    REINHART_580 = 2
+    REINHART_578 = 2
 
 
 class Rays(IntEnum):
@@ -198,7 +198,6 @@ class SunResults:
     count: int = 0
     # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
     matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # 2D array of relative luminance F (unitless) per patch and timestep [n x t]
 
 
 def dict_2_np_array(sun_pos_dict):

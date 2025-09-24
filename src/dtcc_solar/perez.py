@@ -5,6 +5,8 @@ import pprint as pp
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.skydome import Skydome
+from dtcc_solar.tregenza import Tregenza
+from dtcc_solar.reinhart import Reinhart
 from dataclasses import dataclass, field
 from dtcc_solar.coefficients import calc_perez_coeffs
 from dtcc_solar.plotting import sub_plots_2d, sub_plot_dict, plot_coeffs_dict
@@ -185,10 +187,7 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
 
 
 def calc_2_phase_matrix(
-    sunpath: Sunpath,
-    skydome: Skydome,
-    type: SunMapping = SunMapping.RADIANCE,
-    da: float = 15.0,
+    sunpath: Sunpath, skydome: Skydome, type: SunMapping = SunMapping.RADIANCE
 ) -> list[SkyResults, SunResults]:
     sky_res = calc_sky_matrix(sunpath, skydome)
 
@@ -303,7 +302,6 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     perez_results = SkyResults()
     perez_results.count = len(sun_vecs)
     perez_results.relative_luminance = rel_lum
-    perez_results.relative_lum_norm = nor_lum
     perez_results.solid_angles = solid_angles
     perez_results.matrix = sky_mat
     perez_results.ksis = all_ksis
@@ -358,67 +356,52 @@ def calc_sun_matrix(sunpath: Sunpath, skydome: Skydome) -> SunResults:
 
 
 def calc_sun_matrix_rad(
-    sunpath: Sunpath, skydome: Skydome, nsuns: int = 4
+    sunpath: Sunpath, skydome: Skydome, n_targets: int = 4
 ) -> SunResults:
     """
     Radiance-consistent sun discretization:
-      - Find the nsuns closest patches to the sun direction
-      - Weight by 1/(1.002 - dot)
-      - Convert DNI [W/m²] to radiance [W/m²/sr] by dividing with the
-        target patch's solid angle (like Radiance AddDirect without -5)
-
-    Returns a (N_patches, N_times) matrix of radiance contributions.
+      - Find the num closest patches to the sun direction
+      - Weight by 1/(1.002 - dot), normalize by sum of weights
+      - Convert DNI [W/m²] to radiance [W/m²/sr] by dividing with Ω_patch
     """
-    ray_dirs = np.asarray(skydome.ray_dirs, dtype=float)  # (N_patches, 3)
-    solid_angles = np.asarray(skydome.solid_angles, dtype=float)  # (N_patches,)
-    sun_vecs = np.asarray(sunpath.sunc.sun_vecs, dtype=float)  # (N_times, 3)
-    dni = np.asarray(sunpath.sunc.dni, dtype=float)  # (N_times,)
+    ray_dirs = np.asarray(skydome.ray_dirs, dtype=float)
+    solid_angles = np.asarray(skydome.solid_angles, dtype=float)
+    sun_vecs = np.asarray(sunpath.sunc.sun_vecs, dtype=float)
+    dni = np.asarray(sunpath.sunc.dni, dtype=float)
 
-    # Ensure unit vectors (just in case)
     ray_dirs /= np.linalg.norm(ray_dirs, axis=1, keepdims=True)
     sun_vecs /= np.linalg.norm(sun_vecs, axis=1, keepdims=True)
 
-    n_patches = ray_dirs.shape[0]
+    patch_count = ray_dirs.shape[0]
     n_times = sun_vecs.shape[0]
-    ns = max(1, min(nsuns, n_patches))
+    n_patches = max(1, min(n_targets, patch_count))
 
-    sun_matrix = np.zeros((n_patches, n_times), dtype=float)
+    sun_matrix = np.zeros((patch_count, n_times), dtype=float)
+
+    tot_irr = 0.0
 
     for t in range(n_times):
         if dni[t] <= 0.0:
             continue
 
-        svec = sun_vecs[t]
-        # Cosines to all patches (clip for numerical safety)
-        dprod = np.clip(ray_dirs @ svec, -1.0, 1.0)
+        dot = np.dot(ray_dirs, sun_vecs[t])
+        dot = np.clip(dot, -1.0, 1.0)
 
-        # Indices of ns nearest patches (largest dot products)
-        if ns < n_patches:
-            idx = np.argpartition(-dprod, ns)[:ns]
-        else:
-            idx = np.arange(n_patches)
+        idx = np.argpartition(-dot, n_patches)[:n_patches]
 
-        # Radiance-style proximity weights
-        w = 1.0 / (1.002 - dprod[idx])
-        w_sum = w.sum()
-        if w_sum <= 0.0:
-            continue
-        w = w / w_sum
+        w = 1.0 / (1.002 - dot[idx])
+        w_sum = np.sum(w)
+        w /= w_sum
 
-        # Distribute DNI as radiance into selected patches
-        # L = (weight * DNI) / Ω_patch
-        sun_matrix[idx, t] += (w * dni[t]) / solid_angles[idx]
-
-        # same as:
-        # for k, patch in enumerate(idx):
-        #    sun_matrix[patch, t] += (w[k] * dni[t]) / solid_angles[patch]
+        for k, patch in enumerate(idx):
+            sun_matrix[patch, t] += w[k] * dni[t] / solid_angles[patch]
 
     return SunResults(matrix=sun_matrix)
 
 
 def calc_sun_matrix_from_sunpath(sunpath: Sunpath) -> SunResults:
 
-    sun_matrix = np.zeros((len(sunpath.sunc.sun_vecs), len(sunpath.sunc.sun_vecs)))
+    sun_matrix = np.zeros((sunpath.sunc.count, sunpath.sunc.count))
     dni = sunpath.sunc.dni
 
     for i in range(len(sunpath.sunc.sun_vecs)):

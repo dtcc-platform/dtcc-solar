@@ -15,7 +15,7 @@ Rays::Rays(fArray2D rays, fArray1D solidAngles)
 {
     mRayOrigin = {0.0, 0.0, 0.0};
     mRayCount = (int)rays.size();
-    mRaySolidAngle = solidAngles;
+    mRaySolidAngles = solidAngles;
 
     InitRays(rays);
     CreateRays();
@@ -41,12 +41,12 @@ Rays::~Rays()
     mRayDirections.clear();
     mRays.clear();
     mRays8.clear();
-    mRaySolidAngle.clear();
+    mRaySolidAngles.clear();
 }
 
 std::vector<float> Rays::GetSolidAngles()
 {
-    return mRaySolidAngle;
+    return mRaySolidAngles;
 }
 
 std::vector<RTCRay> &Rays::GetRays()

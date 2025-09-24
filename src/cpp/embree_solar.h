@@ -32,7 +32,7 @@ public:
     EmbreeSolar();
     EmbreeSolar(fArray2D vertices, iArray2D faces);
     EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D sunSkyRays, fArray1D solidAngles);
-    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D skyRays, fArray1D solidAngles, fArray2D sunRays);
+    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D skyRays, fArray1D skySolidAngles, fArray2D sunRays, fArray1D sunSolidAngles);
     virtual ~EmbreeSolar();
 
     void CreateDevice();
