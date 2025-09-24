@@ -7,7 +7,7 @@ from dtcc_core.model import Mesh
 from dtcc_solar.logging import info, debug, warning, error
 
 
-class Reinhart(Skydome):
+class ReinhartM2(Skydome):
 
     def __init__(self):
         self.vertices = []
@@ -63,12 +63,12 @@ class Reinhart(Skydome):
         mesh_faces = np.array(self.faces)
         self.mesh = Mesh(vertices=mesh_vertices, faces=mesh_faces)
 
-        tot_solid_angle = np.round(np.sum(self.solid_angles), 3)
+        tot_solid_angle = np.round(np.sum(self.solid_angles), 6)
         info("-----------------------------------------------------")
-        info(f"Reinhart skydome created (Radiance 578 style):")
-        info(f"  Number of patches: {self.patch_counter}")
+        info(f"Reinhart MF:2 skydome created:")
+        info(f"  Number of patches: {self.patch_counter} (expected 578)")
         info(f"  Number of direction vectors: {len(self.ray_dirs)}")
-        info(f"  Total solid angle: ~{tot_solid_angle}, expected: ~6.283")
+        info(f"  Total solid angle: ~{tot_solid_angle}, expected: ~6.283185")
         info("-----------------------------------------------------")
 
     def create_zenith_patch(self, elev1, elev2):

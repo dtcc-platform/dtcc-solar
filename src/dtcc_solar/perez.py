@@ -6,7 +6,7 @@ from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.skydome import Skydome
 from dtcc_solar.tregenza import Tregenza
-from dtcc_solar.reinhart import Reinhart
+from dtcc_solar.reinhart2 import ReinhartM2
 from dataclasses import dataclass, field
 from dtcc_solar.coefficients import calc_perez_coeffs
 from dtcc_solar.plotting import sub_plots_2d, sub_plot_dict, plot_coeffs_dict

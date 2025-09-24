@@ -8,7 +8,7 @@ from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.viewer import Viewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
 from dtcc_solar.tregenza import Tregenza
-from dtcc_solar.reinhart import Reinhart
+from dtcc_solar.reinhart2 import ReinhartM2
 from dtcc_solar.reinhart4 import ReinhartM4
 from dtcc_core.io import load_city
 from dtcc_core.model import PointCloud
@@ -74,7 +74,7 @@ def embree_perez_test():
     )
 
     # skydome = Tregenza()
-    skydome = Reinhart()
+    skydome = ReinhartM2()
     sunpath_radius = 1.5
     sunpath = Sunpath(p, sunpath_radius)
 
@@ -96,7 +96,7 @@ def radiance_test():
 
     p = SolarParameters(weather_file=path, sun_mapping=SunMapping.RADIANCE)
 
-    skydome = Reinhart()
+    skydome = ReinhartM2()
     sunpath = Sunpath(p, include_night=True)
 
     (sky_res, sun_res) = calc_2_phase_matrix(sunpath, skydome, p.sun_mapping)
@@ -188,7 +188,7 @@ def analyse_mesh_1():
     )
 
     # Setup model, run analysis and view results
-    skydome = Tregenza()
+    skydome = ReinhartM4()
     sunpath = Sunpath(p, engine.sunpath_radius)
     engine.run_2_phase_analysis(sunpath, skydome, p)
 
@@ -211,7 +211,7 @@ def analyse_mesh_2():
     (analysis_mesh, shading_mesh) = split_mesh_by_vertical_faces(mesh)
 
     # Setup model, run analysis and view results
-    skydome = Reinhart()
+    skydome = ReinhartM2()
     engine = SolarEngine(analysis_mesh, shading_mesh)
     sunpath = Sunpath(p, engine.sunpath_radius)
     engine.run_2_phase_analysis(sunpath, skydome, p)
@@ -237,7 +237,7 @@ def analyse_mesh_3():
     )
 
     # Setup model, run analysis and view results
-    skydome = Reinhart()
+    skydome = ReinhartM2()
     sunpath = Sunpath(p, engine.sunpath_radius)
     engine.run_2_phase_analysis(sunpath, skydome, p)
 
@@ -264,7 +264,7 @@ def analyse_mesh_4():
     )
 
     # Setup model, run analysis and view results
-    skydome = Reinhart()
+    skydome = ReinhartM2()
     sunpath = Sunpath(p, engine.sunpath_radius)
     engine.run_3_phase_analysis(sunpath, skydome, p)
 
