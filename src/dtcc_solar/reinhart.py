@@ -21,7 +21,7 @@ class Reinhart(Skydome):
         self.patch_counter = 0
         self.bands = 15
         self.band_patches = [60, 60, 60, 60, 48, 48, 48, 48, 36, 36, 24, 24, 12, 12, 6]
-        # Note: last band now has 6 patches, not 4 → matches 578 after zenith merge
+        # Note: last band now has 2 patches resulting in 578 patches after zenith merge
         self.elevs_deg = [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84]
 
         self.create_mesh()

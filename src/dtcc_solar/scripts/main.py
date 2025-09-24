@@ -9,6 +9,7 @@ from dtcc_solar.viewer import Viewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
 from dtcc_solar.tregenza import Tregenza
 from dtcc_solar.reinhart import Reinhart
+from dtcc_solar.reinhart4 import ReinhartM4
 from dtcc_core.io import load_city
 from dtcc_core.model import PointCloud
 from dtcc_solar.perez import *
@@ -152,13 +153,26 @@ def radiance_test():
     plt.show()
 
 
+def skydome_m4_test():
+    skydome = ReinhartM4()
+
+    data_dict = {
+        "Random data1": np.random.rand(skydome.patch_counter),
+        "Random data2": np.random.rand(skydome.patch_counter),
+    }
+
+    skydome.view(name="Reinhart4", data_dict=data_dict, sun_pos_pc=None)
+
+    pass
+
+
 # -------- 2 phase analysis --------
 
 
 def analyse_mesh_1():
     # filename = "../../../data/validation/boxes_sharp_f5248.obj"
-    # filename = "../../../data/validation/boxes_soft_f5248.obj"
-    filename = "../../../data/models/City136kSoft.stl"
+    filename = "../../../data/validation/boxes_soft_f5248.obj"
+    # filename = "../../../data/models/City136kSoft.stl"
     mesh = io.load_mesh(filename)
     engine = SolarEngine(mesh)
 
@@ -174,9 +188,9 @@ def analyse_mesh_1():
     )
 
     # Setup model, run analysis and view results
-    skydome = Reinhart()
+    skydome = Tregenza()
     sunpath = Sunpath(p, engine.sunpath_radius)
-    engine.run_3_phase_analysis(sunpath, skydome, p)
+    engine.run_2_phase_analysis(sunpath, skydome, p)
 
 
 def analyse_mesh_2():
@@ -263,6 +277,7 @@ if __name__ == "__main__":
     # perez_test()
     # embree_perez_test()
     # radiance_test()
+    # skydome_m4_test()
     analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
