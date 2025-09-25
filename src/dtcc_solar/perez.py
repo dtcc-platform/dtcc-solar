@@ -5,12 +5,7 @@ import pprint as pp
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.skydome import Skydome
-from dtcc_solar.tregenza import Tregenza
-from dtcc_solar.reinhart2 import ReinhartM2
-from dataclasses import dataclass, field
 from dtcc_solar.coefficients import calc_perez_coeffs
-from dtcc_solar.plotting import sub_plots_2d, sub_plot_dict, plot_coeffs_dict
-from dtcc_solar.plotting import show_plot, plot_debug_1, plot_debug_2
 from dtcc_solar.utils import SkyResults, SunResults, SunMapping
 
 
@@ -315,10 +310,11 @@ def calc_tot_error(
     sky_res: SkyResults, skydome: Skydome, sun_res: SunResults, sunp: Sunpath
 ):
 
-    patch_zeniths = np.array(skydome.patch_zeniths)
+    cos_zeniths = np.cos(np.array(skydome.patch_zeniths))
+    solid_angles = np.array(skydome.solid_angles)
 
     sun_dni = np.sum(np.sum(sun_res.matrix, axis=1))
-    sky_dhi = np.sum(np.sum(sky_res.matrix, axis=1) * np.cos(patch_zeniths))
+    sky_dhi = np.sum(np.sum(sky_res.matrix, axis=1) * cos_zeniths * solid_angles)
 
     epw_dni = np.sum(sunp.sunc.dni)
     epw_dhi = np.sum(sunp.sunc.dhi)
