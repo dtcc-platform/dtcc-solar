@@ -12,10 +12,8 @@ from typing import List, Dict, Tuple, Optional
 from collections import defaultdict
 from dtcc_core.model import Mesh, LineString
 from csv import reader
-from pandas import Timestamp, DatetimeIndex
+from pandas import Timestamp
 from dtcc_solar.logging import info, debug, warning, error
-from datetime import datetime
-import matplotlib.pyplot as plt
 
 
 class SkyType(IntEnum):

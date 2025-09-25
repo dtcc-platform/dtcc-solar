@@ -105,33 +105,6 @@ def only_perez_test():
     skydome.view(name="Skydome", data_dict=face_data_dict, sun_pos_pc=sun_pc)
 
 
-def embree_perez_test():
-    path_lnd = data_file("weather", "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw")
-    # filename = "../../../data/validation/boxes_sharp_f5248.obj"
-    # filename = "../../../data/validation/boxes_soft_f5248.obj"
-
-    filename = data_file("models", "CitySurfaceS.stl")
-
-    mesh = io.load_mesh(str(filename))
-
-    p = SolarParameters(
-        weather_file=str(path_lnd),
-        sun_path_type=SunPathType.NORMAL,
-        analysis_type=AnalysisType.TWO_PHASE,
-        start=pd.Timestamp("2019-01-01 00:00:00"),
-        end=pd.Timestamp("2019-12-31 23:00:00"),
-    )
-
-    # skydome = Tregenza()
-    skydome = ReinhartM2()
-    sunpath_radius = 1.5
-    sunpath = Sunpath(p, sunpath_radius)
-
-    # Setup model, run analysis and view results
-    engine = SolarEngine(mesh)
-    output = engine.run_analysis(sunpath, skydome, p)
-
-
 def radiance_test():
 
     # Set path for weather file
@@ -200,9 +173,6 @@ def radiance_test():
 
     plt.tight_layout()
     plt.show()
-
-
-# -------- 2 phase analysis --------
 
 
 def analyse_mesh_1():
@@ -291,9 +261,6 @@ def analyse_mesh_3():
     viewer = Viewer(output, skydome, sunpath, p)
 
 
-# -------- 3 phase analysis --------
-
-
 def analyse_mesh_4():
     print("-------- Solar Mesh Analysis Started -------")
     filename = data_file("validation", "boxes_sharp_f5248.obj")
@@ -318,7 +285,6 @@ def analyse_mesh_4():
     sunpath = Sunpath(p, engine.sunpath_radius)
 
     output = engine.run_analysis(sunpath, skydome, p)
-    output.info_print()
     viewer = Viewer(output, skydome, sunpath, p)
 
 
@@ -327,11 +293,9 @@ if __name__ == "__main__":
     set_log_level("INFO")
     info("#################### DTCC-SOLAR #####################")
 
-    # perez_test()
-    # embree_perez_test()
+    only_perez_test()
     # radiance_test()
-    # skydome_m4_test()
     # analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
-    analyse_mesh_4()
+    # analyse_mesh_4()

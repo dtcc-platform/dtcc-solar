@@ -191,10 +191,17 @@ class SolarEngine:
         self, sunp: Sunpath, skyd: Skydome, p: SolarParameters
     ) -> OutputCollection:
 
+        output = None
+
         if p.analysis_type == AnalysisType.TWO_PHASE:
-            return self.run_2_phase_analysis(sunp, skyd, p)
+            output = self.run_2_phase_analysis(sunp, skyd, p)
         elif p.analysis_type == AnalysisType.THREE_PHASE:
-            return self.run_3_phase_analysis(sunp, skyd, p)
+            output = self.run_3_phase_analysis(sunp, skyd, p)
+
+        if output is not None:
+            output.info_print()
+
+        return output
 
     def run_2_phase_analysis(
         self, sunpath: Sunpath, skydome: Skydome, p: SolarParameters

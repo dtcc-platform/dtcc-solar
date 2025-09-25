@@ -256,15 +256,16 @@ class Sunpath:
         sunc.count = len(sunc.time_stamps)
         sunc.count_below = 0
         sunc.count_above = sunc.count
+        sun_count = sunc.count
         self._calc_suns_positions(sunc, df)
 
         if not include_night:
             self._remove_suns_below_horizon(sunc)
 
-        remain = sunc.count - sunc.count_below
+        remain = sun_count - sunc.count_below
         info("-----------------------------------------------------")
         info("Sun Collection created from data frame:")
-        info(f"  Date range resulting in {sunc.count} total sun positions")
+        info(f"  Date range resulting in {sun_count} total sun positions")
         info(f"  Removed {sunc.count_below} suns that were below the horizon.")
         info(f"  Remaining suns for analysis: {remain}")
         info("-----------------------------------------------------")

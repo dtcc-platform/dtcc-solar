@@ -6,6 +6,7 @@ from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import concatenate_meshes, SolarParameters
 from dtcc_solar.utils import OutputCollection, AnalysisType, split_mesh_by_face_mask
+from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.skydome import Skydome
 from typing import Any
 
@@ -24,14 +25,14 @@ class Viewer:
 
         self.has_display = has_display()
 
-        if self.has_display:
+        if self.has_display and p.display:
             self.window = Window(1200, 800)
             self.scene = Scene()
             self.prepare_scene(output, skydome, sunpath, p)
             self.show()
         else:
             self.has_display = False
-            print("No display detected - running headless.")
+            info("No display detected - running headless.")
 
         return
 
