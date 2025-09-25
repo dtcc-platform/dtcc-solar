@@ -2,35 +2,109 @@ name: build-tests
 
 on:
   push:
-    branches: [ "develop" ]
+    branches: ["develop"]
   pull_request:
-    branches: [ "develop" ]
+    branches: ["develop"]
 
 jobs:
   build-and-test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    env:
+      PYTHON_VERSION: "3.11"
+      DTCC_DATA_ROOT: ${{ github.workspace }}/data
     steps:
-      # 1) Check out repository
       - name: Check out repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2) Set up Python
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      # 3) Install dependencies from pyproject.toml
-      #    First, upgrade build tools, then install the package
-      - name: Install dependencies
+      - name: Upgrade pip and install build helpers
         run: |
-          python -m pip install --upgrade pip setuptools wheel pytest
-          python -m pip install .  # or `pip install -e .` for editable install
+          python -m pip install --upgrade pip
+          python -m pip install wheel setuptools ninja pytest
 
-      # 4) Run tests (assuming pytest is used)
+      - name: Build Embree (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          EMBREE_BUILD_DIR="$RUNNER_TEMP/embree-build"
+          EMBREE_INSTALL_DIR="$RUNNER_TEMP/embree-install"
+          cmake -S embree -B "$EMBREE_BUILD_DIR" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$EMBREE_INSTALL_DIR" \
+            -DEMBREE_TUTORIALS=OFF \
+            -DEMBREE_ISPC_SUPPORT=OFF \
+            -DEMBREE_TASKING_SYSTEM=INTERNAL
+          cmake --build "$EMBREE_BUILD_DIR" --config Release --target install --parallel
+          EMBREE_CONFIG=$(find "$EMBREE_INSTALL_DIR" -name embree-config.cmake -print -quit)
+          if [ -z "$EMBREE_CONFIG" ]; then
+            echo "embree-config.cmake not found" >&2
+            exit 1
+          fi
+          EMBREE_DIR=$(dirname "$EMBREE_CONFIG")
+          export EMBREE_CONFIG
+          echo "embree_DIR=$EMBREE_DIR" >> "$GITHUB_ENV"
+          echo "CMAKE_ARGS=-Dembree_DIR=$EMBREE_DIR" >> "$GITHUB_ENV"
+          LIB_DIR=$(EMBREE_CONFIG="$EMBREE_CONFIG" python - <<'PY'
+from pathlib import Path
+import os
+config = Path(os.environ['EMBREE_CONFIG']).resolve()
+base = config.parents[1]
+for name in ('lib', 'lib64'):
+    cand = base / name
+    if cand.exists():
+        print(cand)
+        break
+else:
+    print(base)
+PY
+)
+          if [ -d "$LIB_DIR" ]; then
+            if [ "${{ runner.os }}" = "Linux" ]; then
+              echo "LD_LIBRARY_PATH=$LIB_DIR:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+            else
+              echo "DYLD_LIBRARY_PATH=$LIB_DIR:${DYLD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+            fi
+          fi
+
+      - name: Build Embree (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $buildDir = Join-Path $env:RUNNER_TEMP 'embree-build'
+          $installDir = Join-Path $env:RUNNER_TEMP 'embree-install'
+          cmake -S embree -B $buildDir -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_INSTALL_PREFIX=$installDir `
+            -DEMBREE_TUTORIALS=OFF `
+            -DEMBREE_ISPC_SUPPORT=OFF `
+            -DEMBREE_TASKING_SYSTEM=INTERNAL
+          cmake --build $buildDir --config Release --target INSTALL
+          $configPath = Get-ChildItem -Path $installDir -Filter 'embree-config.cmake' -Recurse | Select-Object -First 1
+          if (-not $configPath) { throw 'embree-config.cmake not found' }
+          $embreeDir = $configPath.Directory.FullName
+          Add-Content $env:GITHUB_ENV "embree_DIR=$embreeDir"
+          Add-Content $env:GITHUB_ENV "CMAKE_ARGS=-Dembree_DIR=$embreeDir"
+          $dllDir = $configPath.Directory.Parent.Parent.FullName + '\\bin'
+          if (Test-Path $dllDir) {
+            Add-Content $env:GITHUB_ENV "PATH=$dllDir;$env:PATH"
+          }
+
+      - name: Install project
+        run: |
+          python -m pip install .
+
       - name: Run tests
+        working-directory: tests
         run: |
-          cd tests && pytest
+          pytest
