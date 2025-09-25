@@ -18,6 +18,7 @@ jobs:
       PYTHON_VERSION: "3.11"
       DTCC_DATA_ROOT: ${{ github.workspace }}/data
       EMBREE_VERSION: "4.3.1"
+      EIGEN_VERSION: "3.4.0"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -71,6 +72,53 @@ jobs:
           Add-Content $env:GITHUB_ENV "embree_DIR=$embreeRoot\lib\cmake\embree-$($env:EMBREE_VERSION)"
           Add-Content $env:GITHUB_ENV "CMAKE_ARGS=-Dembree_DIR=$embreeRoot\lib\cmake\embree-$($env:EMBREE_VERSION)"
           Add-Content $env:GITHUB_ENV "PATH=$embreeRoot\bin;$env:PATH"
+
+      - name: Install Eigen (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libeigen3-dev
+          EIGEN_DIR="/usr/share/eigen3/cmake"
+          echo "Eigen3_DIR=$EIGEN_DIR" >> "$GITHUB_ENV"
+          EXISTING="${CMAKE_ARGS:-}"
+          echo "CMAKE_ARGS=${EXISTING} -DEigen3_DIR=$EIGEN_DIR" >> "$GITHUB_ENV"
+
+      - name: Install Eigen (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          brew update
+          brew install eigen
+          EIGEN_DIR="$(brew --prefix eigen)/share/eigen3/cmake"
+          echo "Eigen3_DIR=$EIGEN_DIR" >> "$GITHUB_ENV"
+          EXISTING="${CMAKE_ARGS:-}"
+          echo "CMAKE_ARGS=${EXISTING} -DEigen3_DIR=$EIGEN_DIR" >> "$GITHUB_ENV"
+
+      - name: Install Eigen (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path $env:RUNNER_TEMP 'eigen.zip'
+          $url = "https://gitlab.com/libeigen/eigen/-/archive/$($env:EIGEN_VERSION)/eigen-$($env:EIGEN_VERSION).zip"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          $dest = Join-Path $env:RUNNER_TEMP ('eigen-' + $env:EIGEN_VERSION)
+          Expand-Archive -Path $archive -DestinationPath $env:RUNNER_TEMP
+          $eigenRoot = Join-Path $env:RUNNER_TEMP ('eigen-' + $env:EIGEN_VERSION)
+          if (-not (Test-Path $eigenRoot)) {
+            throw "Eigen directory not found at $eigenRoot"
+          }
+          $cmakeDir = Join-Path $eigenRoot 'cmake'
+          Add-Content $env:GITHUB_ENV "Eigen3_DIR=$cmakeDir"
+          $existing = $env:CMAKE_ARGS
+          if ([string]::IsNullOrEmpty($existing)) {
+            Add-Content $env:GITHUB_ENV "CMAKE_ARGS=-DEigen3_DIR=$cmakeDir"
+          } else {
+            Add-Content $env:GITHUB_ENV ("CMAKE_ARGS=" + $existing + " -DEigen3_DIR=" + $cmakeDir)
+          }
 
       - name: Install project
         run: |
