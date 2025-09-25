@@ -186,7 +186,7 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
     return f
 
 
-def calc_2_phase_matrix(
+def calc_2_phase_matrices(
     sunpath: Sunpath, skydome: Skydome, type: SunMapping = SunMapping.RADIANCE
 ) -> list[SkyResults, SunResults]:
     sky_res = calc_sky_matrix(sunpath, skydome)

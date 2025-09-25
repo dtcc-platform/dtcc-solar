@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
 
-#import dtcc
+# import dtcc
 from dtcc_core import io as io
-
+from dtcc_core.io import load_city
+from dtcc_core.model import PointCloud, Mesh
 from dtcc_solar.utils import *
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
@@ -12,18 +13,10 @@ from dtcc_solar.logging import set_log_level, info, debug, warning, error
 from dtcc_solar.tregenza import Tregenza
 from dtcc_solar.reinhart2 import ReinhartM2
 from dtcc_solar.reinhart4 import ReinhartM4
-from dtcc_core.io import load_city
-from dtcc_core.model import PointCloud
 from dtcc_solar.perez import *
-from dtcc_solar.city_utils import *
 from dtcc_solar.radiance import calc_radiance_matrices
-from dtcc_viewer import Window, Scene
-from dtcc_core.model import PointCloud, Mesh
-from pprint import pp
 
 import matplotlib.pyplot as plt
-
-
 import numpy as np
 from urllib.request import urlretrieve
 
@@ -96,7 +89,7 @@ def only_perez_test():
     sunpath_radius = 1.5
     sunpath = Sunpath(p, sunpath_radius)
 
-    (sky_res, sun_res) = calc_2_phase_matrix(sunpath, skydome, p.sun_mapping)
+    (sky_res, sun_res) = calc_2_phase_matrices(sunpath, skydome, p.sun_mapping)
 
     face_data_dict = {
         "relative lumiance": sky_res.relative_luminance,
@@ -109,7 +102,6 @@ def only_perez_test():
     }
 
     sun_pc = PointCloud(points=sunpath.sunc.positions)
-
     skydome.view(name="Skydome", data_dict=face_data_dict, sun_pos_pc=sun_pc)
 
 
@@ -125,6 +117,7 @@ def embree_perez_test():
     p = SolarParameters(
         weather_file=str(path_lnd),
         sun_path_type=SunPathType.NORMAL,
+        analysis_type=AnalysisType.TWO_PHASE,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
@@ -136,7 +129,7 @@ def embree_perez_test():
 
     # Setup model, run analysis and view results
     engine = SolarEngine(mesh)
-    engine.run_2_phase_analysis(sunpath, skydome, p)
+    output = engine.run_analysis(sunpath, skydome, p)
 
 
 def radiance_test():
@@ -155,7 +148,7 @@ def radiance_test():
     skydome = ReinhartM2()
     sunpath = Sunpath(p, include_night=True)
 
-    (sky_res, sun_res) = calc_2_phase_matrix(sunpath, skydome, p.sun_mapping)
+    (sky_res, sun_res) = calc_2_phase_matrices(sunpath, skydome, p.sun_mapping)
 
     dtcc_sky = sky_res.matrix
     dtcc_sun = sun_res.matrix
@@ -209,19 +202,6 @@ def radiance_test():
     plt.show()
 
 
-def skydome_m4_test():
-    skydome = ReinhartM4()
-
-    data_dict = {
-        "Random data1": np.random.rand(skydome.patch_counter),
-        "Random data2": np.random.rand(skydome.patch_counter),
-    }
-
-    skydome.view(name="Reinhart4", data_dict=data_dict, sun_pos_pc=None)
-
-    pass
-
-
 # -------- 2 phase analysis --------
 
 
@@ -239,6 +219,7 @@ def analyse_mesh_1():
     # Stockholm
     p = SolarParameters(
         weather_file=str(sth_epw),
+        analysis_type=AnalysisType.TWO_PHASE,
         sun_path_type=SunPathType.NORMAL,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
@@ -247,7 +228,10 @@ def analyse_mesh_1():
     # Setup model, run analysis and view results
     skydome = Tregenza()
     sunpath = Sunpath(p, engine.sunpath_radius)
-    engine.run_2_phase_analysis(sunpath, skydome, p)
+
+    output = engine.run_analysis(sunpath, skydome, p)
+    output.info_print()
+    viewer = Viewer(output, skydome, sunpath, p)
 
 
 def analyse_mesh_2():
@@ -260,6 +244,7 @@ def analyse_mesh_2():
     # Gothenburg
     p = SolarParameters(
         weather_file=str(gbg_epw),
+        analysis_type=AnalysisType.TWO_PHASE,
         sun_path_type=SunPathType.NORMAL,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
@@ -271,7 +256,10 @@ def analyse_mesh_2():
     skydome = ReinhartM2()
     engine = SolarEngine(analysis_mesh, shading_mesh)
     sunpath = Sunpath(p, engine.sunpath_radius)
-    engine.run_2_phase_analysis(sunpath, skydome, p)
+
+    output = engine.run_analysis(sunpath, skydome, p)
+    output.info_print()
+    viewer = Viewer(output, skydome, sunpath, p)
 
 
 def analyse_mesh_3():
@@ -288,15 +276,19 @@ def analyse_mesh_3():
     # London
     p = SolarParameters(
         weather_file=str(lnd_epw),
+        analysis_type=AnalysisType.TWO_PHASE,
         sun_path_type=SunPathType.NORMAL,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
     # Setup model, run analysis and view results
-    skydome = ReinhartM2()
+    skydome = ReinhartM4()
     sunpath = Sunpath(p, engine.sunpath_radius)
-    engine.run_2_phase_analysis(sunpath, skydome, p)
+
+    output = engine.run_analysis(sunpath, skydome, p)
+    output.info_print()
+    viewer = Viewer(output, skydome, sunpath, p)
 
 
 # -------- 3 phase analysis --------
@@ -315,6 +307,7 @@ def analyse_mesh_4():
     # Stockholm
     p = SolarParameters(
         weather_file=str(sth_epw),
+        analysis_type=AnalysisType.THREE_PHASE,
         sun_path_type=SunPathType.NORMAL,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
@@ -323,7 +316,10 @@ def analyse_mesh_4():
     # Setup model, run analysis and view results
     skydome = ReinhartM2()
     sunpath = Sunpath(p, engine.sunpath_radius)
-    engine.run_3_phase_analysis(sunpath, skydome, p)
+
+    output = engine.run_analysis(sunpath, skydome, p)
+    output.info_print()
+    viewer = Viewer(output, skydome, sunpath, p)
 
 
 if __name__ == "__main__":
@@ -335,7 +331,7 @@ if __name__ == "__main__":
     # embree_perez_test()
     # radiance_test()
     # skydome_m4_test()
-    analyse_mesh_1()
+    # analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
-    # analyse_mesh_4()
+    analyse_mesh_4()

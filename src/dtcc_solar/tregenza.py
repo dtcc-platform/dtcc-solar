@@ -1,10 +1,8 @@
 import math
-from matplotlib.pyplot import step
 import numpy as np
-
 from typing import Dict
 from dtcc_solar.skydome import Skydome
-from dtcc_core.model import Mesh, LineString, MultiLineString, PointCloud
+from dtcc_core.model import Mesh
 from dtcc_solar.logging import info, debug, warning, error
 
 
