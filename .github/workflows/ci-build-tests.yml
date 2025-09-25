@@ -126,11 +126,16 @@ jobs:
         run: |
           set -euxo pipefail
           brew update
-          brew install eigen
+          brew install eigen libomp
           EIGEN_DIR="$(brew --prefix eigen)/share/eigen3/cmake"
           echo "Eigen3_DIR=$EIGEN_DIR" >> "$GITHUB_ENV"
           EXISTING="${CMAKE_ARGS:-}"
           echo "CMAKE_ARGS=${EXISTING} -DEigen3_DIR=$EIGEN_DIR" >> "$GITHUB_ENV"
+
+      - name: Use macOS CI CMake configuration
+        if: runner.os == 'macOS'
+        run: |
+          cp CMakeLists.macos.ci CMakeLists.txt
 
       - name: Install Eigen (Windows)
         if: runner.os == 'Windows'
