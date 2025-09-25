@@ -8,22 +8,37 @@ if(POLICY CMP0144)
 endif()
 
 if(NOT embree_DIR AND DEFINED ENV{embree_DIR})
-  set(embree_DIR "$ENV{embree_DIR}")
+  set(embree_DIR "$ENV{embree_DIR}" CACHE PATH "Embree config dir (lowercase)" FORCE)
 endif()
 
 if(NOT Embree_DIR AND DEFINED ENV{Embree_DIR})
-  set(Embree_DIR "$ENV{Embree_DIR}")
+  set(Embree_DIR "$ENV{Embree_DIR}" CACHE PATH "Embree config dir" FORCE)
 endif()
 
 if(NOT embree_DIR AND Embree_DIR)
-  set(embree_DIR "${Embree_DIR}")
+  set(embree_DIR "${Embree_DIR}" CACHE PATH "Embree config dir (lowercase)" FORCE)
 elseif(NOT Embree_DIR AND embree_DIR)
-  set(Embree_DIR "${embree_DIR}")
+  set(Embree_DIR "${embree_DIR}" CACHE PATH "Embree config dir" FORCE)
 endif()
 
-if(DEFINED ENV{EMBREE_ROOT})
-  list(APPEND CMAKE_PREFIX_PATH "$ENV{EMBREE_ROOT}")
-  list(APPEND CMAKE_PREFIX_PATH "$ENV{EMBREE_ROOT}/lib/cmake")
+if(NOT Embree_DIR AND DEFINED ENV{EMBREE_ROOT})
+  set(_embree_root "$ENV{EMBREE_ROOT}")
+  find_file(_embree_config
+    NAMES embree-config.cmake EmbreeConfig.cmake
+    PATHS
+      "${_embree_root}"
+      "${_embree_root}/lib"
+      "${_embree_root}/lib/cmake"
+    NO_DEFAULT_PATH
+  )
+  if(_embree_config)
+    get_filename_component(_embree_dir "${_embree_config}" DIRECTORY)
+    set(Embree_DIR "${_embree_dir}" CACHE PATH "Embree config dir" FORCE)
+    set(embree_DIR "${_embree_dir}" CACHE PATH "Embree config dir (lowercase)" FORCE)
+  else()
+    list(APPEND CMAKE_PREFIX_PATH "${_embree_root}")
+    list(APPEND CMAKE_PREFIX_PATH "${_embree_root}/lib/cmake")
+  endif()
 endif()
 
 if(Embree_DIR)
@@ -68,19 +83,19 @@ if(OpenMP_CXX_FOUND)
   target_link_libraries(${BINDINGS} PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
-# RPATH for embree
-get_target_property(_embree_target_type embree TYPE)
+# RPATH for Embree
+get_target_property(_embree_target_type ${_embree_target} TYPE)
 set(_embree_rpaths "")
 if(_embree_target_type STREQUAL "IMPORTED")
   foreach(_cfg IN ITEMS RELEASE DEBUG RELWITHDEBINFO MINSIZEREL)
-    get_target_property(_embree_location embree IMPORTED_LOCATION_${_cfg})
+    get_target_property(_embree_location ${_embree_target} IMPORTED_LOCATION_${_cfg})
     if(_embree_location)
       get_filename_component(_embree_dir "${_embree_location}" DIRECTORY)
       list(APPEND _embree_rpaths "${_embree_dir}")
     endif()
   endforeach()
   if(NOT _embree_rpaths)
-    get_target_property(_embree_location embree IMPORTED_LOCATION)
+    get_target_property(_embree_location ${_embree_target} IMPORTED_LOCATION)
     if(_embree_location)
       get_filename_component(_embree_dir "${_embree_location}" DIRECTORY)
       list(APPEND _embree_rpaths "${_embree_dir}")
