@@ -42,9 +42,11 @@ jobs:
           curl -L -o "$ARCHIVE" "https://github.com/embree/embree/releases/download/v${EMBREE_VERSION}/embree-${EMBREE_VERSION}.x86_64.linux.tar.gz"
           tar -xzf "$ARCHIVE" -C "$RUNNER_TEMP"
           EMBREE_ROOT="$RUNNER_TEMP/embree-${EMBREE_VERSION}.x86_64.linux"
+          echo "EMBREE_ROOT=$EMBREE_ROOT" >> "$GITHUB_ENV"
           echo "embree_DIR=${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}" >> "$GITHUB_ENV"
           echo "CMAKE_ARGS=-Dembree_DIR=${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}" >> "$GITHUB_ENV"
-          echo "LD_LIBRARY_PATH=${EMBREE_ROOT}/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          echo "CMAKE_PREFIX_PATH=${EMBREE_ROOT}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=${EMBREE_ROOT}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" >> "$GITHUB_ENV"
 
       - name: Acquire Embree (macOS)
         if: runner.os == 'macOS'
@@ -55,9 +57,11 @@ jobs:
           curl -L -o "$ARCHIVE" "https://github.com/embree/embree/releases/download/v${EMBREE_VERSION}/embree-${EMBREE_VERSION}.x86_64.macosx.zip"
           unzip -q "$ARCHIVE" -d "$RUNNER_TEMP"
           EMBREE_ROOT="$RUNNER_TEMP/embree-${EMBREE_VERSION}.x86_64.macosx"
+          echo "EMBREE_ROOT=$EMBREE_ROOT" >> "$GITHUB_ENV"
           echo "embree_DIR=${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}" >> "$GITHUB_ENV"
           echo "CMAKE_ARGS=-Dembree_DIR=${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}" >> "$GITHUB_ENV"
-          echo "DYLD_LIBRARY_PATH=${EMBREE_ROOT}/lib:${DYLD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          echo "CMAKE_PREFIX_PATH=${EMBREE_ROOT}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}" >> "$GITHUB_ENV"
+          echo "DYLD_LIBRARY_PATH=${EMBREE_ROOT}/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}" >> "$GITHUB_ENV"
 
       - name: Acquire Embree (Windows)
         if: runner.os == 'Windows'
@@ -69,8 +73,15 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile $archive
           Expand-Archive -Path $archive -DestinationPath $env:RUNNER_TEMP
           $embreeRoot = Join-Path $env:RUNNER_TEMP ("embree-" + $env:EMBREE_VERSION + ".x64.vc17.windows")
+          Add-Content $env:GITHUB_ENV "EMBREE_ROOT=$embreeRoot"
           Add-Content $env:GITHUB_ENV "embree_DIR=$embreeRoot\lib\cmake\embree-$($env:EMBREE_VERSION)"
           Add-Content $env:GITHUB_ENV "CMAKE_ARGS=-Dembree_DIR=$embreeRoot\lib\cmake\embree-$($env:EMBREE_VERSION)"
+          $existingPrefix = $env:CMAKE_PREFIX_PATH
+          if ([string]::IsNullOrEmpty($existingPrefix)) {
+            Add-Content $env:GITHUB_ENV "CMAKE_PREFIX_PATH=$embreeRoot"
+          } else {
+            Add-Content $env:GITHUB_ENV ("CMAKE_PREFIX_PATH=$embreeRoot;$existingPrefix")
+          }
           Add-Content $env:GITHUB_ENV "PATH=$embreeRoot\bin;$env:PATH"
 
       - name: Install Eigen (Linux)
