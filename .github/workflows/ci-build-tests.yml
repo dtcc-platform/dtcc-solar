@@ -41,7 +41,12 @@ jobs:
           ARCHIVE="$RUNNER_TEMP/embree.tar.gz"
           curl -L -o "$ARCHIVE" "https://github.com/embree/embree/releases/download/v${EMBREE_VERSION}/embree-${EMBREE_VERSION}.x86_64.linux.tar.gz"
           tar -xzf "$ARCHIVE" -C "$RUNNER_TEMP"
-          EMBREE_ROOT="$RUNNER_TEMP/embree-${EMBREE_VERSION}.x86_64.linux"
+          EMBREE_ROOT=$(find "$RUNNER_TEMP" -maxdepth 1 -type d -name 'embree-*' | head -n1)
+          if [ -z "$EMBREE_ROOT" ]; then
+            echo "Failed to locate extracted Embree directory" >&2
+            ls -al "$RUNNER_TEMP"
+            exit 1
+          fi
           CONFIG_PATH="${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}/embree-config.cmake"
           if [ ! -f "$CONFIG_PATH" ]; then
             echo "Embree config not found at $CONFIG_PATH" >&2
