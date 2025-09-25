@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+
 import dtcc
 from dtcc_core import io as io
 
@@ -26,11 +28,64 @@ import numpy as np
 from urllib.request import urlretrieve
 
 
+def _candidate_data_roots():
+    """Yield plausible roots for the ``data`` folder in priority order."""
+
+    roots = []
+
+    env_root = os.environ.get("DTCC_DATA_ROOT")
+    if env_root:
+        roots.append(Path(env_root).expanduser())
+
+    script_dir = Path(__file__).resolve().parent
+    for parent in [script_dir, *script_dir.parents[:4]]:
+        roots.append(parent / "data")
+
+    roots.append(Path.cwd() / "data")
+
+    seen = set()
+    ordered = []
+    for root in roots:
+        resolved = root.resolve(strict=False)
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        ordered.append(resolved)
+    return ordered
+
+
+def _find_data_path(relative: Path, expect_directory: bool | None = None) -> Path:
+    roots = _candidate_data_roots()
+    for root in roots:
+        candidate = root / relative
+        if expect_directory is None and candidate.exists():
+            return candidate
+        if expect_directory is True and candidate.is_dir():
+            return candidate
+        if expect_directory is False and candidate.is_file():
+            return candidate
+
+    kind = "directory" if expect_directory else "file"
+    searched = ", ".join(str(root / relative) for root in roots)
+    raise FileNotFoundError(
+        f"Could not locate {kind} '{relative}'. Set DTCC_DATA_ROOT to the project "
+        f"data folder or place the resources manually. Searched: {searched}"
+    )
+
+
+def data_file(*parts: str) -> Path:
+    return _find_data_path(Path(*parts), expect_directory=False)
+
+
+def data_dir(*parts: str) -> Path:
+    return _find_data_path(Path(*parts), expect_directory=True)
+
+
 def only_perez_test():
-    path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+    path_lnd = data_file("weather", "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw")
 
     p = SolarParameters(
-        weather_file=path_lnd,
+        weather_file=str(path_lnd),
         analysis_type=AnalysisType.TWO_PHASE,
         start=pd.Timestamp("2019-01-01 12:00:00"),
         end=pd.Timestamp("2019-12-02 12:00:00"),
@@ -59,15 +114,16 @@ def only_perez_test():
 
 
 def embree_perez_test():
-    path_lnd = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+    path_lnd = data_file("weather", "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw")
     # filename = "../../../data/validation/boxes_sharp_f5248.obj"
     # filename = "../../../data/validation/boxes_soft_f5248.obj"
-    filename = "../../../data/models/CitySurfaceS.stl"
 
-    mesh = io.load_mesh(filename)
+    filename = data_file("models", "CitySurfaceS.stl")
+
+    mesh = io.load_mesh(str(filename))
 
     p = SolarParameters(
-        weather_file=path_lnd,
+        weather_file=str(path_lnd),
         sun_path_type=SunPathType.NORMAL,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
@@ -86,15 +142,15 @@ def embree_perez_test():
 def radiance_test():
 
     # Set path for weather file
-    path = "../../../data/weather/GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+    path = data_file("weather", "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw")
     # Set path for radiance installation
     rad_path = "/usr/local/radiance/bin/"
 
     rad_sky, rad_sun, rad_tot = calc_radiance_matrices(
-        path, sky_type=SkyType.REINHART_578, rad_path=rad_path
+        str(path), sky_type=SkyType.REINHART_578, rad_path=rad_path
     )
 
-    p = SolarParameters(weather_file=path, sun_mapping=SunMapping.RADIANCE)
+    p = SolarParameters(weather_file=str(path), sun_mapping=SunMapping.RADIANCE)
 
     skydome = ReinhartM2()
     sunpath = Sunpath(p, include_night=True)
@@ -172,16 +228,16 @@ def skydome_m4_test():
 def analyse_mesh_1():
     # filename = "../../../data/validation/boxes_sharp_f5248.obj"
     # filename = "../../../data/validation/boxes_soft_f5248.obj"
-    filename = "../../../data/models/City136kSoft.stl"
-    mesh = io.load_mesh(filename)
+    filename = data_file("models", "City136kSoft.stl")
+    mesh = io.load_mesh(str(filename))
     engine = SolarEngine(mesh)
 
-    path = "../../../data/weather/"
-    sth_epw = "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
+    weather_dir = data_dir("weather")
+    sth_epw = weather_dir / "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
 
     # Stockholm
     p = SolarParameters(
-        weather_file=path + sth_epw,
+        weather_file=str(sth_epw),
         sun_path_type=SunPathType.NORMAL,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
@@ -195,14 +251,14 @@ def analyse_mesh_1():
 
 def analyse_mesh_2():
 
-    filename = "../../../data/validation/boxes_sharp_f5248.obj"
-    mesh = io.load_mesh(filename)
-    path = "../../../data/weather/"
-    gbg_epw = "SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.epw"
+    filename = data_file("validation", "boxes_sharp_f5248.obj")
+    mesh = io.load_mesh(str(filename))
+    weather_dir = data_dir("weather")
+    gbg_epw = weather_dir / "SWE_VG_Gothenburg-Landvetter.AP.025260_TMYx.2007-2021.epw"
 
     # Gothenburg
     p = SolarParameters(
-        weather_file=path + gbg_epw,
+        weather_file=str(gbg_epw),
         sun_path_type=SunPathType.NORMAL,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
@@ -219,18 +275,18 @@ def analyse_mesh_2():
 
 def analyse_mesh_3():
     # filename = "...../../data/validation/boxes_sharp_f5248.obj"
-    filename = "../../../data/validation/boxes_soft_f5248.obj"
-    mesh = io.load_mesh(filename)
+    filename = data_file("validation", "boxes_soft_f5248.obj")
+    mesh = io.load_mesh(str(filename))
 
     (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.2, 0.8], [0.2, 0.8])
     engine = SolarEngine(analysis_mesh, shading_mesh)
 
-    path = "../../../data/weather/"
-    lnd_epw = "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+    weather_dir = data_dir("weather")
+    lnd_epw = weather_dir / "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
 
     # London
     p = SolarParameters(
-        weather_file=path + lnd_epw,
+        weather_file=str(lnd_epw),
         sun_path_type=SunPathType.NORMAL,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
@@ -247,17 +303,17 @@ def analyse_mesh_3():
 
 def analyse_mesh_4():
     print("-------- Solar Mesh Analysis Started -------")
-    filename = "../../../data/validation/boxes_sharp_f5248.obj"
+    filename = data_file("validation", "boxes_sharp_f5248.obj")
     # filename = "../../../data/validation/boxes_soft_f5248.obj"
-    path = "../../../data/weather/"
-    sth_epw = "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
+    weather_dir = data_dir("weather")
+    sth_epw = weather_dir / "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
 
-    mesh = io.load_mesh(filename)
+    mesh = io.load_mesh(str(filename))
     engine = SolarEngine(mesh)
 
     # Stockholm
     p = SolarParameters(
-        weather_file=path + sth_epw,
+        weather_file=str(sth_epw),
         sun_path_type=SunPathType.NORMAL,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
