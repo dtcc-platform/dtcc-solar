@@ -1,7 +1,7 @@
 set(BINDINGS py_embree_solar)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cpp/)
 
-# Embree discovery (support CI-provided paths)
+# Embree discovery (supports CI-provided paths without breaking local installs)
 cmake_policy(PUSH)
 if(POLICY CMP0144)
   cmake_policy(SET CMP0144 NEW)
@@ -13,44 +13,25 @@ endif()
 
 if(NOT Embree_DIR AND DEFINED ENV{Embree_DIR})
   set(Embree_DIR "$ENV{Embree_DIR}")
+endif()
+
+if(NOT embree_DIR AND Embree_DIR)
+  set(embree_DIR "${Embree_DIR}")
 elseif(NOT Embree_DIR AND embree_DIR)
   set(Embree_DIR "${embree_DIR}")
 endif()
 
-if(NOT Embree_DIR AND DEFINED ENV{EMBREE_ROOT})
-  file(GLOB _embree_configs
-    "$ENV{EMBREE_ROOT}/lib/cmake/embree*/embree-config.cmake"
-    "$ENV{EMBREE_ROOT}/lib/cmake/embree*/EmbreeConfig.cmake"
-  )
-  if(_embree_configs)
-    list(GET _embree_configs 0 _embree_config_path)
-    get_filename_component(_embree_dir "${_embree_config_path}" DIRECTORY)
-    set(Embree_DIR "${_embree_dir}" CACHE PATH "Path to Embree config" FORCE)
-    set(embree_DIR "${_embree_dir}" CACHE PATH "Path to Embree config (lowercase)" FORCE)
-  else()
-    list(APPEND CMAKE_PREFIX_PATH "$ENV{EMBREE_ROOT}")
-  endif()
+if(DEFINED ENV{EMBREE_ROOT})
+  list(APPEND CMAKE_PREFIX_PATH "$ENV{EMBREE_ROOT}")
+  list(APPEND CMAKE_PREFIX_PATH "$ENV{EMBREE_ROOT}/lib/cmake")
 endif()
 
-set(_embree_search_paths "")
 if(Embree_DIR)
   message(STATUS "Using Embree_DIR: ${Embree_DIR}")
-  list(APPEND _embree_search_paths "${Embree_DIR}")
+  list(APPEND CMAKE_PREFIX_PATH "${Embree_DIR}")
 endif()
-if(embree_DIR)
-  list(APPEND _embree_search_paths "${embree_DIR}")
-endif()
-if(DEFINED ENV{EMBREE_ROOT})
-  list(APPEND _embree_search_paths "$ENV{EMBREE_ROOT}")
-  list(APPEND _embree_search_paths "$ENV{EMBREE_ROOT}/lib/cmake")
-endif()
-list(REMOVE_DUPLICATES _embree_search_paths)
 
-if(_embree_search_paths)
-  find_package(embree 4.0 CONFIG REQUIRED PATHS ${_embree_search_paths} NO_DEFAULT_PATH)
-else()
-  find_package(embree 4.0 CONFIG REQUIRED)
-endif()
+find_package(embree 4.0 CONFIG REQUIRED)
 
 cmake_policy(POP)
 
@@ -62,10 +43,22 @@ pybind11_add_module(${BINDINGS}
     ${SRC_DIR}/rays.cpp
 )
 
+# Resolve Embree imported target
+set(_embree_target "")
+if(TARGET embree)
+  set(_embree_target embree)
+elseif(TARGET Embree::Embree)
+  set(_embree_target Embree::Embree)
+endif()
+
+if(NOT _embree_target)
+  message(FATAL_ERROR "Embree imported target not found after find_package")
+endif()
+
 # Link libraries
 target_link_libraries(${BINDINGS}
     PRIVATE
-      embree
+      ${_embree_target}
       pybind11::module
       Eigen3::Eigen
 )
