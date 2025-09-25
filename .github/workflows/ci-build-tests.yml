@@ -42,13 +42,19 @@ jobs:
           curl -L -o "$ARCHIVE" "https://github.com/embree/embree/releases/download/v${EMBREE_VERSION}/embree-${EMBREE_VERSION}.x86_64.linux.tar.gz"
           tar -xzf "$ARCHIVE" -C "$RUNNER_TEMP"
           EMBREE_ROOT="$RUNNER_TEMP/embree-${EMBREE_VERSION}.x86_64.linux"
-          echo "EMBREE_ROOT=$EMBREE_ROOT" >> "$GITHUB_ENV"
-          EMBREE_CMAKE_DIR="${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}"
-          echo "embree_DIR=$EMBREE_CMAKE_DIR" >> "$GITHUB_ENV"
-          echo "Embree_DIR=$EMBREE_CMAKE_DIR" >> "$GITHUB_ENV"
-          echo "CMAKE_ARGS=-Dembree_DIR=$EMBREE_CMAKE_DIR -DEmbree_DIR=$EMBREE_CMAKE_DIR -DEMBREE_ROOT=${EMBREE_ROOT}" >> "$GITHUB_ENV"
-          echo "CMAKE_PREFIX_PATH=${EMBREE_ROOT}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}" >> "$GITHUB_ENV"
-          echo "LD_LIBRARY_PATH=${EMBREE_ROOT}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" >> "$GITHUB_ENV"
+          CONFIG_PATH="${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}/embree-config.cmake"
+          if [ ! -f "$CONFIG_PATH" ]; then
+            echo "Embree config not found at $CONFIG_PATH" >&2
+            find "$EMBREE_ROOT" -maxdepth 4 -name 'embree-config.cmake'
+            exit 1
+          fi
+          echo "Found Embree config at $CONFIG_PATH"
+          sudo mkdir -p /usr/local/include /usr/local/lib/cmake
+          sudo cp -r "${EMBREE_ROOT}/include/." /usr/local/include/
+          sudo cp -r "${EMBREE_ROOT}/lib/." /usr/local/lib/
+          sudo cp -r "${EMBREE_ROOT}/lib/cmake/." /usr/local/lib/cmake/
+          sudo ldconfig
+          ls -R /usr/local/lib/cmake | grep -m 5 embree || true
 
       - name: Acquire Embree (macOS)
         if: runner.os == 'macOS'

@@ -1,54 +1,8 @@
 set(BINDINGS py_embree_solar)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cpp/)
 
-# Embree discovery (supports CI-provided paths without breaking local installs)
-cmake_policy(PUSH)
-if(POLICY CMP0144)
-  cmake_policy(SET CMP0144 NEW)
-endif()
-
-if(NOT embree_DIR AND DEFINED ENV{embree_DIR})
-  set(embree_DIR "$ENV{embree_DIR}" CACHE PATH "Embree config dir (lowercase)" FORCE)
-endif()
-
-if(NOT Embree_DIR AND DEFINED ENV{Embree_DIR})
-  set(Embree_DIR "$ENV{Embree_DIR}" CACHE PATH "Embree config dir" FORCE)
-endif()
-
-if(NOT embree_DIR AND Embree_DIR)
-  set(embree_DIR "${Embree_DIR}" CACHE PATH "Embree config dir (lowercase)" FORCE)
-elseif(NOT Embree_DIR AND embree_DIR)
-  set(Embree_DIR "${embree_DIR}" CACHE PATH "Embree config dir" FORCE)
-endif()
-
-if(NOT Embree_DIR AND DEFINED ENV{EMBREE_ROOT})
-  set(_embree_root "$ENV{EMBREE_ROOT}")
-  find_file(_embree_config
-    NAMES embree-config.cmake EmbreeConfig.cmake
-    PATHS
-      "${_embree_root}"
-      "${_embree_root}/lib"
-      "${_embree_root}/lib/cmake"
-    NO_DEFAULT_PATH
-  )
-  if(_embree_config)
-    get_filename_component(_embree_dir "${_embree_config}" DIRECTORY)
-    set(Embree_DIR "${_embree_dir}" CACHE PATH "Embree config dir" FORCE)
-    set(embree_DIR "${_embree_dir}" CACHE PATH "Embree config dir (lowercase)" FORCE)
-  else()
-    list(APPEND CMAKE_PREFIX_PATH "${_embree_root}")
-    list(APPEND CMAKE_PREFIX_PATH "${_embree_root}/lib/cmake")
-  endif()
-endif()
-
-if(Embree_DIR)
-  message(STATUS "Using Embree_DIR: ${Embree_DIR}")
-  list(APPEND CMAKE_PREFIX_PATH "${Embree_DIR}")
-endif()
-
-find_package(embree 4.0 CONFIG REQUIRED)
-
-cmake_policy(POP)
+# Embree is expected to be available on the system (e.g. installed under /usr/local)
+find_package(embree 4.0 REQUIRED CONFIG)
 
 # Build Python extension with pybind11
 pybind11_add_module(${BINDINGS}
