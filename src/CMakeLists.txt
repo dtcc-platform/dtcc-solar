@@ -7,15 +7,17 @@ if(POLICY CMP0144)
   cmake_policy(SET CMP0144 NEW)
 endif()
 
-if(NOT embree_DIR)
-  if(DEFINED ENV{embree_DIR})
-    set(embree_DIR "$ENV{embree_DIR}")
-  elseif(DEFINED ENV{Embree_DIR})
-    set(embree_DIR "$ENV{Embree_DIR}")
-  endif()
+if(NOT embree_DIR AND DEFINED ENV{embree_DIR})
+  set(embree_DIR "$ENV{embree_DIR}")
 endif()
 
-if(NOT embree_DIR AND DEFINED ENV{EMBREE_ROOT})
+if(NOT Embree_DIR AND DEFINED ENV{Embree_DIR})
+  set(Embree_DIR "$ENV{Embree_DIR}")
+elseif(NOT Embree_DIR AND embree_DIR)
+  set(Embree_DIR "${embree_DIR}")
+endif()
+
+if(NOT Embree_DIR AND DEFINED ENV{EMBREE_ROOT})
   file(GLOB _embree_configs
     "$ENV{EMBREE_ROOT}/lib/cmake/embree*/embree-config.cmake"
     "$ENV{EMBREE_ROOT}/lib/cmake/embree*/EmbreeConfig.cmake"
@@ -23,17 +25,18 @@ if(NOT embree_DIR AND DEFINED ENV{EMBREE_ROOT})
   if(_embree_configs)
     list(GET _embree_configs 0 _embree_config_path)
     get_filename_component(_embree_dir "${_embree_config_path}" DIRECTORY)
-    set(embree_DIR "${_embree_dir}" CACHE PATH "Path to Embree config" FORCE)
+    set(Embree_DIR "${_embree_dir}" CACHE PATH "Path to Embree config" FORCE)
+    set(embree_DIR "${_embree_dir}" CACHE PATH "Path to Embree config (lowercase)" FORCE)
   else()
     list(APPEND CMAKE_PREFIX_PATH "$ENV{EMBREE_ROOT}")
   endif()
 endif()
 
-if(embree_DIR)
-  message(STATUS "Using embree_DIR: ${embree_DIR}")
+if(Embree_DIR)
+  message(STATUS "Using Embree_DIR: ${Embree_DIR}")
 endif()
 
-find_package(embree 4.0 REQUIRED CONFIG)
+find_package(Embree 4.0 REQUIRED CONFIG)
 
 cmake_policy(POP)
 
