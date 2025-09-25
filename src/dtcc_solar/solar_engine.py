@@ -1,19 +1,15 @@
 import math
 import numpy as np
 from pprint import pp
-from dtcc_solar.utils import SolarParameters, calc_face_areas, concatenate_meshes
 from dtcc_solar import py_embree_solar as embree
-from dtcc_solar.utils import SunCollection, OutputCollection, SkyType, plot_matrix
-from dtcc_solar.utils import Rays, SunMapping, split_mesh_by_face_mask
+from dtcc_solar.utils import SolarParameters, concatenate_meshes
+from dtcc_solar.utils import OutputCollection, SkyType
+from dtcc_solar.utils import Rays, split_mesh_by_face_mask, AnalysisType
 from dtcc_solar.skydome import Skydome
 from dtcc_solar.sunpath import Sunpath
-from dtcc_core.model import Mesh, PointCloud
-from dtcc_core.model import Bounds
 from dtcc_solar.logging import info, debug, warning, error
-from dtcc_viewer import Window, Scene
-from dtcc_solar.viewer import Viewer
-from dtcc_solar.perez import calc_2_phase_matrix, calc_3_phase_matrices
-import matplotlib.pyplot as plt
+from dtcc_solar.perez import calc_2_phase_matrices, calc_3_phase_matrices
+from dtcc_core.model import Mesh, Bounds
 
 
 class SolarEngine:
@@ -191,14 +187,25 @@ class SolarEngine:
 
         self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
-    def run_2_phase_analysis(self, sunp: Sunpath, skyd: Skydome, p: SolarParameters):
+    def run_analysis(
+        self, sunp: Sunpath, skyd: Skydome, p: SolarParameters
+    ) -> OutputCollection:
 
-        (sky_res, sun_res) = calc_2_phase_matrix(sunp, skyd, p.sun_mapping)
+        if p.analysis_type == AnalysisType.TWO_PHASE:
+            return self.run_2_phase_analysis(sunp, skyd, p)
+        elif p.analysis_type == AnalysisType.THREE_PHASE:
+            return self.run_3_phase_analysis(sunp, skyd, p)
+
+    def run_2_phase_analysis(
+        self, sunpath: Sunpath, skydome: Skydome, p: SolarParameters
+    ) -> OutputCollection:
+
+        (sky_res, sun_res) = calc_2_phase_matrices(sunpath, skydome, p.sun_mapping)
 
         matrix = sun_res.matrix + sky_res.matrix
 
-        ray_dirs = np.array(skyd.ray_dirs)
-        solid_angles = np.array(skyd.solid_angles)
+        ray_dirs = np.array(skydome.ray_dirs)
+        solid_angles = np.array(skydome.solid_angles)
 
         info("-----------------------------------------------------")
         info(f"Creating Embree instance and running analysis...")
@@ -215,35 +222,35 @@ class SolarEngine:
         self.embree.run_2_phase_analysis(matrix)
 
         vis_vec = self.embree.get_visibility_vector_tot()
-        prj_vec = self.embree.get_projection_vector_tot()
         irr_vec = self.embree.get_irradiance_vector_tot()
 
+        sky_view_factor = vis_vec / skydome.patch_counter
         irr_vec = irr_vec * 0.001  # Convert to kWh/m2
 
-        dict_data = {
-            "irradiance [kWh/m2]": irr_vec,
-            "visibility": vis_vec,
-            "projection": prj_vec,
-        }
+        outc = OutputCollection(
+            mesh=self.mesh,
+            shading_mesh=self.shading_mesh,
+            data_mask=self.face_mask,
+            sky_results=sky_res,
+            sun_results=sun_res,
+            total_irradiance=irr_vec,
+        )
 
-        sun_pc = PointCloud(points=sunp.sunc.positions)
-        window = Window(1200, 800)
-        scene = Scene()
-        scene.add_mesh("Mesh", self.mesh, data=dict_data)
-        scene.add_pointcloud("Suns", sun_pc, 0.1)
-        window.render(scene)
+        return outc
 
-    def run_3_phase_analysis(self, sunp: Sunpath, skyd: Skydome, p: SolarParameters):
+    def run_3_phase_analysis(
+        self, sunpath: Sunpath, skydome: Skydome, p: SolarParameters
+    ) -> OutputCollection:
 
-        sky_res, sun_res = calc_3_phase_matrices(sunp, skyd)
+        sky_res, sun_res = calc_3_phase_matrices(sunpath, skydome)
 
         sky_matrix = sky_res.matrix
         sun_matrix = sun_res.matrix
 
-        sky_ray_dirs = np.array(skyd.ray_dirs)
-        sun_ray_dirs = np.array(sunp.sunc.sun_vecs)
-        sky_solid_angles = np.array(skyd.solid_angles)
-        sun_solid_angles = np.ones(sunp.sunc.count)
+        sky_ray_dirs = np.array(skydome.ray_dirs)
+        sun_ray_dirs = np.array(sunpath.sunc.sun_vecs)
+        sky_solid_angles = np.array(skydome.solid_angles)
+        sun_solid_angles = np.ones(sunpath.sunc.count)
 
         info("-----------------------------------------------------")
         info(f"Creating Embree instance and running analysis...")
@@ -262,35 +269,31 @@ class SolarEngine:
         self.embree.run_3_phase_analysis(sky_matrix, sun_matrix)
 
         sky_vis = self.embree.get_visibility_vector_sky()
-        sky_proj = self.embree.get_projection_vector_sky()
         sky_irr = self.embree.get_irradiance_vector_sky()
 
         sun_vis = self.embree.get_visibility_vector_sun()
-        sun_proj = self.embree.get_projection_vector_sun()
         sun_irr = self.embree.get_irradiance_vector_sun()
 
+        sky_view_factor = sky_vis / skydome.patch_counter
         sky_irr = sky_irr * 0.001  # Convert to kWh/m2
         sun_irr = sun_irr * 0.001  # Convert to kWh/m2
 
         tot_irr = sky_irr + sun_irr
 
-        dict_data = {
-            "total irradiance [kWh/m2]": tot_irr,
-            "sky irradiance [kWh/m2]": sky_irr,
-            "sky visibility": sky_vis,
-            "sky projection": sky_proj,
-            "sun irradiance [kWh/m2]": sun_irr,
-            "sun visibility": sun_vis,
-            "sun projection": sun_proj,
-        }
+        outc = OutputCollection(
+            mesh=self.mesh,
+            shading_mesh=self.shading_mesh,
+            data_mask=self.face_mask,
+            sky_results=sky_res,
+            sun_results=sun_res,
+            total_irradiance=tot_irr,
+            sky_irradiance=sky_irr,
+            sun_irradiance=sun_irr,
+            sun_hours=sun_vis,
+            sky_view_factor=sky_view_factor,
+        )
 
-        sun_pc = PointCloud(points=sunp.sunc.positions)
-
-        window = Window(1200, 800)
-        scene = Scene()
-        scene.add_mesh("Mesh", self.mesh, data=dict_data)
-        scene.add_pointcloud("Suns", sun_pc, 0.1)
-        window.render(scene)
+        return outc
 
     def check_2_phase_energy_balance(
         self,
@@ -427,8 +430,3 @@ class SolarEngine:
         info("-----------------------------------------------------")
 
         return valid_indices
-
-    def plot_matrices(self, vis_mat, tot_mat):
-
-        plot_matrix(vis_mat, cmap="gray")
-        plot_matrix(tot_mat, cmap="jet")

@@ -1,18 +1,15 @@
 import os
 import math
-import pytz
-import datetime
 import numpy as np
 import pandas as pd
+from pvlib import solarposition
 from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar import utils
-from dtcc_solar.utils import SunCollection, unitize
-from dtcc_solar.utils import SolarParameters, SunPathType, SunMapping
+from dtcc_solar.utils import SunCollection, SolarParameters, unitize
 from dtcc_solar.interpolate import Interpolator
-from pvlib import solarposition
 from dtcc_solar.utils import concatenate_meshes, hours_count
-from pandas import Timestamp, DatetimeIndex, DataFrame
 from dtcc_solar.logging import info, debug, warning, error
+from pandas import Timestamp, DatetimeIndex, DataFrame
 from pprint import pp
 
 

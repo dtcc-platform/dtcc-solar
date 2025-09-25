@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import math
 import pandas as pd
@@ -7,7 +8,7 @@ import json
 import fast_simplification as fs
 from enum import Enum, IntEnum
 from dataclasses import dataclass, field, fields
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from collections import defaultdict
 from dtcc_core.model import Mesh, LineString
 from csv import reader
@@ -17,20 +18,10 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 
 
-class ResultsType(Enum):
-    face_sun_angle = 1
-    occlusion = 2
-    irradiance_dn = 3
-    irradiance_dh = 4
-    irradiance_tot = 6
-    sky_view_factor = 8
-    sun_hours = 10
-    shadow_hours = 11
-
-
 class SkyType(IntEnum):
     TREGENZA_145 = 1
     REINHART_578 = 2
+    REINHART_2305 = 3
 
 
 class Rays(IntEnum):
@@ -58,6 +49,65 @@ class Vec3:
     x: float
     y: float
     z: float
+
+
+@dataclass
+class SolarParameters:
+    weather_file: str = "Undefined weather data file"
+    display: bool = True
+    sun_path_type: SunPathType = SunPathType.NORMAL
+    analysis_type: AnalysisType = AnalysisType.TWO_PHASE
+    sun_mapping: SunMapping = SunMapping.RADIANCE
+    start: Timestamp = field(default_factory=lambda: Timestamp("2019-01-01 00:00"))
+    end: Timestamp = field(default_factory=lambda: Timestamp("2020-01-01 00:00"))
+
+    def info_print(self) -> None:
+        info("-----------------------------------------------------")
+        info("Solar Parameters:")
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, Enum):
+                value = value.name  # use enum name instead of int
+            info(f"  {f.name:15}: {value}")
+        info("-----------------------------------------------------")
+
+    def __post_init__(self):
+        # Automatically print when object is created
+        self.info_print()
+
+
+@dataclass
+class SkyResults:
+    # Number of suns
+    count: int = 0
+    # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
+    matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 2D array of relative luminance F (unitless) per patch and timestep [n x t]
+    relative_luminance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 2D array of norm relative luminance F (unitless) per patch and timestep [n x t]
+    relative_lum_norm: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 2D array of absolute luminance L (W/m2/sr) per patch and timestep [n x t]
+    absolute_luminance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 1D array of solid angles (steradians) for each patch [n]
+    solid_angles: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Relative luminance term1 (unitless) for Perez model
+    rel_lum_term1: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Relative luminance term2 (unitless) for Perez model
+    rel_lum_term2: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Ksi angles (zenith angles in radians) for each patch and timestep
+    ksis: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Gamma angles (angle between sun and patch in radians) for each patch and timestep
+    gammas: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # DHI measurements ignored due to large sun zenith angle
+    ignored_dhi: float = 0.0
+
+
+@dataclass
+class SunResults:
+    # Number of suns
+    count: int = 0
+    # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
+    matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
 
 
 @dataclass
@@ -98,26 +148,26 @@ class SunCollection:
 
 @dataclass
 class OutputCollection:
-    # Date and time of the sunposition as a string in the format: 2020-10-23T12:00:00
-    datetime_strs: List[str] = field(default_factory=list)
-    # TimeStamp object with the same date and time
-    time_stamps: List[Timestamp] = field(default_factory=list)
-    # Angle between face normal an sun vector
-    face_sun_angles: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Value between 0-1 for each face to determine how much of the face is occluded by other faces for given sun positions
-    occlusion: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Percentage of the sky dome that is visible from the face
-    visible_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Results for face and each sky raytracing intersection
-    facehit_sky: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Value for each face between 0-1 to indicate how much of the sky is visible from the face. 0 = no sky, 1 = all sky
-    sky_view_factor: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Number of hours of direct sun per face
-    sun_hours: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Number of hours of shaded sun per face
-    shadow_hours: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Analysis mesh
+    mesh: Mesh = field(default_factory=lambda: Mesh())
+    # Shading mesh
+    shading_mesh: Optional[Mesh] = None
     # Data mask
     data_mask: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Sky results
+    sky_results: SkyResults = field(default_factory=lambda: SkyResults())
+    # Sun results
+    sun_results: SunResults = field(default_factory=lambda: SunResults())
+    # Total irradiance
+    total_irradiance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Sky diffuse irradiance
+    sky_irradiance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Sun direct irradiance
+    sun_irradiance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Sun hours
+    sun_hours: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Sky view factor
+    sky_view_factor: np.ndarray = field(default_factory=lambda: np.empty(0))
 
     def info_print(self) -> None:
         info("-----------------------------------------------------")
@@ -128,34 +178,11 @@ class OutputCollection:
                 info(f"  {f.name:15}: array shape={value.shape}, dtype={value.dtype}")
             elif isinstance(value, list):
                 info(f"  {f.name:15}: list length={len(value)}")
+            elif value is None:
+                info(f"  {f.name:15}: None")
             else:
-                info(f"  {f.name:15}: {value}")
+                info(f"  {f.name:15}: {type(value).__name__}")
         info("-----------------------------------------------------")
-
-
-@dataclass
-class SolarParameters:
-    weather_file: str = "Undefined weather data file"
-    display: bool = True
-    sun_path_type: SunPathType = SunPathType.NORMAL
-    analysis_type: AnalysisType = AnalysisType.TWO_PHASE
-    sun_mapping: SunMapping = SunMapping.RADIANCE
-    start: Timestamp = field(default_factory=lambda: Timestamp("2019-01-01 00:00"))
-    end: Timestamp = field(default_factory=lambda: Timestamp("2020-01-01 00:00"))
-
-    def info_print(self) -> None:
-        info("-----------------------------------------------------")
-        info("Solar Parameters:")
-        for f in fields(self):
-            value = getattr(self, f.name)
-            if isinstance(value, Enum):
-                value = value.name  # use enum name instead of int
-            info(f"  {f.name:15}: {value}")
-        info("-----------------------------------------------------")
-
-    def __post_init__(self):
-        # Automatically print when object is created
-        self.info_print()
 
 
 def hours_count(start: pd.Timestamp, end: pd.Timestamp) -> int:
@@ -164,40 +191,6 @@ def hours_count(start: pd.Timestamp, end: pd.Timestamp) -> int:
         raise ValueError("Start time must be before end time.")
     delta = end - start
     return int(delta.total_seconds() / 3600)
-
-
-@dataclass
-class SkyResults:
-    # Number of suns
-    count: int = 0
-    # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
-    matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # 2D array of relative luminance F (unitless) per patch and timestep [n x t]
-    relative_luminance: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # 2D array of norm relative luminance F (unitless) per patch and timestep [n x t]
-    relative_lum_norm: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # 2D array of absolute luminance L (W/m2/sr) per patch and timestep [n x t]
-    absolute_luminance: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # 1D array of solid angles (steradians) for each patch [n]
-    solid_angles: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Relative luminance term1 (unitless) for Perez model
-    rel_lum_term1: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Relative luminance term2 (unitless) for Perez model
-    rel_lum_term2: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Ksi angles (zenith angles in radians) for each patch and timestep
-    ksis: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # Gamma angles (angle between sun and patch in radians) for each patch and timestep
-    gammas: np.ndarray = field(default_factory=lambda: np.empty(0))
-    # DHI measurements ignored due to large sun zenith angle
-    ignored_dhi: float = 0.0
-
-
-@dataclass
-class SunResults:
-    # Number of suns
-    count: int = 0
-    # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
-    matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
 
 
 def dict_2_np_array(sun_pos_dict):
@@ -257,22 +250,57 @@ def calc_face_incircle(mesh: Mesh):
     return np.array(center), np.array(radius)
 
 
+def calc_face_normals(mesh):
+    """
+    Compute unit normal vectors for each face in the mesh.
+
+    Parameters:
+        mesh: An object with `vertices` (N x 3) and `faces` (M x 3) arrays.
+
+    Returns:
+        normals: (M x 3) array of unit normal vectors.
+    """
+    v0 = mesh.vertices[mesh.faces[:, 0]]
+    v1 = mesh.vertices[mesh.faces[:, 1]]
+    v2 = mesh.vertices[mesh.faces[:, 2]]
+
+    # Compute vectors for two edges of each triangle
+    edge1 = v1 - v0
+    edge2 = v2 - v0
+
+    # Compute cross product to get face normals
+    normals = np.cross(edge1, edge2)
+
+    # Normalize each normal vector to unit length
+    norms = np.linalg.norm(normals, axis=1, keepdims=True)
+    normals = normals / np.where(norms == 0, 1, norms)  # Prevent division by zero
+
+    return normals
+
+
+def calc_face_areas(mesh: Mesh) -> np.ndarray:
+    """Calculate the area of each face in the mesh."""
+    areas = np.zeros(mesh.num_faces)
+    for i, face in enumerate(mesh.faces):
+        v0, v1, v2 = (
+            mesh.vertices[face[0]],
+            mesh.vertices[face[1]],
+            mesh.vertices[face[2]],
+        )
+        u = v1 - v0
+        v = v2 - v0
+        cross_product = np.cross(u, v)
+        area = 0.5 * np.linalg.norm(cross_product)
+        areas[i] = area
+    return areas
+
+
 def create_list_of_vec3(x_list, y_list, z_list) -> List[Vec3]:
     vec_list = []
     for i in range(0, len(x_list)):
         vec = Vec3(x=x_list[i], y=y_list[i], z=z_list[i])
         vec_list.append(vec)
     return vec_list
-
-
-def get_sun_vecs_from_sun_pos(sunPosList, origin):
-    sunVecs = []
-    for i in range(0, len(sunPosList)):
-        sunPos = sunPosList[i]
-        sunVec = origin - sunPos
-        sunVecNorm = unitize(sunVec)
-        sunVecs.append(sunVecNorm)
-    return sunVecs
 
 
 def unitize(vec: np.ndarray):
@@ -449,23 +477,6 @@ def find_dup_vertices(mesh: Mesh) -> List[int]:
     return duplicate_vertices
 
 
-def calc_face_areas(mesh: Mesh) -> np.ndarray:
-    """Calculate the area of each face in the mesh."""
-    areas = np.zeros(mesh.num_faces)
-    for i, face in enumerate(mesh.faces):
-        v0, v1, v2 = (
-            mesh.vertices[face[0]],
-            mesh.vertices[face[1]],
-            mesh.vertices[face[2]],
-        )
-        u = v1 - v0
-        v = v2 - v0
-        cross_product = np.cross(u, v)
-        area = 0.5 * np.linalg.norm(cross_product)
-        areas[i] = area
-    return areas
-
-
 def export_results(solpos):
     with open("sunpath.txt", "w") as f:
         for item in solpos["zenith"].values:
@@ -570,14 +581,63 @@ def create_ls_circle(center, radius, num_segments):
     return circle_ls
 
 
-def plot_matrix(matrix: np.ndarray, cmap: str = "gray"):
-    # Flip so the largest dimension is along x-axis
-    if matrix.shape[0] > matrix.shape[1]:
-        matrix = matrix.T
+def export_guid_and_results_to_json(
+    mesh: Mesh, p: SolarParameters, outputc: OutputCollection, filename
+):
+    """Export a mesh and its associated data to a JSON file."""
 
-    plt.imshow(matrix, cmap=cmap, vmin=0, vmax=1, aspect="auto")
-    plt.colorbar(label="Value")
-    plt.title("Matrix in grayscale")
-    plt.xlabel("X (largest dimension)")
-    plt.ylabel("Y")
-    plt.show()
+    info(f"Exporting mesh to {filename}")
+
+    svf = outputc.sky_view_factor[outputc.data_mask]
+    sun_hours = outputc.sun_hours[outputc.data_mask]
+    direct = outputc.dni[outputc.data_mask] / 1000.0
+    diffuse = outputc.dhi[outputc.data_mask] / 1000.0
+
+    face_mpts = np.mean(mesh.vertices[mesh.faces], axis=1)
+    face_normals = calc_face_normals(mesh)
+
+    guid_mpt = [f"{{{', '.join(f'{val:.4f}' for val in row)}}}" for row in face_mpts]
+
+    guid_nrl = [f"{{{', '.join(f'{val:.4f}' for val in row)}}}" for row in face_normals]
+
+    guid_combined = [f"{a},{b}" for a, b in zip(guid_mpt, guid_nrl)]
+
+    face_count = len(mesh.faces)
+
+    # Ensure the length of data lists matches the number of faces
+    assert len(svf) == face_count
+    assert len(sun_hours) == face_count
+    assert len(direct) == face_count
+    assert len(diffuse) == face_count
+
+    parameters = {
+        "file_name": p.file_name,
+        "sun_analysis": p.sun_analysis,
+        "sky_analysis": p.sky_analysis,
+        "sun_approx": p.sun_approx,
+        "start_date": p.start_date,
+        "end_date": p.end_date,
+        "data_source": p.data_source,
+        "latitude": p.latitude,
+        "longitude": p.longitude,
+        "data_source": p.data_source,
+        "weather_data": p.weather_file,
+    }
+
+    # Create the structure to hold the mesh data
+    results_data = {
+        "GUID": guid_combined,
+        "SkyViewFactor": svf.tolist(),
+        "SunHours": sun_hours.tolist(),
+        "DirectIrradiation": direct.tolist(),
+        "DiffuseIrradiation": diffuse.tolist(),
+        "Parameters": parameters,
+    }
+
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+    # Write the data to a JSON file
+    with open(filename, "w") as json_file:
+        json.dump(results_data, json_file, indent=4)
+
+    info(f"Results exported successfully")
