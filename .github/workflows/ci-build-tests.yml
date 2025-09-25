@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]#, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     env:
       PYTHON_VERSION: "3.11"
       DTCC_DATA_ROOT: ${{ github.workspace }}/data
@@ -97,16 +97,11 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile $archive
           Expand-Archive -Path $archive -DestinationPath $env:RUNNER_TEMP
           $embreeRoot = Join-Path $env:RUNNER_TEMP ("embree-" + $env:EMBREE_VERSION + ".x64.vc17.windows")
-          Add-Content $env:GITHUB_ENV "EMBREE_ROOT=$embreeRoot"
-          Add-Content $env:GITHUB_ENV "embree_DIR=$embreeRoot\lib\cmake\embree-$($env:EMBREE_VERSION)"
-          Add-Content $env:GITHUB_ENV "CMAKE_ARGS=-Dembree_DIR=$embreeRoot\lib\cmake\embree-$($env:EMBREE_VERSION) -DEMBREE_ROOT=$embreeRoot"
-          $existingPrefix = $env:CMAKE_PREFIX_PATH
-          if ([string]::IsNullOrEmpty($existingPrefix)) {
-            Add-Content $env:GITHUB_ENV "CMAKE_PREFIX_PATH=$embreeRoot"
-          } else {
-            Add-Content $env:GITHUB_ENV ("CMAKE_PREFIX_PATH=$embreeRoot;$existingPrefix")
-          }
-          Add-Content $env:GITHUB_ENV "PATH=$embreeRoot\bin;$env:PATH"
+          New-Item -ItemType Directory -Path 'C:\Program Files\Embree' -Force | Out-Null
+          Copy-Item -Path (Join-Path $embreeRoot 'include') -Destination 'C:\Program Files\Embree\include' -Recurse -Force
+          Copy-Item -Path (Join-Path $embreeRoot 'lib') -Destination 'C:\Program Files\Embree\lib' -Recurse -Force
+          Copy-Item -Path (Join-Path $embreeRoot 'lib\cmake') -Destination 'C:\Program Files\Embree\lib\cmake' -Recurse -Force
+          Add-Content $env:GITHUB_PATH 'C:\Program Files\Embree\bin'
 
       - name: Install Eigen (Linux)
         if: runner.os == 'Linux'
@@ -152,13 +147,20 @@ jobs:
             throw "Eigen directory not found at $eigenRoot"
           }
           $cmakeDir = Join-Path $eigenRoot 'cmake'
-          Add-Content $env:GITHUB_ENV "Eigen3_DIR=$cmakeDir"
-          $existing = $env:CMAKE_ARGS
-          if ([string]::IsNullOrEmpty($existing)) {
-            Add-Content $env:GITHUB_ENV "CMAKE_ARGS=-DEigen3_DIR=$cmakeDir"
-          } else {
-            Add-Content $env:GITHUB_ENV ("CMAKE_ARGS=" + $existing + " -DEigen3_DIR=" + $cmakeDir)
-          }
+          New-Item -ItemType Directory -Path 'C:\Program Files\Eigen3' -Force | Out-Null
+          Copy-Item -Path $eigenRoot -Destination 'C:\Program Files\Eigen3' -Recurse -Force
+          Add-Content $env:GITHUB_ENV 'Eigen3_DIR=C:\Program Files\Eigen3\cmake'
+
+      - name: Use macOS CI CMake configuration
+        if: runner.os == 'macOS'
+        run: |
+          cp CMakeLists.macos.ci CMakeLists.txt
+
+      - name: Use Windows CI CMake configuration
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item -Path CMakeLists.windows.ci -Destination CMakeLists.txt -Force
 
       - name: Install project
         run: |
