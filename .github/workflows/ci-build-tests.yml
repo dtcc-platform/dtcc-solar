@@ -51,24 +51,9 @@ jobs:
             exit 1
           fi
           EMBREE_DIR=$(dirname "$EMBREE_CONFIG")
-          export EMBREE_CONFIG
           echo "embree_DIR=$EMBREE_DIR" >> "$GITHUB_ENV"
           echo "CMAKE_ARGS=-Dembree_DIR=$EMBREE_DIR" >> "$GITHUB_ENV"
-          LIB_DIR=$(EMBREE_CONFIG="$EMBREE_CONFIG" python - <<'PY'
-            from pathlib import Path
-            import os
-
-            config = Path(os.environ['EMBREE_CONFIG']).resolve()
-            base = config.parents[1]
-            for name in ('lib', 'lib64'):
-                cand = base / name
-                if cand.exists():
-                    print(cand)
-                    break
-            else:
-                print(base)
-PY
-          )
+          LIB_DIR=$(cd "$(dirname "$EMBREE_CONFIG")/../.." && pwd)
           if [ -d "$LIB_DIR" ]; then
             if [ "${{ runner.os }}" = "Linux" ]; then
               echo "LD_LIBRARY_PATH=$LIB_DIR:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
