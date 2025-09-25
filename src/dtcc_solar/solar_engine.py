@@ -241,6 +241,7 @@ class SolarEngine:
             sky_results=sky_res,
             sun_results=sun_res,
             total_irradiance=irr_vec,
+            sky_view_factor=sky_view_factor,
         )
 
         return outc

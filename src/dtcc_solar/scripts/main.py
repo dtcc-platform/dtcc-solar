@@ -200,7 +200,9 @@ def analyse_mesh_1():
     sunpath = Sunpath(p, engine.sunpath_radius)
 
     output = engine.run_analysis(sunpath, skydome, p)
-    output.info_print()
+
+    export_path = "../../../data/validation/export_test.json"
+    export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)
 
 
@@ -228,7 +230,6 @@ def analyse_mesh_2():
     sunpath = Sunpath(p, engine.sunpath_radius)
 
     output = engine.run_analysis(sunpath, skydome, p)
-    output.info_print()
     viewer = Viewer(output, skydome, sunpath, p)
 
 
@@ -257,7 +258,6 @@ def analyse_mesh_3():
     sunpath = Sunpath(p, engine.sunpath_radius)
 
     output = engine.run_analysis(sunpath, skydome, p)
-    output.info_print()
     viewer = Viewer(output, skydome, sunpath, p)
 
 
