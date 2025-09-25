@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-import dtcc
+#import dtcc
 from dtcc_core import io as io
 
 from dtcc_solar.utils import *
@@ -228,7 +228,8 @@ def skydome_m4_test():
 def analyse_mesh_1():
     # filename = "../../../data/validation/boxes_sharp_f5248.obj"
     # filename = "../../../data/validation/boxes_soft_f5248.obj"
-    filename = data_file("models", "City136kSoft.stl")
+    # filename = data_file("models", "City136kSoft.stl")
+    filename = data_file("validation", "boxes_soft_f5248.obj")
     mesh = io.load_mesh(str(filename))
     engine = SolarEngine(mesh)
 
@@ -244,7 +245,7 @@ def analyse_mesh_1():
     )
 
     # Setup model, run analysis and view results
-    skydome = ReinhartM4()
+    skydome = Tregenza()
     sunpath = Sunpath(p, engine.sunpath_radius)
     engine.run_2_phase_analysis(sunpath, skydome, p)
 
