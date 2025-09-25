@@ -3,9 +3,7 @@ import math
 from typing import List
 from abc import ABC, abstractmethod
 from dtcc_core.model import Mesh, MultiLineString
-from dtcc_viewer import Scene, Window
-from dtcc_core.model import Mesh, LineString, MultiLineString, PointCloud
-from dtcc_solar.utils import create_ls_circle
+from dtcc_core.model import Mesh, LineString, MultiLineString
 
 
 class Skydome(ABC):
@@ -128,18 +126,3 @@ class Skydome(ABC):
 
     def calc_sphere_patch_area(self, elev1, elev2, azim1, azim2) -> float:
         return (self.r**2) * abs((azim2 - azim1) * (math.sin(elev2) - math.sin(elev1)))
-
-    def view(self, name: str, data_dict=None, sun_pos_pc: PointCloud = None) -> None:
-
-        mapped_data_dict = None
-        if data_dict is not None and isinstance(data_dict, dict):
-            mapped_data_dict = self.map_dict_data_to_faces(data_dict)
-
-        ls_cirlce = create_ls_circle(np.array([0, 0, 0]), self.r * 2, 100)
-        window = Window(1200, 800)
-        scene = Scene()
-        scene.add_mesh(name, self.mesh, data=mapped_data_dict)
-        scene.add_pointcloud("Patch centers", np.array(self.ray_dirs), size=0.01)
-        scene.add_pointcloud("Sun positions", sun_pos_pc, size=0.01)
-        scene.add_linestring("Skydome circle", ls_cirlce)
-        window.render(scene)

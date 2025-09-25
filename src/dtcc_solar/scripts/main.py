@@ -8,7 +8,7 @@ from dtcc_core.model import PointCloud, Mesh
 from dtcc_solar.utils import *
 from dtcc_solar.solar_engine import SolarEngine
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.viewer import Viewer
+from dtcc_solar.viewer import Viewer, SkydomeViewer
 from dtcc_solar.logging import set_log_level, info, debug, warning, error
 from dtcc_solar.tregenza import Tregenza
 from dtcc_solar.reinhart2 import ReinhartM2
@@ -102,7 +102,7 @@ def only_perez_test():
     }
 
     sun_pc = PointCloud(points=sunpath.sunc.positions)
-    skydome.view(name="Skydome", data_dict=face_data_dict, sun_pos_pc=sun_pc)
+    viewer = SkydomeViewer(skydome, face_data_dict, sun_pc)
 
 
 def radiance_test():
@@ -293,9 +293,9 @@ if __name__ == "__main__":
     set_log_level("INFO")
     info("#################### DTCC-SOLAR #####################")
 
-    only_perez_test()
+    # only_perez_test()
     # radiance_test()
-    # analyse_mesh_1()
+    analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
     # analyse_mesh_4()
