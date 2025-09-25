@@ -37,15 +37,24 @@ if(NOT WIN32)
   include(cmake/clang-cxx-dev-tools.cmake)
 endif()
 
-# Find pybind11
+# Resolve the Python interpreter that drives the build (scikit-build passes this in)
+find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
+
+# Find pybind11 using the active Python environment to avoid version mismatches
 execute_process(
-  COMMAND python -c "import site; print([s for s in site.getsitepackages() if 'site-packages' in s][0])"
-  OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
+  COMMAND "${Python3_EXECUTABLE}" -c "import pybind11, sys; sys.stdout.write(pybind11.get_cmake_dir())"
+  OUTPUT_VARIABLE pybind11_DIR
   OUTPUT_STRIP_TRAILING_WHITESPACE
+  RESULT_VARIABLE PYBIND11_RESULT
 )
-set(pybind11_DIR ${PYTHON_SITE_PACKAGES}/pybind11/share/cmake/pybind11)
-message("Pybind11 DIR ${pybind11_DIR}")
-find_package(pybind11 REQUIRED)
+
+if(NOT PYBIND11_RESULT EQUAL 0)
+  message(FATAL_ERROR "pybind11 is required but could not be imported with ${Python3_EXECUTABLE}")
+endif()
+
+message(STATUS "pybind11 directory: ${pybind11_DIR}")
+set(pybind11_DIR "${pybind11_DIR}" CACHE PATH "Path to pybind11 CMake files")
+find_package(pybind11 CONFIG REQUIRED)
 
 # Find Eigen
 #find_path(EIGEN3_INCLUDE_DIR Eigen/Dense PATHS /opt/homebrew/include/eigen3)
@@ -62,10 +71,10 @@ get_target_property(EIGEN_INCLUDES Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
 message(STATUS "Eigen include dirs: ${EIGEN_INCLUDES}")
 
 
-# Find OpenMP
-if(WIN32)
-  find_package(OpenMP)
-else()
+# Configure OpenMP discovery (platform specific hints first)
+#if(WIN32)
+#  find_package(OpenMP)
+if(APPLE)
   # macOS-specific OpenMP setup (assumes libomp via Homebrew)
   set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp")
   set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp")
@@ -73,15 +82,15 @@ else()
   set(OpenMP_CXX_LIB_NAMES "omp")
   set(OpenMP_omp_LIBRARY /opt/homebrew/opt/libomp/lib/libomp.dylib)
   set(OpenMP_INCLUDE_DIR /opt/homebrew/opt/libomp/include)
-  find_package(OpenMP REQUIRED)
 endif()
+
+find_package(OpenMP)
+
+set(EXTRA_LIBS "")
 
 if(OpenMP_FOUND)
   message(STATUS "OpenMP found. Enabling parallel support.")
-  include_directories(${OpenMP_INCLUDE_DIR})
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/opt/homebrew/opt/libomp/lib")
+  list(APPEND EXTRA_LIBS OpenMP::OpenMP_CXX)
 else()
   message(WARNING "OpenMP not found. Consider installing with 'brew install libomp'")
 endif()
