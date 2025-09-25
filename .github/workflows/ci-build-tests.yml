@@ -32,67 +32,45 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install wheel setuptools ninja pytest
 
-      - name: Fetch Embree source
+      - name: Acquire Embree (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euxo pipefail
-          git clone --depth 1 --branch "v${EMBREE_VERSION}" https://github.com/embree/embree.git "$RUNNER_TEMP/embree-src"
-          echo "EMBREE_SOURCE_DIR=$RUNNER_TEMP/embree-src" >> "$GITHUB_ENV"
+          ARCHIVE="$RUNNER_TEMP/embree.tar.gz"
+          curl -L -o "$ARCHIVE" "https://github.com/embree/embree/releases/download/v${EMBREE_VERSION}/embree-${EMBREE_VERSION}.x86_64.linux.tar.gz"
+          tar -xzf "$ARCHIVE" -C "$RUNNER_TEMP"
+          EMBREE_ROOT="$RUNNER_TEMP/embree-${EMBREE_VERSION}.x86_64.linux"
+          echo "embree_DIR=${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}" >> "$GITHUB_ENV"
+          echo "CMAKE_ARGS=-Dembree_DIR=${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=${EMBREE_ROOT}/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
-      - name: Build Embree (Unix)
-        if: runner.os != 'Windows'
+      - name: Acquire Embree (macOS)
+        if: runner.os == 'macOS'
         shell: bash
         run: |
           set -euxo pipefail
-          EMBREE_BUILD_DIR="$RUNNER_TEMP/embree-build"
-          EMBREE_INSTALL_DIR="$RUNNER_TEMP/embree-install"
-          cmake -S "$EMBREE_SOURCE_DIR" -B "$EMBREE_BUILD_DIR" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="$EMBREE_INSTALL_DIR" \
-            -DEMBREE_TUTORIALS=OFF \
-            -DEMBREE_ISPC_SUPPORT=OFF \
-            -DEMBREE_TASKING_SYSTEM=INTERNAL
-          cmake --build "$EMBREE_BUILD_DIR" --config Release --target install --parallel
-          EMBREE_CONFIG=$(find "$EMBREE_INSTALL_DIR" -name embree-config.cmake -print -quit)
-          if [ -z "$EMBREE_CONFIG" ]; then
-            echo "embree-config.cmake not found" >&2
-            exit 1
-          fi
-          EMBREE_DIR=$(dirname "$EMBREE_CONFIG")
-          echo "embree_DIR=$EMBREE_DIR" >> "$GITHUB_ENV"
-          echo "CMAKE_ARGS=-Dembree_DIR=$EMBREE_DIR" >> "$GITHUB_ENV"
-          LIB_DIR=$(cd "$(dirname "$EMBREE_CONFIG")/../.." && pwd)
-          if [ -d "$LIB_DIR" ]; then
-            if [ "${{ runner.os }}" = "Linux" ]; then
-              echo "LD_LIBRARY_PATH=$LIB_DIR:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
-            else
-              echo "DYLD_LIBRARY_PATH=$LIB_DIR:${DYLD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
-            fi
-          fi
+          ARCHIVE="$RUNNER_TEMP/embree.zip"
+          curl -L -o "$ARCHIVE" "https://github.com/embree/embree/releases/download/v${EMBREE_VERSION}/embree-${EMBREE_VERSION}.x86_64.macosx.zip"
+          unzip -q "$ARCHIVE" -d "$RUNNER_TEMP"
+          EMBREE_ROOT="$RUNNER_TEMP/embree-${EMBREE_VERSION}.x86_64.macosx"
+          echo "embree_DIR=${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}" >> "$GITHUB_ENV"
+          echo "CMAKE_ARGS=-Dembree_DIR=${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}" >> "$GITHUB_ENV"
+          echo "DYLD_LIBRARY_PATH=${EMBREE_ROOT}/lib:${DYLD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
-      - name: Build Embree (Windows)
+      - name: Acquire Embree (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $buildDir = Join-Path $env:RUNNER_TEMP 'embree-build'
-          $installDir = Join-Path $env:RUNNER_TEMP 'embree-install'
-          cmake -S $env:EMBREE_SOURCE_DIR -B $buildDir -G "Visual Studio 17 2022" -A x64 `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_INSTALL_PREFIX=$installDir `
-            -DEMBREE_TUTORIALS=OFF `
-            -DEMBREE_ISPC_SUPPORT=OFF `
-            -DEMBREE_TASKING_SYSTEM=INTERNAL
-          cmake --build $buildDir --config Release --target INSTALL
-          $configPath = Get-ChildItem -Path $installDir -Filter 'embree-config.cmake' -Recurse | Select-Object -First 1
-          if (-not $configPath) { throw 'embree-config.cmake not found' }
-          $embreeDir = $configPath.Directory.FullName
-          Add-Content $env:GITHUB_ENV "embree_DIR=$embreeDir"
-          Add-Content $env:GITHUB_ENV "CMAKE_ARGS=-Dembree_DIR=$embreeDir"
-          $dllDir = $configPath.Directory.Parent.Parent.FullName + '\\bin'
-          if (Test-Path $dllDir) {
-            Add-Content $env:GITHUB_ENV "PATH=$dllDir;$env:PATH"
-          }
+          $archive = Join-Path $env:RUNNER_TEMP 'embree.zip'
+          $url = "https://github.com/embree/embree/releases/download/v$($env:EMBREE_VERSION)/embree-$($env:EMBREE_VERSION).x64.vc17.windows.zip"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $env:RUNNER_TEMP
+          $embreeRoot = Join-Path $env:RUNNER_TEMP ("embree-" + $env:EMBREE_VERSION + ".x64.vc17.windows")
+          Add-Content $env:GITHUB_ENV "embree_DIR=$embreeRoot\lib\cmake\embree-$($env:EMBREE_VERSION)"
+          Add-Content $env:GITHUB_ENV "CMAKE_ARGS=-Dembree_DIR=$embreeRoot\lib\cmake\embree-$($env:EMBREE_VERSION)"
+          Add-Content $env:GITHUB_ENV "PATH=$embreeRoot\bin;$env:PATH"
 
       - name: Install project
         run: |
