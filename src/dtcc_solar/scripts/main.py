@@ -258,6 +258,9 @@ def analyse_mesh_3():
     sunpath = Sunpath(p, engine.sunpath_radius)
 
     output = engine.run_analysis(sunpath, skydome, p)
+
+    export_path = data_dir("validation") / "export_test.json"
+    export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)
 
 
@@ -298,7 +301,7 @@ if __name__ == "__main__":
 
     # only_perez_test()
     # radiance_test()
-    analyse_mesh_1()
+    # analyse_mesh_1()
     # analyse_mesh_2()
-    # analyse_mesh_3()
+    analyse_mesh_3()
     # analyse_mesh_4()
