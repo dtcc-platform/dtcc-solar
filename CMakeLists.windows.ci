@@ -26,6 +26,31 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
+# Help CMake locate third-party dependencies installed by the CI job
+set(_embree_prefix "C:/Program Files/Embree")
+if(DEFINED ENV{EMBREE_VERSION})
+  set(_embree_config "${_embree_prefix}/lib/cmake/embree-$ENV{EMBREE_VERSION}")
+  if(EXISTS "${_embree_config}/embree-config.cmake")
+    set(embree_DIR "${_embree_config}" CACHE PATH "Embree config directory" FORCE)
+    list(APPEND CMAKE_PREFIX_PATH "${_embree_config}")
+  endif()
+endif()
+list(APPEND CMAKE_PREFIX_PATH
+  "${_embree_prefix}"
+  "${_embree_prefix}/lib"
+  "${_embree_prefix}/lib/cmake"
+)
+
+set(_eigen_prefix "C:/Program Files/Eigen3")
+if(DEFINED ENV{EIGEN_VERSION})
+  set(_eigen_candidate "${_eigen_prefix}/eigen-$ENV{EIGEN_VERSION}")
+  if(EXISTS "${_eigen_candidate}/Eigen")
+    set(EIGEN3_INCLUDE_DIR "${_eigen_candidate}" CACHE PATH "Eigen include directory" FORCE)
+    list(APPEND CMAKE_PREFIX_PATH "${_eigen_candidate}" "${_eigen_candidate}/cmake")
+  endif()
+endif()
+list(APPEND CMAKE_PREFIX_PATH "${_eigen_prefix}" "${_eigen_prefix}/cmake")
+
 find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
 
 execute_process(
@@ -36,7 +61,11 @@ execute_process(
 set(pybind11_DIR "${pybind11_DIR}" CACHE PATH "Path to pybind11 CMake files")
 find_package(pybind11 CONFIG REQUIRED)
 
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+# Try config package first (preferred), fallback to the module helper bundled with CMake
+find_package(Eigen3 3.3 QUIET NO_MODULE)
+if(NOT Eigen3_FOUND)
+  find_package(Eigen3 3.3 REQUIRED)
+endif()
 
 find_package(OpenMP)
 if(OpenMP_FOUND)
