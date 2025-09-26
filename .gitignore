@@ -1,5 +1,6 @@
 build/
-
+embree/
+embree-build/
 .idea/
 .vscode/
 cmake-build-debug/
