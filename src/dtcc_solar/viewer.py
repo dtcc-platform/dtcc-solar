@@ -4,7 +4,7 @@ import numpy as np
 from dtcc_viewer import Scene, Window
 from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar.sunpath import Sunpath
-from dtcc_solar.utils import concatenate_meshes, SolarParameters
+from dtcc_solar.utils import concatenate_meshes, SolarParameters, create_ls_circle
 from dtcc_solar.utils import OutputCollection, AnalysisType, split_mesh_by_face_mask
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.skydome import Skydome
@@ -45,6 +45,7 @@ class Viewer:
     ):
         """Prepare the scene for viewing."""
 
+        sunpath.create_sunpath_geometry()
         data_dict = {}
         mask = output.data_mask
         r = sunpath.r
@@ -104,6 +105,45 @@ class Viewer:
         sun_pc = sunpath.sun_pc
         self.scene.add_mesh(name="day paths", mesh=day_paths)
         self.scene.add_pointcloud("suns", sun_pc, 0.5 * sunpath.w)
+
+    def show(self):
+        if self.has_display:
+            self.window.render(self.scene)
+
+
+class SkydomeViewer:
+    has_display: bool
+
+    def __init__(
+        self, skydome: Skydome, patch_data: dict, sun_pos_pc: PointCloud = None
+    ):
+        self.has_display = has_display()
+
+        if self.has_display:
+            self.window = Window(1200, 800)
+            self.scene = Scene()
+            self.prepare_scene(skydome, patch_data, sun_pos_pc)
+            self.show()
+        else:
+            self.has_display = False
+            info("No display detected -> can't show skydome.")
+
+        return
+
+    def prepare_scene(
+        self, skydome: Skydome, data_dict: dict, sun_pos_pc: PointCloud = None
+    ):
+        """Prepare the scene for viewing."""
+        mesh = skydome.mesh
+        mapped_data_dict = None
+        if data_dict is not None and isinstance(data_dict, dict):
+            mapped_data_dict = skydome.map_dict_data_to_faces(data_dict)
+
+        ls_cirlce = create_ls_circle(np.array([0, 0, 0]), skydome.r * 2, 100)
+        self.scene.add_mesh(name="Skydome", mesh=mesh, data=mapped_data_dict)
+        self.scene.add_linestring("Skydome circle", ls_cirlce)
+        if sun_pos_pc is not None:
+            self.scene.add_pointcloud("Sun positions", sun_pos_pc, size=0.01)
 
     def show(self):
         if self.has_display:

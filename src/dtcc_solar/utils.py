@@ -579,58 +579,68 @@ def create_ls_circle(center, radius, num_segments):
     return circle_ls
 
 
-def export_guid_and_results_to_json(
-    mesh: Mesh, p: SolarParameters, outputc: OutputCollection, filename
-):
+def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
     """Export a mesh and its associated data to a JSON file."""
 
-    info(f"Exporting mesh to {filename}")
+    info("-----------------------------------------------------")
+    info(f"Exporting to json:")
+    info(f"  path: {filename}")
+    mask = output.data_mask
+    analysis_mesh, shading_mesh = split_mesh_by_face_mask(output.mesh, mask)
 
-    svf = outputc.sky_view_factor[outputc.data_mask]
-    sun_hours = outputc.sun_hours[outputc.data_mask]
-    direct = outputc.dni[outputc.data_mask] / 1000.0
-    diffuse = outputc.dhi[outputc.data_mask] / 1000.0
-
-    face_mpts = np.mean(mesh.vertices[mesh.faces], axis=1)
-    face_normals = calc_face_normals(mesh)
+    face_mpts = np.mean(analysis_mesh.vertices[analysis_mesh.faces], axis=1)
+    face_normals = calc_face_normals(analysis_mesh)
 
     guid_mpt = [f"{{{', '.join(f'{val:.4f}' for val in row)}}}" for row in face_mpts]
-
     guid_nrl = [f"{{{', '.join(f'{val:.4f}' for val in row)}}}" for row in face_normals]
-
     guid_combined = [f"{a},{b}" for a, b in zip(guid_mpt, guid_nrl)]
 
-    face_count = len(mesh.faces)
-
-    # Ensure the length of data lists matches the number of faces
-    assert len(svf) == face_count
-    assert len(sun_hours) == face_count
-    assert len(direct) == face_count
-    assert len(diffuse) == face_count
+    face_count = len(analysis_mesh.faces)
 
     parameters = {
-        "file_name": p.file_name,
-        "sun_analysis": p.sun_analysis,
-        "sky_analysis": p.sky_analysis,
-        "sun_approx": p.sun_approx,
-        "start_date": p.start_date,
-        "end_date": p.end_date,
-        "data_source": p.data_source,
-        "latitude": p.latitude,
-        "longitude": p.longitude,
-        "data_source": p.data_source,
+        "analysis_type": p.analysis_type.name,
+        "sun_mapping": p.sun_mapping.name,
+        "start_date": str(p.start),
+        "end_date": str(p.end),
         "weather_data": p.weather_file,
     }
 
     # Create the structure to hold the mesh data
-    results_data = {
-        "GUID": guid_combined,
-        "SkyViewFactor": svf.tolist(),
-        "SunHours": sun_hours.tolist(),
-        "DirectIrradiation": direct.tolist(),
-        "DiffuseIrradiation": diffuse.tolist(),
-        "Parameters": parameters,
-    }
+    if p.analysis_type == AnalysisType.TWO_PHASE:
+        svf = output.sky_view_factor[mask]
+        total_irr = output.total_irradiance[mask]
+
+        assert len(svf) == face_count
+        assert len(total_irr) == face_count
+
+        results_data = {
+            "GUID": guid_combined,
+            "SkyViewFactor": svf.tolist(),
+            "TotalIrradiation": total_irr.tolist(),
+            "Parameters": parameters,
+        }
+    elif p.analysis_type == AnalysisType.THREE_PHASE:
+        svf = output.sky_view_factor[mask]
+        sun_hours = output.sun_hours[mask]
+        total_irr = output.total_irradiance[mask]
+        sky_irr = output.sky_irradiance[mask]
+        sun_irr = output.sun_irradiance[mask]
+
+        assert len(svf) == face_count
+        assert len(sun_hours) == face_count
+        assert len(total_irr) == face_count
+        assert len(sky_irr) == face_count
+        assert len(sun_irr) == face_count
+
+        results_data = {
+            "GUID": guid_combined,
+            "SkyViewFactor": svf.tolist(),
+            "SunHours": sun_hours.tolist(),
+            "TotalIrradiation": total_irr.tolist(),
+            "SkyIrradiation": sky_irr.tolist(),
+            "SunIrradiation": sun_irr.tolist(),
+            "Parameters": parameters,
+        }
 
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
@@ -638,4 +648,5 @@ def export_guid_and_results_to_json(
     with open(filename, "w") as json_file:
         json.dump(results_data, json_file, indent=4)
 
-    info(f"Results exported successfully")
+    info(f"  Results exported successfully")
+    info("-----------------------------------------------------")
