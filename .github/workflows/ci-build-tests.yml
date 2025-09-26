@@ -95,8 +95,23 @@ jobs:
           $archive = Join-Path $env:RUNNER_TEMP 'embree.zip'
           $url = "https://github.com/RenderKit/embree/releases/download/v$($env:EMBREE_VERSION)/embree-$($env:EMBREE_VERSION).x64.windows.zip"
           Invoke-WebRequest -Uri $url -OutFile $archive
-          Expand-Archive -Path $archive -DestinationPath $env:RUNNER_TEMP
-          $embreeRoot = Join-Path $env:RUNNER_TEMP ("embree-" + $env:EMBREE_VERSION + ".x64.windows")
+          $embreeExtractDir = Join-Path $env:RUNNER_TEMP ("embree-" + $env:EMBREE_VERSION + ".x64.windows")
+          if (Test-Path $embreeExtractDir) {
+            Remove-Item -Path $embreeExtractDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $embreeExtractDir -Force | Out-Null
+          Expand-Archive -Path $archive -DestinationPath $embreeExtractDir -Force
+          $embreeRoot = $embreeExtractDir
+          if (-not (Test-Path (Join-Path $embreeRoot 'include'))) {
+            $subdir = Get-ChildItem -Path $embreeExtractDir -Directory |
+              Where-Object { Test-Path (Join-Path $_.FullName 'include') } |
+              Select-Object -First 1
+            if ($subdir) {
+              $embreeRoot = $subdir.FullName
+            } else {
+              throw "Embree include directory not found under $embreeExtractDir"
+            }
+          }
           New-Item -ItemType Directory -Path 'C:\Program Files\Embree' -Force | Out-Null
           Copy-Item -Path (Join-Path $embreeRoot 'include') -Destination 'C:\Program Files\Embree\include' -Recurse -Force
           Copy-Item -Path (Join-Path $embreeRoot 'lib') -Destination 'C:\Program Files\Embree\lib' -Recurse -Force
