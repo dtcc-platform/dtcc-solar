@@ -303,5 +303,5 @@ if __name__ == "__main__":
     # radiance_test()
     # analyse_mesh_1()
     # analyse_mesh_2()
-    analyse_mesh_3()
-    # analyse_mesh_4()
+    # analyse_mesh_3()
+    analyse_mesh_4()

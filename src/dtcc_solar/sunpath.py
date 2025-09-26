@@ -4,12 +4,12 @@ import numpy as np
 import pandas as pd
 from pvlib import solarposition
 from dtcc_core.model import Mesh, PointCloud
-from dtcc_solar import utils
+
 from dtcc_solar.utils import SunCollection, SolarParameters, unitize
-from dtcc_solar.interpolate import Interpolator
-from dtcc_solar.utils import concatenate_meshes, hours_count
+from dtcc_solar.utils import concatenate_meshes, hours_count, create_list_of_vec3
 from dtcc_solar.logging import info, debug, warning, error
-from pandas import Timestamp, DatetimeIndex, DataFrame
+from dtcc_solar.interpolate import Interpolator
+from pandas import DatetimeIndex, DataFrame
 from pprint import pp
 
 
@@ -402,7 +402,7 @@ class Sunpath:
             y = r * np.cos(elev[h, :]) * np.cos(-azim[h, :]) + self.origin[1]
             z = r * np.sin(elev[h, :]) + self.origin[2]
 
-            sun_pos_dict[h] = utils.create_list_of_vec3(x, y, z)
+            sun_pos_dict[h] = create_list_of_vec3(x, y, z)
 
         return sun_pos_dict
 
@@ -446,7 +446,7 @@ class Sunpath:
             y = self.r * np.cos(elev[d, :]) * np.cos(-azim[d, :]) + self.origin[1]
             z = self.r * np.sin(elev[d, :]) + self.origin[2]
 
-            days_dict[d] = utils.create_list_of_vec3(x, y, z)
+            days_dict[d] = create_list_of_vec3(x, y, z)
 
         return days_dict
 

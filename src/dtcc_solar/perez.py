@@ -198,12 +198,11 @@ def calc_2_phase_matrices(
 
 
 def calc_3_phase_matrices(
-    sunpath: Sunpath,
-    skydome: Skydome,
+    sunpath: Sunpath, skydome: Skydome, p: SolarParameters
 ) -> tuple[SkyResults, SunResults]:
     sky_res = calc_sky_matrix(sunpath, skydome)
     sun_res = calc_sun_matrix_from_sunpath(sunpath)
-    calc_tot_error(sky_res, skydome, sun_res, sunpath)
+    calc_tot_error(sky_res, skydome, sun_res, sunpath, p.analysis_type)
 
     return sky_res, sun_res
 
