@@ -201,7 +201,7 @@ def analyse_mesh_1():
 
     output = engine.run_analysis(sunpath, skydome, p)
 
-    export_path = "../../../data/validation/export_test.json"
+    export_path = data_dir("validation") / "export_test.json"
     export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)
 
@@ -285,6 +285,9 @@ def analyse_mesh_4():
     sunpath = Sunpath(p, engine.sunpath_radius)
 
     output = engine.run_analysis(sunpath, skydome, p)
+
+    export_path = data_dir("validation") / "export_test.json"
+    export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)
 
 

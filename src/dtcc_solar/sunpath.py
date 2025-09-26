@@ -77,7 +77,6 @@ class Sunpath:
         p: SolarParameters,
         radius: float = 50,
         include_night: bool = False,
-        interpolate_df: bool = False,
     ):
         """
         Initializes the Sunpath object with given parameters.
@@ -110,18 +109,8 @@ class Sunpath:
         info(f"  DHI values count: {len(self.df['dhi'].values)}")
         info("-----------------------------------------------------")
 
-        # Reduce number of solar positions by interpolation
-        if interpolate_df:
-            interpolator = Interpolator(self.df)
-            self.df_original = self.df.copy()
-            self.df = interpolator.df_reduced
-
         self.sunc = self._create_sun_collection(self.df, include_night)
-
         self.sunc.info_print()
-
-        if p.display:
-            self._create_sunpath_mesh()
 
     # Create time stamps and retrieve irradiance data from EPW file
 
@@ -322,7 +311,7 @@ class Sunpath:
 
     # Create 3D geometry for sunpath visualization.
 
-    def _create_sunpath_mesh(self):
+    def create_sunpath_geometry(self):
         """Build sunpath mesh by combining analemmas and day paths."""
         self.w = self.r / 300
 

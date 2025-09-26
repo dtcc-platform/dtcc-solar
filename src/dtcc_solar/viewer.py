@@ -45,6 +45,7 @@ class Viewer:
     ):
         """Prepare the scene for viewing."""
 
+        sunpath.create_sunpath_geometry()
         data_dict = {}
         mask = output.data_mask
         r = sunpath.r

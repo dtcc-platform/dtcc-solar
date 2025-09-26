@@ -582,7 +582,9 @@ def create_ls_circle(center, radius, num_segments):
 def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
     """Export a mesh and its associated data to a JSON file."""
 
-    info(f"Exporting mesh to {filename}")
+    info("-----------------------------------------------------")
+    info(f"Exporting to json:")
+    info(f"  path: {filename}")
     mask = output.data_mask
     analysis_mesh, shading_mesh = split_mesh_by_face_mask(output.mesh, mask)
 
@@ -596,8 +598,8 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
     face_count = len(analysis_mesh.faces)
 
     parameters = {
-        "analysis_type": p.analysis_type,
-        "sun_mapping": p.sun_mapping,
+        "analysis_type": p.analysis_type.name,
+        "sun_mapping": p.sun_mapping.name,
         "start_date": str(p.start),
         "end_date": str(p.end),
         "weather_data": p.weather_file,
@@ -606,7 +608,7 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
     # Create the structure to hold the mesh data
     if p.analysis_type == AnalysisType.TWO_PHASE:
         svf = output.sky_view_factor[mask]
-        total_irr = output.total_irradiance[mask] / 1000.0
+        total_irr = output.total_irradiance[mask]
 
         assert len(svf) == face_count
         assert len(total_irr) == face_count
@@ -620,9 +622,9 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
     elif p.analysis_type == AnalysisType.THREE_PHASE:
         svf = output.sky_view_factor[mask]
         sun_hours = output.sun_hours[mask]
-        total_irr = output.total_irradiance[mask] / 1000.0
-        sky_irr = output.sky_irradiance[mask] / 1000.0
-        sun_irr = output.sun_irradiance[mask] / 1000.0
+        total_irr = output.total_irradiance[mask]
+        sky_irr = output.sky_irradiance[mask]
+        sun_irr = output.sun_irradiance[mask]
 
         assert len(svf) == face_count
         assert len(sun_hours) == face_count
@@ -646,4 +648,5 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
     with open(filename, "w") as json_file:
         json.dump(results_data, json_file, indent=4)
 
-    info(f"Results exported successfully")
+    info(f"  Results exported successfully")
+    info("-----------------------------------------------------")
