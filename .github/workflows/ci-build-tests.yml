@@ -101,6 +101,7 @@ jobs:
           }
           New-Item -ItemType Directory -Path $embreeExtractDir -Force | Out-Null
           Expand-Archive -Path $archive -DestinationPath $embreeExtractDir -Force
+          Write-Host "Embree extraction directory: $embreeExtractDir"
           $embreeRoot = $embreeExtractDir
           if (-not (Test-Path (Join-Path $embreeRoot 'include'))) {
             $subdir = Get-ChildItem -Path $embreeExtractDir -Directory |
@@ -112,11 +113,22 @@ jobs:
               throw "Embree include directory not found under $embreeExtractDir"
             }
           }
+          Write-Host "Embree root resolved to: $embreeRoot"
+          Write-Host "Embree root contents:" (Get-ChildItem -Path $embreeRoot | Select-Object -ExpandProperty Name)
           New-Item -ItemType Directory -Path 'C:\Program Files\Embree' -Force | Out-Null
           Copy-Item -Path (Join-Path $embreeRoot 'include') -Destination 'C:\Program Files\Embree\include' -Recurse -Force
           Copy-Item -Path (Join-Path $embreeRoot 'lib') -Destination 'C:\Program Files\Embree\lib' -Recurse -Force
-          Copy-Item -Path (Join-Path $embreeRoot 'lib\cmake') -Destination 'C:\Program Files\Embree\lib\cmake' -Recurse -Force
+          if (Test-Path (Join-Path $embreeRoot 'lib\cmake')) {
+            Copy-Item -Path (Join-Path $embreeRoot 'lib\cmake') -Destination 'C:\Program Files\Embree\lib\cmake' -Recurse -Force
+          }
+          if (Test-Path (Join-Path $embreeRoot 'bin')) {
+            Copy-Item -Path (Join-Path $embreeRoot 'bin') -Destination 'C:\Program Files\Embree\bin' -Recurse -Force
+          }
           Add-Content $env:GITHUB_PATH 'C:\Program Files\Embree\bin'
+          $embreeConfigDir = "C:\Program Files\Embree\lib\cmake\embree-$($env:EMBREE_VERSION)"
+          if (Test-Path $embreeConfigDir) {
+            Add-Content $env:GITHUB_ENV "embree_DIR=$embreeConfigDir"
+          }
 
       - name: Install Eigen (Linux)
         if: runner.os == 'Linux'
@@ -214,6 +226,23 @@ jobs:
             Get-ChildItem -Path $installRoot -Recurse -Include 'Eigen3Config.cmake','eigen3-config.cmake','FindEigen3.cmake'
           } else {
             Write-Host "Eigen install root not found"
+          }
+
+      - name: Debug Embree installation (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "EMBREE_VERSION env:" $env:EMBREE_VERSION
+          Write-Host "embree_DIR env:" $env:embree_DIR
+          Write-Host "CMAKE_PREFIX_PATH env:" $env:CMAKE_PREFIX_PATH
+          $embreeRoot = 'C:\Program Files\Embree'
+          if (Test-Path $embreeRoot) {
+            Write-Host "Listing Embree installation root:" $embreeRoot
+            Get-ChildItem -Path $embreeRoot -Recurse -Depth 2 | Select-Object -First 20 | Format-Table
+            Write-Host "Searching for Embree cmake files"
+            Get-ChildItem -Path $embreeRoot -Recurse -Include 'embree-config.cmake','embree4.dll','embree3.dll'
+          } else {
+            Write-Host "Embree install root not found"
           }
 
       - name: Install project
