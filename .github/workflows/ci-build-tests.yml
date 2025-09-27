@@ -256,6 +256,14 @@ jobs:
           python -c "import importlib, os, json; mod = importlib.import_module('dtcc_solar.py_embree_solar'); path = os.path.abspath(os.path.dirname(mod.__file__)); print('py_embree_solar directory:', path); print('Contents:', json.dumps(sorted(os.listdir(path)), indent=2))"
           Write-Host "PATH:" $env:Path
 
+      - name: Debug installed package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          python -c "import importlib, os, json; mod = importlib.import_module('dtcc_solar.py_embree_solar'); path = os.path.abspath(os.path.dirname(mod.__file__)); print('py_embree_solar directory:', path); print('Contents:', json.dumps(sorted(os.listdir(path)), indent=2))"
+          py_path=$(python -c "import importlib, os; mod = importlib.import_module('dtcc_solar.py_embree_solar'); print(os.path.abspath(mod.__file__))")
+          echo "Extension path: $py_path"
+          otool -L "$py_path"
+
       - name: Run tests
         working-directory: tests
         run: |
