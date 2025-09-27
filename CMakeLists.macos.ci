@@ -96,6 +96,11 @@ endif()
 # Include project headers
 include_directories(${CMAKE_SOURCE_DIR}/src/cpp)
 
+if(APPLE)
+  list(APPEND CMAKE_INSTALL_RPATH "@loader_path" "@loader_path/..")
+  list(APPEND CMAKE_BUILD_RPATH "@loader_path" "@loader_path/..")
+endif()
+
 # Installation setup
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/src)
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
