@@ -60,6 +60,13 @@ if(_embree_target_type STREQUAL "IMPORTED")
   endif()
 endif()
 
+set(_embree_root "")
+if(DEFINED embree_DIR)
+  get_filename_component(_embree_root "${embree_DIR}" DIRECTORY)
+  get_filename_component(_embree_root "${_embree_root}" DIRECTORY)
+  get_filename_component(_embree_root "${_embree_root}" DIRECTORY)
+endif()
+
 if(_embree_rpaths)
   list(REMOVE_DUPLICATES _embree_rpaths)
   set_target_properties(${BINDINGS}
@@ -69,17 +76,24 @@ if(_embree_rpaths)
   )
 endif()
 
-if(WIN32 AND _embree_runtime_dirs)
-  list(REMOVE_DUPLICATES _embree_runtime_dirs)
-  foreach(_runtime_dir IN LISTS _embree_runtime_dirs)
-    file(GLOB _embree_runtime_dlls "${_runtime_dir}/*.dll")
-    foreach(_dll_path IN LISTS _embree_runtime_dlls)
-      add_custom_command(TARGET ${BINDINGS} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_dll_path}" $<TARGET_FILE_DIR:${BINDINGS}>
-      )
-      install(FILES "${_dll_path}" DESTINATION dtcc_solar)
+if(WIN32)
+  if(_embree_root)
+    list(APPEND _embree_runtime_dirs "${_embree_root}/bin" "${_embree_root}")
+  endif()
+  if(_embree_runtime_dirs)
+    list(REMOVE_DUPLICATES _embree_runtime_dirs)
+    foreach(_runtime_dir IN LISTS _embree_runtime_dirs)
+      if(EXISTS "${_runtime_dir}")
+        file(GLOB _embree_runtime_dlls "${_runtime_dir}/*.dll")
+        foreach(_dll_path IN LISTS _embree_runtime_dlls)
+          add_custom_command(TARGET ${BINDINGS} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_dll_path}" $<TARGET_FILE_DIR:${BINDINGS}>
+          )
+          install(FILES "${_dll_path}" DESTINATION dtcc_solar)
+        endforeach()
+      endif()
     endforeach()
-  endforeach()
+  endif()
 endif()
 
 set_property(TARGET ${BINDINGS} PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
