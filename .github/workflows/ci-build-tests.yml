@@ -261,13 +261,42 @@ jobs:
           python -c "import importlib, os, json; mod = importlib.import_module('dtcc_solar.py_embree_solar'); path = os.path.abspath(os.path.dirname(mod.__file__)); print('py_embree_solar directory:', path); print('Contents:', json.dumps(sorted(os.listdir(path)), indent=2))"
           Write-Host "PATH:" $env:Path
 
-      - name: Debug installed package (macOS)
+      - name: Inspect py_embree_solar (macOS)
         if: runner.os == 'macOS'
         run: |
-          python -c "import importlib, os, json; mod = importlib.import_module('dtcc_solar.py_embree_solar'); path = os.path.abspath(os.path.dirname(mod.__file__)); print('py_embree_solar directory:', path); print('Contents:', json.dumps(sorted(os.listdir(path)), indent=2))"
-          py_path=$(python -c "import importlib, os; mod = importlib.import_module('dtcc_solar.py_embree_solar'); print(os.path.abspath(mod.__file__))")
-          echo "Extension path: $py_path"
-          otool -L "$py_path"
+          python - <<'PY'
+import json
+from pathlib import Path
+
+def find_extension():
+    import importlib.util
+    spec = importlib.util.find_spec('dtcc_solar')
+    candidates = []
+    if spec and spec.submodule_search_locations:
+        candidates.extend(Path(p) for p in spec.submodule_search_locations)
+    import sys
+    candidates.extend(Path(p) / 'dtcc_solar' for p in sys.path)
+    seen = set()
+    for pkg_dir in candidates:
+        pkg_dir = Path(pkg_dir).resolve()
+        if pkg_dir in seen:
+            continue
+        seen.add(pkg_dir)
+        matches = list(pkg_dir.glob('py_embree_solar*.so'))
+        if matches:
+            return matches[0]
+    return None
+
+ext = find_extension()
+if not ext:
+    print('py_embree_solar not found')
+else:
+    print('py_embree_solar:', ext)
+    contents = sorted(p.name for p in ext.parent.iterdir())
+    print('Contents:', json.dumps(contents, indent=2))
+    import subprocess
+    subprocess.run(['otool', '-L', str(ext)], check=True)
+PY
 
       - name: Run tests
         working-directory: tests

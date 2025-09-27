@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bundle Embree runtime libraries without importing the extension."""
+"""Stage Embree runtime libraries next to the Python extension."""
 
 from __future__ import annotations
 
@@ -23,33 +23,35 @@ def _debug(message: str) -> None:
     print(f"[bundle_embree] {message}")
 
 
-def _find_extension() -> Path:
-    candidate_dirs: list[Path] = []
-
+def _candidate_package_dirs() -> list[Path]:
+    dirs: list[Path] = []
     try:
         import importlib.util
 
         spec = importlib.util.find_spec("dtcc_solar")
         if spec and spec.submodule_search_locations:
-            candidate_dirs.extend(Path(loc) for loc in spec.submodule_search_locations)
+            dirs.extend(Path(loc) for loc in spec.submodule_search_locations)
     except Exception as exc:  # pragma: no cover - diagnostic aid
         _debug(f"find_spec failed: {exc}")
 
     for entry in map(Path, sys.path):
-        candidate_dirs.append(entry / "dtcc_solar")
+        dirs.append(entry / "dtcc_solar")
+    seen: list[Path] = []
+    for directory in dirs:
+        directory = directory.resolve()
+        if directory not in seen:
+            seen.append(directory)
+    return seen
 
-    seen = set()
-    for pkg_dir in candidate_dirs:
-        if pkg_dir in seen:
-            continue
-        seen.add(pkg_dir)
-        glob = list(pkg_dir.glob("py_embree_solar*.so"))
-        if glob:
-            path = glob[0]
-            _debug(f"Located extension at {path}")
-            return path.resolve()
 
-    _debug(f"Searched directories: {json.dumps([str(p) for p in seen])}")
+def _find_extension() -> Path:
+    for pkg_dir in _candidate_package_dirs():
+        matches = list(pkg_dir.glob("py_embree_solar*.so"))
+        if matches:
+            path = matches[0].resolve()
+            _debug(f"Extension located at {path}")
+            return path
+    _debug("Search paths: " + json.dumps([str(p) for p in _candidate_package_dirs()]))
     raise SystemExit("Unable to locate py_embree_solar extension")
 
 
@@ -59,15 +61,17 @@ def _collect_runtime_roots() -> list[Path]:
         value = os.environ.get(env)
         if value:
             cmake = Path(value)
-            roots.update({
-                cmake,
-                cmake.parent,
-                cmake.parent.parent,
-                cmake.parent.parent / "lib",
-                cmake.parent.parent / "bin",
-            })
-    existing = [root for root in roots if root.exists()]
-    _debug(f"Runtime roots: {json.dumps([str(r) for r in existing])}")
+            roots.update(
+                {
+                    cmake,
+                    cmake.parent,
+                    cmake.parent.parent,
+                    cmake.parent.parent / "lib",
+                    cmake.parent.parent / "bin",
+                }
+            )
+    existing = [root.resolve() for root in roots if root.exists()]
+    _debug("Runtime roots: " + json.dumps([str(p) for p in existing]))
     return existing
 
 
@@ -93,26 +97,26 @@ def main() -> None:
     extension = _find_extension()
     destination = extension.parent
 
-    libraries: dict[str, Path] = {}
+    libs: dict[str, Path] = {}
     for root in _collect_runtime_roots():
         for pattern in RUNTIME_PATTERNS:
-            for src in root.glob(pattern):
-                libraries.setdefault(src.name, src)
+            for candidate in root.glob(pattern):
+                libs.setdefault(candidate.name, candidate)
 
-    if not libraries:
+    if not libs:
         raise SystemExit("No Embree/TBB dylibs discovered")
 
-    copied: dict[str, Path] = {}
-    for name, src in libraries.items():
+    staged: dict[str, Path] = {}
+    for name, src in libs.items():
         dst = destination / name
         _copy_with_install_id(src, dst)
-        copied[name] = dst
+        staged[name] = dst
 
-    for path in copied.values():
-        _rewrite_dependencies(path, copied)
-    _rewrite_dependencies(extension, copied)
+    for path in staged.values():
+        _rewrite_dependencies(path, staged)
+    _rewrite_dependencies(extension, staged)
 
-    _debug("Bundled libraries: " + ", ".join(sorted(copied)))
+    _debug("Bundled libraries: " + ", ".join(sorted(staged)))
 
 
 if __name__ == "__main__":
