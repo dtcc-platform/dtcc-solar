@@ -166,11 +166,17 @@ jobs:
           }
           New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
           Copy-Item -Path (Join-Path $eigenRoot '*') -Destination $installRoot -Recurse -Force
-          $cmakeDir = Join-Path $installRoot 'cmake'
-          if (-not (Test-Path $cmakeDir)) {
-            throw "Eigen cmake directory not found at $cmakeDir"
+          $eigenInclude = Join-Path $installRoot 'Eigen'
+          if (-not (Test-Path $eigenInclude)) {
+            throw "Eigen headers not found at $eigenInclude"
           }
-          Add-Content $env:GITHUB_ENV "Eigen3_DIR=$cmakeDir"
+          $cmakeFind = Join-Path $installRoot 'cmake\FindEigen3.cmake'
+          if (-not (Test-Path $cmakeFind)) {
+            throw "FindEigen3.cmake not found at $cmakeFind"
+          }
+          $normalizedRoot = $installRoot -replace '\\', '/'
+          Add-Content $env:GITHUB_ENV "EIGEN3_INCLUDE_DIR=$normalizedRoot"
+          Add-Content $env:GITHUB_ENV "EIGEN3_ROOT=$normalizedRoot"
 
       - name: Use macOS CI CMake configuration
         if: runner.os == 'macOS'
