@@ -155,16 +155,22 @@ jobs:
           $archive = Join-Path $env:RUNNER_TEMP 'eigen.zip'
           $url = "https://gitlab.com/libeigen/eigen/-/archive/$($env:EIGEN_VERSION)/eigen-$($env:EIGEN_VERSION).zip"
           Invoke-WebRequest -Uri $url -OutFile $archive
-          $dest = Join-Path $env:RUNNER_TEMP ('eigen-' + $env:EIGEN_VERSION)
           Expand-Archive -Path $archive -DestinationPath $env:RUNNER_TEMP
           $eigenRoot = Join-Path $env:RUNNER_TEMP ('eigen-' + $env:EIGEN_VERSION)
           if (-not (Test-Path $eigenRoot)) {
             throw "Eigen directory not found at $eigenRoot"
           }
-          $cmakeDir = Join-Path $eigenRoot 'cmake'
-          New-Item -ItemType Directory -Path 'C:\Program Files\Eigen3' -Force | Out-Null
-          Copy-Item -Path $eigenRoot -Destination 'C:\Program Files\Eigen3' -Recurse -Force
-          Add-Content $env:GITHUB_ENV 'Eigen3_DIR=C:\Program Files\Eigen3\cmake'
+          $installRoot = 'C:\Program Files\Eigen3'
+          if (Test-Path $installRoot) {
+            Remove-Item -Path $installRoot -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
+          Copy-Item -Path (Join-Path $eigenRoot '*') -Destination $installRoot -Recurse -Force
+          $cmakeDir = Join-Path $installRoot 'cmake'
+          if (-not (Test-Path $cmakeDir)) {
+            throw "Eigen cmake directory not found at $cmakeDir"
+          }
+          Add-Content $env:GITHUB_ENV "Eigen3_DIR=$cmakeDir"
 
       - name: Use macOS CI CMake configuration
         if: runner.os == 'macOS'
