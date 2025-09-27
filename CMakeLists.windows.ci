@@ -52,6 +52,8 @@ endif()
 if(DEFINED ENV{EIGEN3_INCLUDE_DIR})
   set(EIGEN3_INCLUDE_DIR "$ENV{EIGEN3_INCLUDE_DIR}" CACHE PATH "Eigen include directory" FORCE)
   list(APPEND CMAKE_PREFIX_PATH "$ENV{EIGEN3_INCLUDE_DIR}" "$ENV{EIGEN3_INCLUDE_DIR}/cmake")
+  list(APPEND CMAKE_MODULE_PATH "$ENV{EIGEN3_INCLUDE_DIR}/cmake")
+  message(STATUS "Using Eigen from $ENV{EIGEN3_INCLUDE_DIR}")
 endif()
 list(APPEND CMAKE_PREFIX_PATH "${_eigen_prefix}" "${_eigen_prefix}/cmake")
 
@@ -65,8 +67,8 @@ execute_process(
 set(pybind11_DIR "${pybind11_DIR}" CACHE PATH "Path to pybind11 CMake files")
 find_package(pybind11 CONFIG REQUIRED)
 
-# Try config package first (preferred), fallback to the module helper bundled with CMake
-find_package(Eigen3 3.3 QUIET NO_MODULE)
+# Try config package first (preferred). If that fails, fall back to the module helper.
+find_package(Eigen3 3.3 QUIET CONFIG)
 if(NOT Eigen3_FOUND)
   find_package(Eigen3 3.3 REQUIRED)
 endif()
