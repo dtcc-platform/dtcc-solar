@@ -160,6 +160,8 @@ jobs:
           if (-not (Test-Path $eigenRoot)) {
             throw "Eigen directory not found at $eigenRoot"
           }
+          Write-Host "Eigen extracted root: $eigenRoot"
+          Write-Host "Extracted entries:" (Get-ChildItem -Path $env:RUNNER_TEMP -Directory -Filter 'eigen*' | Select-Object -ExpandProperty FullName)
           $installRoot = 'C:\Program Files\Eigen3'
           if (Test-Path $installRoot) {
             Remove-Item -Path $installRoot -Recurse -Force
@@ -174,9 +176,17 @@ jobs:
           if (-not (Test-Path $cmakeFind)) {
             throw "FindEigen3.cmake not found at $cmakeFind"
           }
+          Write-Host "Eigen install root: $installRoot"
+          Write-Host "Eigen cmake helper:" $cmakeFind
+          Write-Host "Eigen cmake directory listing:" (Get-ChildItem -Path (Join-Path $installRoot 'cmake') | Select-Object -ExpandProperty Name)
+          Write-Host "Eigen headers sample:" (Get-ChildItem -Path $eigenInclude | Select-Object -First 5 -ExpandProperty Name)
           $normalizedRoot = $installRoot -replace '\\', '/'
+          Write-Host "Normalized Eigen root for env: $normalizedRoot"
           Add-Content $env:GITHUB_ENV "EIGEN3_INCLUDE_DIR=$normalizedRoot"
           Add-Content $env:GITHUB_ENV "EIGEN3_ROOT=$normalizedRoot"
+          if ($env:CMAKE_PREFIX_PATH) {
+            Write-Host "Existing CMAKE_PREFIX_PATH before update: $env:CMAKE_PREFIX_PATH"
+          }
 
       - name: Use macOS CI CMake configuration
         if: runner.os == 'macOS'
@@ -188,6 +198,23 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item -Path CMakeLists.windows.ci -Destination CMakeLists.txt -Force
+
+      - name: Debug Eigen installation (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "EIGEN3_INCLUDE_DIR env:" $env:EIGEN3_INCLUDE_DIR
+          Write-Host "EIGEN3_ROOT env:" $env:EIGEN3_ROOT
+          Write-Host "CMAKE_PREFIX_PATH env:" $env:CMAKE_PREFIX_PATH
+          $installRoot = 'C:\Program Files\Eigen3'
+          if (Test-Path $installRoot) {
+            Write-Host "Listing Eigen3 installation root:" $installRoot
+            Get-ChildItem -Path $installRoot -Recurse -Depth 2 | Select-Object -First 20 | Format-Table
+            Write-Host "Searching for Eigen3 config files"
+            Get-ChildItem -Path $installRoot -Recurse -Include 'Eigen3Config.cmake','eigen3-config.cmake','FindEigen3.cmake'
+          } else {
+            Write-Host "Eigen install root not found"
+          }
 
       - name: Install project
         run: |
