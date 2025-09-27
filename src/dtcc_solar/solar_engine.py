@@ -207,7 +207,7 @@ class SolarEngine:
         self, sunpath: Sunpath, skydome: Skydome, p: SolarParameters
     ) -> OutputCollection:
 
-        (sky_res, sun_res) = calc_2_phase_matrices(sunpath, skydome, p.sun_mapping)
+        (sky_res, sun_res) = calc_2_phase_matrices(sunpath, skydome, p)
 
         matrix = sun_res.matrix + sky_res.matrix
 
@@ -250,7 +250,7 @@ class SolarEngine:
         self, sunpath: Sunpath, skydome: Skydome, p: SolarParameters
     ) -> OutputCollection:
 
-        sky_res, sun_res = calc_3_phase_matrices(sunpath, skydome)
+        sky_res, sun_res = calc_3_phase_matrices(sunpath, skydome, p)
 
         sky_matrix = sky_res.matrix
         sun_matrix = sun_res.matrix

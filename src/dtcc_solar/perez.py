@@ -6,7 +6,8 @@ from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.skydome import Skydome
 from dtcc_solar.coefficients import calc_perez_coeffs
-from dtcc_solar.utils import SkyResults, SunResults, SunMapping
+from dtcc_solar.utils import SkyResults, SunResults, SunMapping, SolarParameters
+from dtcc_solar.utils import AnalysisType
 
 
 """
@@ -182,27 +183,26 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
 
 
 def calc_2_phase_matrices(
-    sunpath: Sunpath, skydome: Skydome, type: SunMapping = SunMapping.RADIANCE
+    sunpath: Sunpath, skydome: Skydome, p: SolarParameters
 ) -> list[SkyResults, SunResults]:
     sky_res = calc_sky_matrix(sunpath, skydome)
 
-    if type == SunMapping.NONE:
+    if p.sun_mapping == SunMapping.NONE:
         sun_res = calc_sun_matrix(sunpath, skydome)
-    elif type == SunMapping.RADIANCE:
+    elif p.sun_mapping == SunMapping.RADIANCE:
         sun_res = calc_sun_matrix_rad(sunpath, skydome)
 
-    calc_tot_error(sky_res, skydome, sun_res, sunpath)
+    calc_tot_error(sky_res, skydome, sun_res, sunpath, p.analysis_type)
 
     return (sky_res, sun_res)
 
 
 def calc_3_phase_matrices(
-    sunpath: Sunpath,
-    skydome: Skydome,
+    sunpath: Sunpath, skydome: Skydome, p: SolarParameters
 ) -> tuple[SkyResults, SunResults]:
     sky_res = calc_sky_matrix(sunpath, skydome)
     sun_res = calc_sun_matrix_from_sunpath(sunpath)
-    calc_tot_error(sky_res, skydome, sun_res, sunpath)
+    calc_tot_error(sky_res, skydome, sun_res, sunpath, p.analysis_type)
 
     return sky_res, sun_res
 
@@ -307,13 +307,21 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
 
 def calc_tot_error(
-    sky_res: SkyResults, skydome: Skydome, sun_res: SunResults, sunp: Sunpath
+    sky_res: SkyResults,
+    skydome: Skydome,
+    sun_res: SunResults,
+    sunp: Sunpath,
+    analysis_type: AnalysisType,
 ):
 
     cos_zeniths = np.cos(np.array(skydome.patch_zeniths))
     solid_angles = np.array(skydome.solid_angles)
 
-    sun_dni = np.sum(np.sum(sun_res.matrix, axis=1))
+    if analysis_type == AnalysisType.TWO_PHASE:
+        sun_dni = np.sum(np.sum(sun_res.matrix, axis=1) * solid_angles)
+    elif analysis_type == AnalysisType.THREE_PHASE:
+        sun_dni = np.sum(np.sum(sun_res.matrix, axis=1))
+
     sky_dhi = np.sum(np.sum(sky_res.matrix, axis=1) * cos_zeniths * solid_angles)
 
     epw_dni = np.sum(sunp.sunc.dni)

@@ -15,6 +15,7 @@ from dtcc_solar.reinhart2 import ReinhartM2
 from dtcc_solar.reinhart4 import ReinhartM4
 from dtcc_solar.perez import *
 from dtcc_solar.radiance import calc_radiance_matrices
+from dtcc_solar.synthetic_data import synthetic_epw_df, df_to_epw
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -103,6 +104,16 @@ def only_perez_test():
 
     sun_pc = PointCloud(points=sunpath.sunc.positions)
     viewer = SkydomeViewer(skydome, face_data_dict, sun_pc)
+
+
+def synthetic_data_test():
+    df, header = synthetic_epw_df()
+    export_path = data_dir("weather") / "synthetic.epw"
+    # df_to_epw(df, header, export_path)
+    # print("Synthetic EPW written with shape:", df.shape)
+
+    # Print first few rows
+    print(df.head())
 
 
 def radiance_test():
@@ -258,6 +269,9 @@ def analyse_mesh_3():
     sunpath = Sunpath(p, engine.sunpath_radius)
 
     output = engine.run_analysis(sunpath, skydome, p)
+
+    export_path = data_dir("validation") / "export_test.json"
+    export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)
 
 
@@ -298,6 +312,7 @@ if __name__ == "__main__":
 
     # only_perez_test()
     # radiance_test()
+    # synthetic_data_test()
     analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
