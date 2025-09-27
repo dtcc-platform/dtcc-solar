@@ -253,51 +253,51 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           python - <<'PY'
-import importlib
-import shutil
-import subprocess
-from pathlib import Path
+  import importlib
+  import shutil
+  import subprocess
+  from pathlib import Path
 
-mod = importlib.import_module('dtcc_solar.py_embree_solar')
-dest = Path(mod.__file__).resolve().parent
-candidate_roots = [Path('/usr/local/lib'), Path('/opt/homebrew/lib')]
-patterns = ['libembree*.dylib', 'libtbb*.dylib', 'libtbbmalloc*.dylib', 'libtbb12*.dylib']
-found = {}
-for root in candidate_roots:
-    if not root.exists():
-        continue
-    for pattern in patterns:
-        for src in root.glob(pattern):
-            found[src.name] = src
+  mod = importlib.import_module('dtcc_solar.py_embree_solar')
+  dest = Path(mod.__file__).resolve().parent
+  candidate_roots = [Path('/usr/local/lib'), Path('/opt/homebrew/lib')]
+  patterns = ['libembree*.dylib', 'libtbb*.dylib', 'libtbbmalloc*.dylib', 'libtbb12*.dylib']
+  found = {}
+  for root in candidate_roots:
+      if not root.exists():
+          continue
+      for pattern in patterns:
+          for src in root.glob(pattern):
+              found[src.name] = src
 
-if not found:
-    raise SystemExit('No Embree/TBB dylibs found to bundle')
+  if not found:
+      raise SystemExit('No Embree/TBB dylibs found to bundle')
 
-dest.mkdir(parents=True, exist_ok=True)
+  dest.mkdir(parents=True, exist_ok=True)
 
-def copy_and_rewrite(src_path: Path, dst_path: Path):
-    shutil.copy2(src_path, dst_path)
-    subprocess.run(['install_name_tool', '-id', f'@loader_path/{dst_path.name}', str(dst_path)], check=True)
+  def copy_and_rewrite(src_path: Path, dst_path: Path):
+      shutil.copy2(src_path, dst_path)
+      subprocess.run(['install_name_tool', '-id', f'@loader_path/{dst_path.name}', str(dst_path)], check=True)
 
-for name, src_path in found.items():
-    copy_and_rewrite(src_path, dest / name)
+  for name, src_path in found.items():
+      copy_and_rewrite(src_path, dest / name)
 
-def rewrite_dependencies(target: Path):
-    output = subprocess.check_output(['otool', '-L', str(target)], text=True)
-    for line in output.splitlines()[1:]:
-        line = line.strip()
-        if not line:
-            continue
-        dep = line.split(' ')[0]
-        dep_name = Path(dep).name
-        if dep_name in found:
-            subprocess.run(['install_name_tool', '-change', dep, f'@loader_path/{dep_name}', str(target)], check=True)
+  def rewrite_dependencies(target: Path):
+      output = subprocess.check_output(['otool', '-L', str(target)], text=True)
+      for line in output.splitlines()[1:]:
+          line = line.strip()
+          if not line:
+              continue
+          dep = line.split(' ')[0]
+          dep_name = Path(dep).name
+          if dep_name in found:
+              subprocess.run(['install_name_tool', '-change', dep, f'@loader_path/{dep_name}', str(target)], check=True)
 
-for name in found:
-    rewrite_dependencies(dest / name)
+  for name in found:
+      rewrite_dependencies(dest / name)
 
-extension_path = dest / Path(mod.__file__).name
-rewrite_dependencies(extension_path)
+  extension_path = dest / Path(mod.__file__).name
+  rewrite_dependencies(extension_path)
 PY
 
       - name: Debug installed package (Windows)
