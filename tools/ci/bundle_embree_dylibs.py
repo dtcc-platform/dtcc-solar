@@ -10,8 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOTS = [Path("/usr/local/lib"), Path("/opt/homebrew/lib")]
-PATTERNS = [
+DEFAULT_ROOTS = [Path("/usr/local/lib"), Path("/opt/homebrew/lib")]
+RUNTIME_PATTERNS = [
     "libembree*.dylib",
     "libtbb*.dylib",
     "libtbbmalloc*.dylib",
@@ -19,86 +19,99 @@ PATTERNS = [
 ]
 
 
-def _debug(msg: str) -> None:
-    print(f"[bundle_embree] {msg}")
+def _debug(message: str) -> None:
+    print(f"[bundle_embree] {message}")
 
 
-def _extension_path() -> Path:
-    # Check RECORD file from installed package
-    candidates = []
-    for root in map(Path, sys.path):
-        record = root / "dtcc_solar-0.0.0.dist-info" / "RECORD"
-        if record.exists():
-            candidates.append(record)
-    if not candidates:
-        # Fallback to site-packages dtcc_solar folder search
-        for root in map(Path, sys.path):
-            candidate = root / "dtcc_solar" / "py_embree_solar*.so"
-            matches = list(root.glob("dtcc_solar/py_embree_solar*.so"))
-            if matches:
-                return matches[0]
-        _debug("Could not locate py_embree_solar via sys.path")
-        sys.exit(1)
-    record = candidates[0]
-    with record.open() as fh:
-        for line in fh:
-            path = line.split(",", 1)[0]
-            if path.startswith("dtcc_solar/py_embree_solar") and path.endswith(".so"):
-                ext_path = record.parent.parent / path
-                return ext_path
-    _debug("RECORD file did not contain py_embree_solar entry")
-    sys.exit(1)
+def _find_extension() -> Path:
+    candidate_dirs: list[Path] = []
+
+    try:
+        import importlib.util
+
+        spec = importlib.util.find_spec("dtcc_solar")
+        if spec and spec.submodule_search_locations:
+            candidate_dirs.extend(Path(loc) for loc in spec.submodule_search_locations)
+    except Exception as exc:  # pragma: no cover - diagnostic aid
+        _debug(f"find_spec failed: {exc}")
+
+    for entry in map(Path, sys.path):
+        candidate_dirs.append(entry / "dtcc_solar")
+
+    seen = set()
+    for pkg_dir in candidate_dirs:
+        if pkg_dir in seen:
+            continue
+        seen.add(pkg_dir)
+        glob = list(pkg_dir.glob("py_embree_solar*.so"))
+        if glob:
+            path = glob[0]
+            _debug(f"Located extension at {path}")
+            return path.resolve()
+
+    _debug(f"Searched directories: {json.dumps([str(p) for p in seen])}")
+    raise SystemExit("Unable to locate py_embree_solar extension")
 
 
-def _collect_roots() -> list[Path]:
-    roots = set(ROOTS)
+def _collect_runtime_roots() -> list[Path]:
+    roots = set(DEFAULT_ROOTS)
     for env in ("embree_DIR", "EMBREE_DIR"):
         value = os.environ.get(env)
         if value:
             cmake = Path(value)
-            roots.update({cmake, cmake.parent, cmake.parent.parent, cmake.parent.parent / "lib"})
+            roots.update({
+                cmake,
+                cmake.parent,
+                cmake.parent.parent,
+                cmake.parent.parent / "lib",
+                cmake.parent.parent / "bin",
+            })
     existing = [root for root in roots if root.exists()]
-    _debug(f"Candidate roots: {json.dumps([str(r) for r in existing])}")
+    _debug(f"Runtime roots: {json.dumps([str(r) for r in existing])}")
     return existing
 
 
-def _copy_with_id(src: Path, dst: Path) -> None:
+def _copy_with_install_id(src: Path, dst: Path) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dst)
     subprocess.run(["install_name_tool", "-id", f"@loader_path/{dst.name}", str(dst)], check=True)
 
 
-def _rewrite(target: Path, table: dict[str, Path]) -> None:
+def _rewrite_dependencies(target: Path, table: dict[str, Path]) -> None:
     output = subprocess.check_output(["otool", "-L", str(target)], text=True)
     for line in output.splitlines()[1:]:
-        dep = line.strip().split(" ")[0]
-        name = Path(dep).name
-        if name in table:
+        dep_path = line.strip().split(" ")[0]
+        dep_name = Path(dep_path).name
+        if dep_name in table:
             subprocess.run(
-                ["install_name_tool", "-change", dep, f"@loader_path/{name}", str(target)],
+                ["install_name_tool", "-change", dep_path, f"@loader_path/{dep_name}", str(target)],
                 check=True,
             )
 
 
 def main() -> None:
-    ext = _extension_path()
-    dest = ext.parent
-    libs: dict[str, Path] = {}
-    for root in _collect_roots():
-        for pattern in PATTERNS:
+    extension = _find_extension()
+    destination = extension.parent
+
+    libraries: dict[str, Path] = {}
+    for root in _collect_runtime_roots():
+        for pattern in RUNTIME_PATTERNS:
             for src in root.glob(pattern):
-                libs.setdefault(src.name, src)
-    if not libs:
-        _debug("No Embree/TBB dylibs discovered")
-        sys.exit(1)
+                libraries.setdefault(src.name, src)
+
+    if not libraries:
+        raise SystemExit("No Embree/TBB dylibs discovered")
+
     copied: dict[str, Path] = {}
-    for name, src in libs.items():
-        dst = dest / name
-        _copy_with_id(src, dst)
+    for name, src in libraries.items():
+        dst = destination / name
+        _copy_with_install_id(src, dst)
         copied[name] = dst
+
     for path in copied.values():
-        _rewrite(path, copied)
-    _rewrite(ext, copied)
+        _rewrite_dependencies(path, copied)
+    _rewrite_dependencies(extension, copied)
+
     _debug("Bundled libraries: " + ", ".join(sorted(copied)))
 
 
