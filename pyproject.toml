@@ -44,4 +44,3 @@ dtcc-build = "dtcc_solar.scripts:main.main"
 
 [tool.scikit-build]
 wheel.expand-macos-universal-tags = true
-
