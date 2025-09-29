@@ -1,39 +1,272 @@
-name: CI
+name: build-tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["develop"]
   pull_request:
-    branches: [ "main" ]
-
-env:
-  BRANCH: main
+    branches: ["develop"]
 
 jobs:
-  build:
-
-    runs-on: self-hosted
-    #Placeholder for Docker on our Amazon AWS Runner
-    #container:
-    #  image: ubuntu-latest
-    #  options: --user 1000
-
-
+  build-and-test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      PYTHON_VERSION: "3.11"
+      DTCC_DATA_ROOT: ${{ github.workspace }}/data
+      EMBREE_VERSION: "4.3.1"
+      EIGEN_VERSION: "3.4.0"
     steps:
-    # VN at 16 March 2023: checkout/v3 causes some weird issues, so went for manual cloning instead...
-    #- uses: actions/checkout@v3
-    - name: clone repo
-      run: git clone https://github.com/dtcc-platform/${{ github.event.repository.name }} -b $BRANCH && pwd
-    - name: pip install
-      run: export "DEB_PYTHON_INSTALL_LAYOUT=deb_system" && pip install ${{ github.event.repository.name }}/
-    # Not needed for anything apart from dtcc-model
-    #- name: cmake install
-    #run: cd ${{ github.event.repository.name }}/build/ && cmake .. && make all && sudo make install && cd ..
-    - name: run tests
-      run: cd ${{ github.event.repository.name }}/tests && pwd && ls -alt && sh run-tests
-    - name: cleanup op
-      if: always()
-      run : sudo find /home/ubuntu/Runner/actions-runner/_work/${{ github.event.repository.name }}/. -name . -o -prune -exec rm -rf -- {} + || true
-    # This fails after checkout/v3 was not used
-    #- name: more cleanup ops
-    #  run : pwd && sudo rm -rf /home/ubuntu/Runner/actions-runner/_work/${{ github.event.repository.name }}
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Upgrade pip and install build helpers
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install wheel setuptools ninja pytest
+
+      - name: Acquire Embree (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ARCHIVE="$RUNNER_TEMP/embree.tar.gz"
+          EXTRACT_DIR="$RUNNER_TEMP/embree"
+          mkdir -p "$EXTRACT_DIR"
+          curl -L -o "$ARCHIVE" "https://github.com/RenderKit/embree/releases/download/v${EMBREE_VERSION}/embree-${EMBREE_VERSION}.x86_64.linux.tar.gz"
+          tar -xzf "$ARCHIVE" -C "$EXTRACT_DIR"
+          EMBREE_ROOT="$EXTRACT_DIR"
+          CONFIG_PATH="${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}/embree-config.cmake"
+          if [ ! -f "$CONFIG_PATH" ]; then
+            echo "Embree config not found at $CONFIG_PATH" >&2
+            find "$EMBREE_ROOT" -maxdepth 4 -name 'embree-config.cmake'
+            exit 1
+          fi
+          echo "Found Embree config at $CONFIG_PATH"
+          sudo mkdir -p /usr/local/include /usr/local/lib/cmake
+          sudo cp -r "${EMBREE_ROOT}/include/." /usr/local/include/
+          sudo cp -r "${EMBREE_ROOT}/lib/." /usr/local/lib/
+          sudo cp -r "${EMBREE_ROOT}/lib/cmake/." /usr/local/lib/cmake/
+          sudo ldconfig
+          ls -R /usr/local/lib/cmake | grep -m 5 embree || true
+
+      - name: Acquire Embree (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ARCHIVE="$RUNNER_TEMP/embree.zip"
+          EXTRACT_DIR="$RUNNER_TEMP/embree"
+          mkdir -p "$EXTRACT_DIR"
+          curl -L -o "$ARCHIVE" "https://github.com/RenderKit/embree/releases/download/v${EMBREE_VERSION}/embree-${EMBREE_VERSION}.x86_64.macosx.zip"
+          unzip -q "$ARCHIVE" -d "$EXTRACT_DIR"
+          EMBREE_ROOT=$(find "$EXTRACT_DIR" -maxdepth 1 -type d -name 'embree*' | head -n1)
+          if [ -z "$EMBREE_ROOT" ]; then
+            echo "Failed to locate extracted Embree directory" >&2
+            ls -al "$EXTRACT_DIR"
+            exit 1
+          fi
+          CONFIG_PATH="${EMBREE_ROOT}/lib/cmake/embree-${EMBREE_VERSION}/embree-config.cmake"
+          if [ ! -f "$CONFIG_PATH" ]; then
+            echo "Embree config not found at $CONFIG_PATH" >&2
+            find "$EMBREE_ROOT" -maxdepth 4 -name 'embree-config.cmake'
+            exit 1
+          fi
+          echo "Found Embree config at $CONFIG_PATH"
+          sudo mkdir -p /usr/local/include /usr/local/lib/cmake
+          sudo cp -R "${EMBREE_ROOT}/include/." /usr/local/include/
+          sudo cp -R "${EMBREE_ROOT}/lib/." /usr/local/lib/
+          sudo cp -R "${EMBREE_ROOT}/lib/cmake/." /usr/local/lib/cmake/
+          ls -R /usr/local/lib/cmake | grep -m 5 embree || true
+
+      - name: Acquire Embree (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path $env:RUNNER_TEMP 'embree.zip'
+          $url = "https://github.com/RenderKit/embree/releases/download/v$($env:EMBREE_VERSION)/embree-$($env:EMBREE_VERSION).x64.windows.zip"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          $embreeExtractDir = Join-Path $env:RUNNER_TEMP ("embree-" + $env:EMBREE_VERSION + ".x64.windows")
+          if (Test-Path $embreeExtractDir) {
+            Remove-Item -Path $embreeExtractDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $embreeExtractDir -Force | Out-Null
+          Expand-Archive -Path $archive -DestinationPath $embreeExtractDir -Force
+          Write-Host "Embree extraction directory: $embreeExtractDir"
+          $embreeRoot = $embreeExtractDir
+          if (-not (Test-Path (Join-Path $embreeRoot 'include'))) {
+            $subdir = Get-ChildItem -Path $embreeExtractDir -Directory |
+              Where-Object { Test-Path (Join-Path $_.FullName 'include') } |
+              Select-Object -First 1
+            if ($subdir) {
+              $embreeRoot = $subdir.FullName
+            } else {
+              throw "Embree include directory not found under $embreeExtractDir"
+            }
+          }
+          Write-Host "Embree root resolved to: $embreeRoot"
+          Write-Host "Embree root contents:" (Get-ChildItem -Path $embreeRoot | Select-Object -ExpandProperty Name)
+          New-Item -ItemType Directory -Path 'C:\Program Files\Embree' -Force | Out-Null
+          Copy-Item -Path (Join-Path $embreeRoot 'include') -Destination 'C:\Program Files\Embree\include' -Recurse -Force
+          Copy-Item -Path (Join-Path $embreeRoot 'lib') -Destination 'C:\Program Files\Embree\lib' -Recurse -Force
+          if (Test-Path (Join-Path $embreeRoot 'lib\cmake')) {
+            Copy-Item -Path (Join-Path $embreeRoot 'lib\cmake') -Destination 'C:\Program Files\Embree\lib\cmake' -Recurse -Force
+          }
+          if (Test-Path (Join-Path $embreeRoot 'bin')) {
+            Copy-Item -Path (Join-Path $embreeRoot 'bin') -Destination 'C:\Program Files\Embree\bin' -Recurse -Force
+          }
+          Add-Content $env:GITHUB_PATH 'C:\Program Files\Embree\bin'
+          $embreeConfigDir = "C:\Program Files\Embree\lib\cmake\embree-$($env:EMBREE_VERSION)"
+          if (Test-Path $embreeConfigDir) {
+            Add-Content $env:GITHUB_ENV "embree_DIR=$embreeConfigDir"
+          }
+
+      - name: Install Eigen (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libeigen3-dev
+          EIGEN_DIR="/usr/share/eigen3/cmake"
+          echo "Eigen3_DIR=$EIGEN_DIR" >> "$GITHUB_ENV"
+          EXISTING="${CMAKE_ARGS:-}"
+          echo "CMAKE_ARGS=${EXISTING} -DEigen3_DIR=$EIGEN_DIR" >> "$GITHUB_ENV"
+
+      - name: Install Eigen (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          brew update
+          brew install eigen libomp
+          EIGEN_DIR="$(brew --prefix eigen)/share/eigen3/cmake"
+          echo "Eigen3_DIR=$EIGEN_DIR" >> "$GITHUB_ENV"
+          EXISTING="${CMAKE_ARGS:-}"
+          echo "CMAKE_ARGS=${EXISTING} -DEigen3_DIR=$EIGEN_DIR" >> "$GITHUB_ENV"
+
+      - name: Use macOS CI CMake configuration
+        if: runner.os == 'macOS'
+        run: |
+          cp CMakeLists.macos.ci CMakeLists.txt
+
+      - name: Install Eigen (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path $env:RUNNER_TEMP 'eigen.zip'
+          $url = "https://gitlab.com/libeigen/eigen/-/archive/$($env:EIGEN_VERSION)/eigen-$($env:EIGEN_VERSION).zip"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $env:RUNNER_TEMP
+          $eigenRoot = Join-Path $env:RUNNER_TEMP ('eigen-' + $env:EIGEN_VERSION)
+          if (-not (Test-Path $eigenRoot)) {
+            throw "Eigen directory not found at $eigenRoot"
+          }
+          Write-Host "Eigen extracted root: $eigenRoot"
+          Write-Host "Extracted entries:" (Get-ChildItem -Path $env:RUNNER_TEMP -Directory -Filter 'eigen*' | Select-Object -ExpandProperty FullName)
+          $installRoot = 'C:\Program Files\Eigen3'
+          if (Test-Path $installRoot) {
+            Remove-Item -Path $installRoot -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
+          Copy-Item -Path (Join-Path $eigenRoot '*') -Destination $installRoot -Recurse -Force
+          $eigenInclude = Join-Path $installRoot 'Eigen'
+          if (-not (Test-Path $eigenInclude)) {
+            throw "Eigen headers not found at $eigenInclude"
+          }
+          $cmakeFind = Join-Path $installRoot 'cmake\FindEigen3.cmake'
+          if (-not (Test-Path $cmakeFind)) {
+            throw "FindEigen3.cmake not found at $cmakeFind"
+          }
+          Write-Host "Eigen install root: $installRoot"
+          Write-Host "Eigen cmake helper:" $cmakeFind
+          Write-Host "Eigen cmake directory listing:" (Get-ChildItem -Path (Join-Path $installRoot 'cmake') | Select-Object -ExpandProperty Name)
+          Write-Host "Eigen headers sample:" (Get-ChildItem -Path $eigenInclude | Select-Object -First 5 -ExpandProperty Name)
+          $normalizedRoot = $installRoot -replace '\\', '/'
+          Write-Host "Normalized Eigen root for env: $normalizedRoot"
+          Add-Content $env:GITHUB_ENV "EIGEN3_INCLUDE_DIR=$normalizedRoot"
+          Add-Content $env:GITHUB_ENV "EIGEN3_ROOT=$normalizedRoot"
+          if ($env:CMAKE_PREFIX_PATH) {
+            Write-Host "Existing CMAKE_PREFIX_PATH before update: $env:CMAKE_PREFIX_PATH"
+          }
+
+      - name: Use macOS CI CMake configuration
+        if: runner.os == 'macOS'
+        run: |
+          cp CMakeLists.macos.ci CMakeLists.txt
+
+      - name: Use Windows CI CMake configuration
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item -Path CMakeLists.windows.ci -Destination CMakeLists.txt -Force
+
+      - name: Debug Eigen installation (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "EIGEN3_INCLUDE_DIR env:" $env:EIGEN3_INCLUDE_DIR
+          Write-Host "EIGEN3_ROOT env:" $env:EIGEN3_ROOT
+          Write-Host "CMAKE_PREFIX_PATH env:" $env:CMAKE_PREFIX_PATH
+          $installRoot = 'C:\Program Files\Eigen3'
+          if (Test-Path $installRoot) {
+            Write-Host "Listing Eigen3 installation root:" $installRoot
+            Get-ChildItem -Path $installRoot -Recurse -Depth 2 | Select-Object -First 20 | Format-Table
+            Write-Host "Searching for Eigen3 config files"
+            Get-ChildItem -Path $installRoot -Recurse -Include 'Eigen3Config.cmake','eigen3-config.cmake','FindEigen3.cmake'
+          } else {
+            Write-Host "Eigen install root not found"
+          }
+
+      - name: Debug Embree installation (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "EMBREE_VERSION env:" $env:EMBREE_VERSION
+          Write-Host "embree_DIR env:" $env:embree_DIR
+          Write-Host "CMAKE_PREFIX_PATH env:" $env:CMAKE_PREFIX_PATH
+          $embreeRoot = 'C:\Program Files\Embree'
+          if (Test-Path $embreeRoot) {
+            Write-Host "Listing Embree installation root:" $embreeRoot
+            Get-ChildItem -Path $embreeRoot -Recurse -Depth 2 | Select-Object -First 20 | Format-Table
+            Write-Host "Searching for Embree cmake files"
+            Get-ChildItem -Path $embreeRoot -Recurse -Include 'embree-config.cmake','embree4.dll','embree3.dll'
+          } else {
+            Write-Host "Embree install root not found"
+          }
+
+      - name: Install project
+        run: |
+          python -m pip install .
+
+      - name: Bundle Embree dylibs (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          python tools/ci/bundle_embree_dylibs.py
+
+      - name: Debug installed package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -c "import importlib, os, json; mod = importlib.import_module('dtcc_solar.py_embree_solar'); path = os.path.abspath(os.path.dirname(mod.__file__)); print('py_embree_solar directory:', path); print('Contents:', json.dumps(sorted(os.listdir(path)), indent=2))"
+          Write-Host "PATH:" $env:Path
+
+      - name: Inspect py_embree_solar (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          python tools/ci/inspect_py_embree.py
+
+      - name: Run tests
+        working-directory: tests
+        run: |
+          pytest
