@@ -1,7 +1,14 @@
 import math
 import numpy as np
 from pprint import pp
-from dtcc_solar import py_embree_solar as embree
+
+try:  # Attempt to import the compiled Embree bindings
+    from dtcc_solar import py_embree_solar as embree
+except ImportError as exc:  # pragma: no cover - platform dependent
+    embree = None
+    _EMBREE_IMPORT_ERROR = exc
+else:
+    _EMBREE_IMPORT_ERROR = None
 from dtcc_solar.utils import SolarParameters, concatenate_meshes
 from dtcc_solar.utils import OutputCollection, SkyType
 from dtcc_solar.utils import Rays, split_mesh_by_face_mask, AnalysisType
@@ -10,6 +17,22 @@ from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.perez import calc_2_phase_matrices, calc_3_phase_matrices
 from dtcc_core.model import Mesh, Bounds
+
+
+def _require_embree():
+    """Return the Embree bindings or raise a clear error when unavailable."""
+
+    if embree is None:  # pragma: no cover - executed only when Embree missing
+        msg = (
+            "Embree ray-tracing bindings (py_embree_solar) are not available. "
+            "This typically happens when the extension wheel is missing a "
+            "compatible Embree runtime on macOS. Build dtcc-solar from source "
+            "or install a wheel that bundles Embree. Original import error: "
+            f"{_EMBREE_IMPORT_ERROR}"
+        )
+        raise RuntimeError(msg) from _EMBREE_IMPORT_ERROR
+
+    return embree
 
 
 class SolarEngine:
@@ -218,7 +241,9 @@ class SolarEngine:
         info(f"Creating Embree instance and running analysis...")
         info("-----------------------------------------------------")
 
-        self.embree = embree.PyEmbreeSolar(
+        embree_mod = _require_embree()
+
+        self.embree = embree_mod.PyEmbreeSolar(
             self.mesh.vertices,
             self.mesh.faces,
             self.face_mask,
@@ -264,7 +289,9 @@ class SolarEngine:
         info(f"Creating Embree instance and running analysis...")
         info("-----------------------------------------------------")
 
-        self.embree = embree.PyEmbreeSolar(
+        embree_mod = _require_embree()
+
+        self.embree = embree_mod.PyEmbreeSolar(
             self.mesh.vertices,
             self.mesh.faces,
             self.face_mask,
