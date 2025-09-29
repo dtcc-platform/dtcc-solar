@@ -95,6 +95,7 @@ class Sunpath:
         self.above_horizon = []
         self.sungroups = None
         self.sundome = None
+
         self.tz_offset = self._get_epw_timezone(p)
         self.dt_index = self._get_datetime_index(p)
         self.df = self._create_irradiance_dataframe(p)
@@ -112,9 +113,7 @@ class Sunpath:
         self.sunc = self._create_sun_collection(self.df, include_night)
         self.sunc.info_print()
 
-    # Create time stamps and retrieve irradiance data from EPW file
-
-    def _get_epw_timezone(self, p: SolarParameters) -> int:
+    def _get_epw_timezone(self, p: SolarParameters, dfw: pd.DataFrame) -> int:
         """
         Extracts the 'Time Zone' offset from the EPW file header.
 

@@ -184,7 +184,7 @@ if __name__ == "__main__":
     df, header = synthetic_epw_df(
         latitude=52.5, longitude=13.4, timezone=+1, elevation=35
     )
-    # df_to_epw(df, header, "../data/weather/synthetic_df.epw")
+    df_to_epw(df, header, "../../data/weather/synthetic_df.epw")
     print("Synthetic EPW written with shape:", df.shape)
 
     # Print first few rows
