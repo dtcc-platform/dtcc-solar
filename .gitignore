@@ -1,5 +1,6 @@
 build/
-
+embree/
+embree-build/
 .idea/
 .vscode/
 cmake-build-debug/
@@ -8,12 +9,19 @@ __pycache__
 .DS_Store
 *.egg-info/
 
-sandbox/
 output/
 htmlcov/
 
 *.coverage
 
+*.gh
+*.obj
+*.city.json
+*.json
+*.3dm.rhl
+*.3dm
 *.so
 *.o
 *.a
+*.mtx
+*.wea

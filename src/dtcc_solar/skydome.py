@@ -1,257 +1,128 @@
-import sys
-import pathlib
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
-
 import numpy as np
-import pandas as pd
-import trimesh
 import math
-import copy
-
-from dtcc_solar import utils
-
-class SkyDome:
-
-    def __init__(self, dome_radius):
-        self.meshes_quads = []
-        self.meshes_points = []
-        self.ray_targets = np.zeros((1000, 3), dtype=np.float64)
-        self.ray_areas = np.zeros(1000, dtype=float)
-        
-        self.joined_mesh_points = 0
-        self.dome_mesh = 0
-        self.dome_meshes = 0
-        self.dome_radius = dome_radius
-
-        self.ray_in_sky = 0
-        self.face_in_sky = 0
-        self.face_intensity = 0
-        self.quad_sun_angle = 0
-        self.quad_count = 0
-        
-        self.create_skydome_mesh()
-
-    def get_quad_count(self):
-        return self.quad_count 
-
-    def get_ray_targets(self):
-        return self.ray_targets
-
-    def get_ray_areas(self):
-        return self.ray_areas
-               
-    def create_skydome_mesh(self):
-
-        # Assuming the ray origin to be at [0,0,0] so that the sphere of ray targets positions 
-        # can be moved easily to each mesh face center for the ray casting.  
-              
-        n = 10                          
-        r = 1                           #Unit radius to be scaled in the intersection calc function 
-        r_visual = self.dome_radius                   #Radius for visualisation                      
-        top_cap_div = 4                 
-        max_azim = 2 * math.pi          
-        max_elev = 0.5 * math.pi        
-        d_elev = max_elev/n             
-        
-        elev = max_elev - d_elev
-        azim = 0
-
-        #Calculate the area of the initial cap based on the dElev value
-        top_cap_area = self.calc_sphere_cap_area(elev, r)
-        hemisphere_area = self.calc_hemisphere_area(r)
-        target_area = top_cap_area / top_cap_div
-        face_area_part = target_area / hemisphere_area
-
-        [self.ray_targets, self.ray_areas, self.meshes_quads, counter] = self.get_top_cap(
-                                self.ray_targets,self.ray_areas, max_elev, elev, max_azim, 
-                                top_cap_div, r, r_visual, face_area_part, self.meshes_quads)
-        
-        for i in range(0, n-1):
-            #Reducing the elevation for every loop
-            next_elev = elev - d_elev
-            strip_area = self.calc_sphere_strip_area(elev, next_elev, r)
-            n_azim =  int(strip_area / target_area)
-            d_azim = max_azim / n_azim
-            azim = 0
-            face_area_part = (strip_area / n_azim) / hemisphere_area
-            mid_pt_elev = (elev + next_elev)/2.0
-
-            for j in range(0, n_azim):
-                next_azim = azim + d_azim
-                mesh_quad = self.create_dome_mesh_quad(r_visual, azim, next_azim, elev, next_elev)
-                mesh_quad.visual.face_colors = [1.0, 0.5, 0, 1.0]
-                self.meshes_quads.append(mesh_quad) 
-
-                mid_pt_azim = (azim + next_azim)/2.0
-                x = r * math.cos(mid_pt_elev) * math.cos(mid_pt_azim)
-                y = r * math.cos(mid_pt_elev) * math.sin(mid_pt_azim)
-                z = r * math.sin(mid_pt_elev)
-                pt_ray = np.array([x, y, z])
-
-                self.ray_targets[counter, :] = pt_ray
-                self.ray_areas[counter] = face_area_part    
-
-                azim += d_azim
-                counter += 1
-        
-            elev = elev - d_elev
-
-        #Remove zeros from the array
-        self.ray_targets = self.ray_targets[0:counter, :]
-        self.ray_areas = self.ray_areas[0:counter]
-
-        for i in range(0, counter):
-            mesh = trimesh.primitives.Sphere(radius = 2.0, center = (r_visual * self.ray_targets[i] ), subdivisions = 1)
-            mesh.visual.face_colors = [1.0, 0.5, 0, 1.0]
-            self.meshes_points.append(mesh)
-
-        #Join the mesh into one
-        self.joined_mesh_points = trimesh.util.concatenate(self.meshes_points)  
-        self.dome_mesh = trimesh.util.concatenate(self.meshes_quads) 
-        self.quad_count = len(self.meshes_quads)
-
-    def calc_quad_sun_angle(self, sun_vec):
-        quad_sun_angle = np.zeros(len(self.ray_targets))
-        for i in range(0, len(self.ray_targets)):
-            vec_ray = self.ray_targets[i]
-            angle = utils.VectorAngle(vec_ray, sun_vec)
-            quad_sun_angle[i] = angle
-
-        self.quad_sun_angle = quad_sun_angle
+from typing import List
+from abc import ABC, abstractmethod
+from dtcc_core.model import Mesh, MultiLineString
+from dtcc_core.model import Mesh, LineString, MultiLineString
 
 
-    #Create two triangles that represent the mesh that goes with a particular sky dome ray. 
-    def create_dome_mesh_quad(self, ray_length, azim, next_azim, elev, next_elev):
-        
-        x1 = ray_length * math.cos(elev) * math.cos(azim)
-        y1 = ray_length * math.cos(elev) * math.sin(azim)
-        z1 = ray_length * math.sin(elev)
-        pt1 = np.array([x1,y1,z1])
-        
-        x2 = ray_length * math.cos(next_elev) * math.cos(azim)
-        y2 = ray_length * math.cos(next_elev) * math.sin(azim)
-        z2 = ray_length * math.sin(next_elev)
-        pt2 = np.array([x2,y2,z2])
-        
-        x3 = ray_length * math.cos(elev) * math.cos(next_azim)
-        y3 = ray_length * math.cos(elev) * math.sin(next_azim)
-        z3 = ray_length * math.sin(elev)
-        pt3 = np.array([x3,y3,z3])
-        
-        x4 = ray_length * math.cos(next_elev) * math.cos(next_azim)
-        y4 = ray_length * math.cos(next_elev) * math.sin(next_azim)
-        z4 = ray_length * math.sin(next_elev)
-        pt4 = np.array([x4,y4,z4])
+class Skydome(ABC):
 
-        vs = np.array([pt1, pt2, pt3, pt4])
-        fs = np.array([[0,1,2],[1,3,2]])
-        mesh = trimesh.Trimesh(vertices = vs, faces = fs)
-        
-        return mesh
+    r: float = 1.0  # Radius of the skydome, default is 1.0
 
-    def create_top_cap_quads(self, ray_length, elev, next_elev, azim, d_azim):
+    mesh: Mesh
+    mls: MultiLineString
+    sky_vector_matrix: np.ndarray
+    per_rel_lumiance: np.ndarray
+    absolute_luminance: np.ndarray
 
-        mid_azim = azim + (d_azim/2)
-        next_azim = azim + d_azim
+    faces: List[List[int]]
+    vertices: List[List[float]]
+    ray_dirs: List[List[float]]
+    ray_areas: List[float]
+    solid_angles: List[float]
+    patch_zeniths: List[float]
+    quad_midpoints: List[List[float]]
 
-        x1 = ray_length * math.cos(elev) * math.cos(azim)
-        y1 = ray_length * math.cos(elev) * math.sin(azim)
-        z1 = ray_length * math.sin(elev)
-        pt1 = np.array([x1,y1,z1])
-        
-        x2 = ray_length * math.cos(next_elev) * math.cos(azim)
-        y2 = ray_length * math.cos(next_elev) * math.sin(azim)
-        z2 = ray_length * math.sin(next_elev)
-        pt2 = np.array([x2,y2,z2])
-        
-        x3 = ray_length * math.cos(next_elev) * math.cos(mid_azim)
-        y3 = ray_length * math.cos(next_elev) * math.sin(mid_azim)
-        z3 = ray_length * math.sin(next_elev)
-        pt3 = np.array([x3,y3,z3])
-        
-        x4 = ray_length * math.cos(next_elev) * math.cos(next_azim)
-        y4 = ray_length * math.cos(next_elev) * math.sin(next_azim)
-        z4 = ray_length * math.sin(next_elev)
-        pt4 = np.array([x4,y4,z4])
+    bands: int
+    patch_counter: int
+    band_patches: List[int]
+    elevs_deg: List[float]
 
-        vs = np.array([pt1, pt2, pt3, pt4])
-        fs = np.array([[0,1,2],[2,3,0]])
-        
-        mesh = trimesh.Trimesh(vertices = vs, faces = fs)
+    @abstractmethod
+    def create_mesh(self):
+        """Create a skydome mesh."""
+        pass
 
-        return mesh
+    @abstractmethod
+    def create_zenith_patch(self):
+        """Create the patch where zenith is 0 for the skydome mesh."""
+        pass
 
-    def get_top_cap(self, ray_target, ray_areas, max_elev, elev, max_azim, n_azim, r, r_visual, face_area_part, meshes_quad):
-    
-        elev_mid = (elev + max_elev) / 2.0
-        d_azim = max_azim / n_azim
-        azim_mid = d_azim / 2.0
-        counter = 0
-        azim = 0
+    @abstractmethod
+    def map_data_to_faces(self, data: np.ndarray) -> np.ndarray:
+        """Map data to the faces of the skydome mesh."""
+        pass
 
-        for i in range(0, n_azim):
-            x = r * math.cos(elev_mid) * math.cos(azim_mid)
-            y = r * math.cos(elev_mid) * math.sin(azim_mid)
-            z = r * math.sin(elev_mid)  
-            ray_target[counter,:] = [x ,y ,z]
-            ray_areas[counter] = face_area_part
+    @abstractmethod
+    def map_dict_data_to_faces(self, data: np.ndarray) -> np.ndarray:
+        """Map data to the faces of the skydome mesh."""
+        pass
 
-            quad = self.create_top_cap_quads(r_visual, max_elev, elev, azim, d_azim)
-            meshes_quad.append(quad)
+    def create_mesh_quad(self, azim, next_azim, elev, next_elev) -> None:
+        pt1 = self.spherical_to_cartesian(elev, azim)
+        pt2 = self.spherical_to_cartesian(next_elev, azim)
+        pt3 = self.spherical_to_cartesian(elev, next_azim)
+        pt4 = self.spherical_to_cartesian(next_elev, next_azim)
 
-            azim = azim + d_azim
-            azim_mid = azim_mid + d_azim
-            counter += 1
+        self.vertices.extend([pt1, pt2, pt3, pt4])
 
-        return ray_target, ray_areas, meshes_quad, counter    
+        v_count = len(self.vertices)
 
-    def postprocess_raycasting(self, seg_idxs):
-        shaded_portion = np.sum(self.ray_areas[seg_idxs])
-        self.ray_in_sky = np.ones(len(self.meshes_quads), dtype=bool) 
-        self.face_in_sky = np.ones(2*len(self.meshes_quads), dtype=bool) 
-        
-        for ray_index in seg_idxs:
-            #Set boolean for the ray itself
-            self.ray_in_sky[ray_index] = False
-            #Set boolean for both quads that represent the ray
-            self.face_in_sky[ray_index * 2] = False
-            self.face_in_sky[ray_index * 2 + 1] = False
+        idx0 = v_count - 4
+        idx1 = v_count - 3
+        idx2 = v_count - 2
+        idx3 = v_count - 1
 
-    def move_dome_mesh(self, new_origin):
-        new_pos_vec = np.array([0,0,0]) + new_origin
-        self.dome_mesh.vertices += new_pos_vec
+        self.faces.append([idx0, idx1, idx2])
+        self.faces.append([idx1, idx3, idx2])
 
-    def calc_hemisphere_area(self, r):
-        area = 2 * math.pi * r * r
-        return area
+        mp_x = (pt1[0] + pt2[0] + pt3[0] + pt4[0]) / 4.0
+        mp_y = (pt1[1] + pt2[1] + pt3[1] + pt4[1]) / 4.0
+        mp_z = (pt1[2] + pt2[2] + pt3[2] + pt4[2]) / 4.0
 
-    #Ref: https://www.easycalculation.com/shapes/learn-spherical-cap.php
-    def calc_sphere_cap_area(self, elevation, r):
-        h = r - r * math.sin(elevation)
-        C = 2 * math.sqrt(h * (2 * r - h))
-        area = math.pi * (((C * C)/ 4) + h * h) 
-        return area
+        self.quad_midpoints.append([mp_x, mp_y, mp_z])
 
-    #Ref: https://www.easycalculation.com/shapes/learn-spherical-cap.php
-    def calc_sphere_strip_area(self, elev1, elev2, r):
-        h1 = r - r * math.sin(elev1)
-        h2 = r - r * math.sin(elev2)
-        C1 = 2 * math.sqrt(h1 * (2 * r - h1))
-        C2 = 2 * math.sqrt(h2 * (2 * r - h2))
-        area1 = math.pi * (((C1 * C1)/ 4) + h1 * h1) 
-        area2 = math.pi * (((C2 * C2)/ 4) + h2 * h2)
-        return (area2 - area1)
+    def solid_angle(self, elev1, elev2, azim1, azim2) -> float:
+        """
+        Compute solid angle (steradians) of a spherical rectangle patch on a unit hemisphere,
+        using elevation and azimuth bounds in **radians**.
 
+        Parameters:
+            elev1, elev2 : float
+                Elevation bounds (in radians), from horizon (0) up to zenith (π/2)
+            azim1, azim2 : float
+                Azimuth bounds (in degrgees), range [0, 2π]
 
+        Returns:
+            float : solid angle in steradians
+        """
 
+        return (azim2 - azim1) * (np.sin(elev2) - np.sin(elev1))
 
+    def calc_top_patch_solid_angle(self, elev) -> float:
+        zenith = math.pi / 2.0 - elev
+        solid_angle = 2 * np.pi * (1 - np.cos(zenith))
+        return solid_angle
 
+    def spherical_to_cartesian(self, elev, azim):
+        x = math.cos(elev) * math.sin(azim)  # East
+        y = math.cos(elev) * math.cos(azim)  # North
+        z = math.sin(elev)
+        return [x, y, z]
 
+    def calc_sphere_cap_area(self, elevation) -> float:
+        polar_angle = math.pi / 2.0 - elevation
+        return 2.0 * math.pi * (self.r**2) * (1 - math.cos(polar_angle))
 
+    def create_dirvector_mls(self, line_s, line_dir) -> None:
+        line_strings = []
+        line_s = np.array(line_s)
+        line_dir = np.array(line_dir)
 
+        for start, direction in zip(line_s, line_dir):
+            end = start + direction / np.linalg.norm(direction)
+            vertices = []
+            vertices.append(start)
+            vertices.append(end)
+            vertices = np.array(vertices)
+            ls = LineString(vertices=vertices)
+            line_strings.append(ls)
 
+        self.mls = MultiLineString(linestrings=line_strings)
 
+    def calc_hemisphere_area(self) -> float:
+        return 2.0 * math.pi * (self.r**2)
 
-
-
+    def calc_sphere_patch_area(self, elev1, elev2, azim1, azim2) -> float:
+        return (self.r**2) * abs((azim2 - azim1) * (math.sin(elev2) - math.sin(elev1)))

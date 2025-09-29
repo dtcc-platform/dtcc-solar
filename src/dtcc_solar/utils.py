@@ -1,271 +1,652 @@
-import sys
-import pathlib
-project_dir = str(pathlib.Path(__file__).resolve().parents[0])
-sys.path.append(project_dir)
-
+import os
 import numpy as np
 import math
-from pvlib import solarposition
 import pandas as pd
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from enum import Enum
+import csv
+import trimesh
+import json
+import fast_simplification as fs
+from enum import Enum, IntEnum
+from dataclasses import dataclass, field, fields
+from typing import List, Dict, Tuple, Optional
+from collections import defaultdict
+from dtcc_core.model import Mesh, LineString
+from csv import reader
+from pandas import Timestamp
+from dtcc_solar.logging import info, debug, warning, error
 
-class ColorBy(Enum):
-    face_sun_angle = 1
-    face_sun_angle_shadows = 2
-    face_irradiance = 3
-    face_shadows = 4
-    face_in_sky = 5
-    face_diffusion = 6
 
-class AnalysisType(Enum):
-    sun_raycasting = 1
-    sky_raycasting = 2
-    sky_raycasting_some = 3
-    sun_raycast_iterative = 4
-    com_iterative = 5
+class SkyType(IntEnum):
+    TREGENZA_145 = 1
+    REINHART_578 = 2
+    REINHART_2305 = 3
 
-class AnalysisTypeDev(Enum):
-    vertex_raycasting = 1
-    subdee_shading = 2
-    diffuse_dome = 3
-    diffuse_some = 4
-    diffuse_all = 5        
 
-class Analyse(Enum):
-    Time = 1
-    Day = 2
-    Year = 3
-    Times = 4
+class Rays(IntEnum):
+    BUNDLE_1 = 1
+    BUNDLE_8 = 2
 
-class Shading(Enum):
-    Sun = 1
-    Boarder = 2
-    Shade = 3
-    
 
-def colorFader(mix): #fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
-    c1=np.array(mpl.colors.to_rgb('blue'))
-    c2=np.array(mpl.colors.to_rgb('red'))
-    print(c1)
-    print(c2)
-    return mpl.colors.to_hex((1-mix)*c1 + mix*c2)
+class SunMapping(IntEnum):
+    NONE = 0
+    RADIANCE = 1
 
-def GetSunVecFromSunPos(sunPos, origin):
-    sunVec = origin - sunPos
-    sunVecNorm = normalise_vector(sunVec)
-    return sunVecNorm  
 
-def get_sun_vecs_from_sun_pos(sunPosList, origin):
-    sunVecs = []
-    for i in range(0, len(sunPosList)):
-        sunPos = sunPosList[i]
-        sunVec = origin - sunPos
-        sunVecNorm = normalise_vector(sunVec)
-        sunVecs.append(sunVecNorm)
-    return sunVecs  
+class AnalysisType(IntEnum):
+    TWO_PHASE = 1
+    THREE_PHASE = 2
 
-def get_sun_vecs_dict_from_sun_pos(sunPosList, origin, dict_keys):
-    sunVecs = dict.fromkeys(dict_keys)
-    counter = 0
-    print(len(dict_keys))
-    print(len(sunPosList))
-    for key in dict_keys:
-        sunPos = sunPosList[counter]
-        sunVec = origin - sunPos
-        sunVecNorm = normalise_vector(sunVec)
-        sunVecs[key] = sunVecNorm
-        counter += 1
-    return sunVecs  
 
-def VectorFromPoints(pt1, pt2):
-    vec = [pt2[0] - pt1[0], pt2[1] - pt1[1], pt2[2] - pt1[2]]
-    return vec
+class SunPathType(IntEnum):
+    NORMAL = 1  # Normal sun path with 1 h steps
+    INTERPOLATED = 2  # Interpolated sun path for better sun patch discretisation
 
-def normalise_vector(vec):
-    length = CalcVectorLength(vec)
-    vecNorm = np.zeros(3)
+
+@dataclass
+class Vec3:
+    x: float
+    y: float
+    z: float
+
+
+@dataclass
+class SolarParameters:
+    weather_file: str = "Undefined weather data file"
+    display: bool = True
+    sun_path_type: SunPathType = SunPathType.NORMAL
+    analysis_type: AnalysisType = AnalysisType.TWO_PHASE
+    sun_mapping: SunMapping = SunMapping.RADIANCE
+    start: Timestamp = field(default_factory=lambda: Timestamp("2019-01-01 00:00"))
+    end: Timestamp = field(default_factory=lambda: Timestamp("2020-01-01 00:00"))
+
+    def info_print(self) -> None:
+        info("-----------------------------------------------------")
+        info("Solar Parameters:")
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, Enum):
+                value = value.name  # use enum name instead of int
+            info(f"  {f.name:15}: {value}")
+        info("-----------------------------------------------------")
+
+    def __post_init__(self):
+        # Automatically print when object is created
+        self.info_print()
+
+
+@dataclass
+class SkyResults:
+    # Number of suns
+    count: int = 0
+    # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
+    matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 2D array of relative luminance F (unitless) per patch and timestep [n x t]
+    relative_luminance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 2D array of norm relative luminance F (unitless) per patch and timestep [n x t]
+    relative_lum_norm: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 2D array of absolute luminance L (W/m2/sr) per patch and timestep [n x t]
+    absolute_luminance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # 1D array of solid angles (steradians) for each patch [n]
+    solid_angles: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Relative luminance term1 (unitless) for Perez model
+    rel_lum_term1: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Relative luminance term2 (unitless) for Perez model
+    rel_lum_term2: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Ksi angles (zenith angles in radians) for each patch and timestep
+    ksis: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Gamma angles (angle between sun and patch in radians) for each patch and timestep
+    gammas: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # DHI measurements ignored due to large sun zenith angle
+    ignored_dhi: float = 0.0
+
+
+@dataclass
+class SunResults:
+    # Number of suns
+    count: int = 0
+    # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
+    matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
+
+
+@dataclass
+class SunCollection:
+    # Number of suns
+    count: int = 0
+    # Number of suns above the horizon
+    count_above: int = 0
+    # Number of suns below the horizon
+    count_below: int = 0
+    # Time stamps
+    time_stamps: List[Timestamp] = field(default_factory=list)
+    # Sun positions
+    positions: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Normalised sun vectors
+    sun_vecs: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Direct Normal Irradiance from the sun beam recalculated in the normal direction in relation to the sun-earth
+    dni: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Diffuse Horizontal Irradiance that is solar radiation diffused by athmosphere, clouds and particles
+    dhi: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # List zenith values
+    zeniths: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Max measured dhi value for entire the year (independent of date limits)
+
+    def info_print(self) -> None:
+        info("-----------------------------------------------------")
+        info("Sun Collection:")
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, np.ndarray):
+                info(f"  {f.name:15}: array shape={value.shape}, dtype={value.dtype}")
+            elif isinstance(value, list):
+                info(f"  {f.name:15}: list length={len(value)}")
+            else:
+                info(f"  {f.name:15}: {value}")
+        info("-----------------------------------------------------")
+
+
+@dataclass
+class OutputCollection:
+    # Analysis mesh
+    mesh: Mesh = field(default_factory=lambda: Mesh())
+    # Shading mesh
+    shading_mesh: Optional[Mesh] = None
+    # Data mask
+    data_mask: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Sky results
+    sky_results: SkyResults = field(default_factory=lambda: SkyResults())
+    # Sun results
+    sun_results: SunResults = field(default_factory=lambda: SunResults())
+    # Total irradiance
+    total_irradiance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Sky diffuse irradiance
+    sky_irradiance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Sun direct irradiance
+    sun_irradiance: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Sun hours
+    sun_hours: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Sky view factor
+    sky_view_factor: np.ndarray = field(default_factory=lambda: np.empty(0))
+
+    def info_print(self) -> None:
+        info("-----------------------------------------------------")
+        info("Output Collection:")
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, np.ndarray):
+                info(f"  {f.name:15}: array shape={value.shape}, dtype={value.dtype}")
+            elif isinstance(value, list):
+                info(f"  {f.name:15}: list length={len(value)}")
+            elif value is None:
+                info(f"  {f.name:15}: None")
+            else:
+                info(f"  {f.name:15}: {type(value).__name__}")
+        info("-----------------------------------------------------")
+
+
+def hours_count(start: pd.Timestamp, end: pd.Timestamp) -> int:
+    """Calculate the number of hours between two timestamps."""
+    if start > end:
+        raise ValueError("Start time must be before end time.")
+    delta = end - start
+    return int(delta.total_seconds() / 3600)
+
+
+def dict_2_np_array(sun_pos_dict):
+    arr = []
+    for key in sun_pos_dict:
+        for pos in sun_pos_dict[key]:
+            arr.append([pos.x, pos.y, pos.z])
+
+    arr = np.array(arr)
+    return arr
+
+
+def calc_face_mid_points(mesh: Mesh):
+    faceVertexIndex1 = mesh.faces[:, 0]
+    faceVertexIndex2 = mesh.faces[:, 1]
+    faceVertexIndex3 = mesh.faces[:, 2]
+
+    vertex1 = mesh.vertices[faceVertexIndex1]
+    vertex2 = mesh.vertices[faceVertexIndex2]
+    vertex3 = mesh.vertices[faceVertexIndex3]
+
+    face_mid_points = (vertex1 + vertex2 + vertex3) / 3.0
+
+    return face_mid_points
+
+
+def calc_face_incircle(mesh: Mesh):
+    center = []
+    radius = []
+    for i, face in enumerate(mesh.faces):
+        fv1 = face[0]
+        fv2 = face[1]
+        fv3 = face[2]
+
+        A = mesh.vertices[fv1]
+        B = mesh.vertices[fv2]
+        C = mesh.vertices[fv3]
+
+        vec_c = B - A
+        vec_b = C - A
+        vec_a = C - B
+
+        c = np.linalg.norm(vec_c)
+        b = np.linalg.norm(vec_b)
+        a = np.linalg.norm(vec_a)
+
+        s = (c + b + a) / 2.0
+        f_area = 0.5 * np.linalg.norm(np.cross(vec_c, vec_b))
+
+        c_x = (a * A[0] + b * B[0] + c * C[0]) / (2.0 * s)
+        c_y = (a * A[1] + b * B[1] + c * C[1]) / (2.0 * s)
+        c_z = (A[2] + B[2] + C[2]) / 3.0
+
+        center.append([c_x, c_y, c_z])
+        radius.append(f_area / s)
+
+    return np.array(center), np.array(radius)
+
+
+def calc_face_normals(mesh):
+    """
+    Compute unit normal vectors for each face in the mesh.
+
+    Parameters:
+        mesh: An object with `vertices` (N x 3) and `faces` (M x 3) arrays.
+
+    Returns:
+        normals: (M x 3) array of unit normal vectors.
+    """
+    v0 = mesh.vertices[mesh.faces[:, 0]]
+    v1 = mesh.vertices[mesh.faces[:, 1]]
+    v2 = mesh.vertices[mesh.faces[:, 2]]
+
+    # Compute vectors for two edges of each triangle
+    edge1 = v1 - v0
+    edge2 = v2 - v0
+
+    # Compute cross product to get face normals
+    normals = np.cross(edge1, edge2)
+
+    # Normalize each normal vector to unit length
+    norms = np.linalg.norm(normals, axis=1, keepdims=True)
+    normals = normals / np.where(norms == 0, 1, norms)  # Prevent division by zero
+
+    return normals
+
+
+def calc_face_areas(mesh: Mesh) -> np.ndarray:
+    """Calculate the area of each face in the mesh."""
+    areas = np.zeros(mesh.num_faces)
+    for i, face in enumerate(mesh.faces):
+        v0, v1, v2 = (
+            mesh.vertices[face[0]],
+            mesh.vertices[face[1]],
+            mesh.vertices[face[2]],
+        )
+        u = v1 - v0
+        v = v2 - v0
+        cross_product = np.cross(u, v)
+        area = 0.5 * np.linalg.norm(cross_product)
+        areas[i] = area
+    return areas
+
+
+def create_list_of_vec3(x_list, y_list, z_list) -> List[Vec3]:
+    vec_list = []
+    for i in range(0, len(x_list)):
+        vec = Vec3(x=x_list[i], y=y_list[i], z=z_list[i])
+        vec_list.append(vec)
+    return vec_list
+
+
+def unitize(vec: np.ndarray):
+    length = calc_vector_length(vec)
     vecNorm = vec / length
-    #vecNorm[0] = vec[0]/length
-    #vecNorm[1] = vec[1]/length
-    #vecNorm[2] = vec[2]/length
     return vecNorm
 
-def reverse_vector(vec):    
-    vecRev = -1.0 * vec
-    #vecRev = [0,0,0]
-    #vecRev[0] = -1.0 * vec[0]
-    #vecRev[1] = -1.0 * vec[1]
-    #vecRev[2] = -1.0 * vec[2]
-    return vecRev
 
-def CalcVectorLength(vec):
-    length = math.sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2])
+def calc_vector_length(vec: np.ndarray):
+    length = math.sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2])
     return length
 
-def VectorAngle(vec1, vec2):
-    lengthV1 = CalcVectorLength(vec1)
-    lengthV2 = CalcVectorLength(vec2)
-    scalarV1V2 = ScalarProduct(vec1, vec2)
-    angle = math.acos(scalarV1V2 / (lengthV1 * lengthV2))
-    return angle
 
-def calculate_normal(v1, v2):
-    v3 = cross_product(v1, v2)
-    normal = normalise_vector(v3)
-    return normal
-
-def cross_product(a, b):
-    vCross = np.zeros(3)
-    vCross[0] = a[1]*b[2] - a[2]*b[1]
-    vCross[1] = a[0]*b[2] - a[2]*b[0]
-    vCross[2] = a[0]*b[1] - a[1]*b[0]
-    return vCross        
-
-def ScalarProduct(vec1, vec2):
-    return vec1[0] * vec2[0] + vec1[1] * vec2[1] + vec1[2] * vec2[2]      
-
-def AvrgVertex(v1,v2,v3):
-    x = (v1[0] + v2[0] + v3[0])/3.0
-    y = (v1[1] + v2[1] + v3[1])/3.0
-    z = (v1[2] + v2[2] + v3[2])/3.0
-    return [x,y,z]
-
-def MoveVertex(v, mVec, distance):
-    movedVertex = [0, 0, 0]
-    movedVertex[0] = v[0] + mVec[0] * distance
-    movedVertex[1] = v[1] + mVec[1] * distance
-    movedVertex[2] = v[2] + mVec[2] * distance
-    return movedVertex 
-
-def IsFaceBlocked(thisTriIndex, intersectedTriangleIndices):
-    for iti in intersectedTriangleIndices:
-        if iti != thisTriIndex:                 #If there is an intersection which is not the self then the face is blocked.
-            return True
-    return False        
+def distance(v1, v2):
+    d = math.sqrt(
+        math.pow((v1[0] - v2[0]), 2)
+        + math.pow((v1[1] - v2[1]), 2)
+        + math.pow((v1[2] - v2[2]), 2)
+    )
+    return d
 
 
-def Distance(v1, v2):
-    return math.sqrt(math.pow((v1[0] - v2[0]),2) + math.pow((v1[1] - v2[1]),2) + + math.pow((v1[2] - v2[2]),2)) 
+def concatenate_meshes(meshes: list[Mesh]):
+    all_vertices = np.array([[0, 0, 0]])
+    all_faces = np.array([[0, 0, 0]])
+    for mesh in meshes:
+        faces_offset = len(all_vertices) - 1
+        all_vertices = np.vstack([all_vertices, mesh.vertices])
+        faces_to_add = mesh.faces + faces_offset
+        all_faces = np.vstack([all_faces, faces_to_add])
 
-def GetBlendedColor(percentage):
+    # Remove the [0,0,0] row that was added to enable concatenate.
+    all_vertices = np.delete(all_vertices, obj=0, axis=0)
+    all_faces = np.delete(all_faces, obj=0, axis=0)
 
-    if (percentage >= 0.0 and percentage <= 25.0):
-        #Blue fading to Cyan [0,x,255], where x is increasing from 0 to 255
-        frac = percentage / 25.0
-        return [0.0, (frac * 1.0), 1.0, 1.0]
-    elif (percentage <= 50.0):
-        #Cyan fading to Green [0,255,x], where x is decreasing from 255 to 0
-        frac = 1.0 - abs(percentage - 25.0) / 25.0
-        return [0.0, 1.0, (frac * 1.0), 1.0]
-    elif (percentage <= 75.0):
-        #Green fading to Yellow [x,255,0], where x is increasing from 0 to 255
-        frac = abs(percentage - 50) / 25
-        return [(frac * 1.0), 1.0, 0, 1 ]
-    elif (percentage <= 100):
-        #Yellow fading to red [255,x,0], where x is decreasing from 255 to 0
-        frac = 1 - abs(percentage - 75) / 25.0
-        return [1, (frac * 1), 0, 1]
+    mesh = Mesh(vertices=all_vertices, faces=all_faces)
 
-    elif (percentage > 100):
-        return [1, 0, 0, 1]
+    return mesh
 
-    return [0.5, 0.5, 0.5, 1.0]
 
-def GetBlendedColor(min, max, value):
-    diff = max - min
-    newMax = diff
-    newValue = value - min
-    percentage = 100.0 * (newValue / newMax)
+def subdivide_mesh(mesh: Mesh, max_edge_length: float) -> Mesh:
 
-    if (percentage >= 0.0 and percentage <= 25.0):
-        #Blue fading to Cyan [0,x,255], where x is increasing from 0 to 255
-        frac = percentage / 25.0
-        return [0.0, (frac * 1.0), 1.0 , 1.0]
-    
-    elif (percentage > 25.0 and percentage <= 50.0):
-        #Cyan fading to Green [0,255,x], where x is decreasing from 255 to 0
-        frac = 1.0 - abs(percentage - 25.0) / 25.0
-        return [0.0, 1.0, (frac * 1.0), 1.0]
-    
-    elif (percentage > 50.0 and percentage <= 75.0):
-        #Green fading to Yellow [x,255,0], where x is increasing from 0 to 255
-        frac = abs(percentage - 50.0) / 25.0
-        return [(frac * 1.0), 1.0, 0.0, 1.0 ]
+    try:
+        vs, fs = trimesh.remesh.subdivide_to_size(
+            mesh.vertices, mesh.faces, max_edge=max_edge_length, max_iter=6
+        )
+        subdee_mesh = Mesh(vertices=vs, faces=fs)
+    except:
+        warning(f"Could not subdivide mesh with length {max_edge_length}.")
+        subdee_mesh = mesh
 
-    elif (percentage > 75.0 and percentage <= 100.0):
-        #Yellow fading to red [255,x,0], where x is decreasing from 255 to 0
-        frac = 1.0 - abs(percentage - 75.0) / 25.0
-        return [1.0, (frac * 1.0), 0.0, 1.0]
+    return subdee_mesh
 
-    elif (percentage > 100.0):
-        #Returning red if the value overshoot the limit.
-        return [1.0, 0.0, 0.0, 1.0 ]
 
-    return [0.5, 0.5, 0.5, 1.0 ]
+def split_mesh_with_domain(mesh: Mesh, xdom: list, ydom: list):
+    pts = calc_face_mid_points(mesh)
+    x_min, y_min = pts[:, 0:2].min(axis=0)
+    x_range, y_range = np.ptp(pts[:, 0:2], axis=0)
 
-def GetBlendedColorRedAndBlue(max, value):
-    frac = 0
-    if(max > 0):
-        frac = value / max
-    return [frac, 0.0, 1 - frac, 1.0]
-
-def GetBlendedColorBlackAndWhite(max, value):
-    frac = 0
-    if(max > 0):
-        frac = value / max
-    return [frac, frac, frac, 1.0]
-
-def GetBlendedSunColor(max, value):
-    percentage = 100.0 * (value / max)
-    if (value < 0):
-        #Blue fading to Cyan [0,x,255], where x is increasing from 0 to 255
-        return [1.0, 1.0, 1.0, 1.0]
+    if len(xdom) == len(ydom) == 2 and xdom[0] < xdom[1] and ydom[0] < ydom[1]:
+        # Normalize the x,y coordinates
+        xn = (pts[:, 0] - x_min) / x_range
+        yn = (pts[:, 1] - y_min) / y_range
+        face_mask = (xn > xdom[0]) & (xn < xdom[1]) & (yn > ydom[0]) & (yn < ydom[1])
     else:
-        #Cyan fading to Green [0,255,x], where x is decreasing from 255 to 0
-        frac = 1 - percentage/100
-        return [1.0, (frac * 1.0), 0.0, 1.0]
+        return None, None
+
+    return split_mesh_by_face_mask(mesh, face_mask)
 
 
-def ReverseMask(mask):
-    revMask = [not elem for elem in mask]
-    return revMask
+def split_mesh_by_vertical_faces(mesh: Mesh) -> Mesh:
 
-def CountElementsInDict(dict):     
-    count = 0
-    for key in dict:
-        n = len(dict[key])
-        count += n    
-    
-    return count 
+    face_verts = mesh.vertices[mesh.faces.flatten()]
+    c1 = face_verts[:-1]
+    c2 = face_verts[1:]
+    mask = np.ones(len(c1), dtype=bool)
+    mask[2::3] = False  # [True, True, False, True, True, False, ...]
+    cross_vecs = (c2 - c1)[mask]  # (v2 - v1), (v3 - v2)
+    cross_p = np.cross(cross_vecs[::2], cross_vecs[1::2])  # (v2 - v1) x (v3 - v2)
+    cross_p = cross_p / np.linalg.norm(cross_p, axis=1)[:, np.newaxis]  # normalize
+
+    # Check if the cross product is pointing upwards
+    mask = cross_p[:, 2] > 0.01
+    mesh_1, mesh_2 = split_mesh_by_face_mask(mesh, mask)
+    return mesh_2, mesh_1
 
 
-def get_index_of_closest_point(point, array_of_points):
-    
-    dmin = 10000000000
-    index = -1
-    for i in range(0, len(array_of_points)):
-        d = Distance(point, array_of_points[i])
-        if(d < dmin):
-            dmin = d
-            index = i
+def split_mesh_by_face_mask(mesh: Mesh, mask: list[bool]) -> Mesh:
 
-    return index        
+    if len(mask) != len(mesh.faces):
+        print("Invalid mask length")
+        return None, None
 
-# Remove subsequent duplicates in the pandas data frame. 
-def remove_date_range_duplicates(subset:pd.DataFrame):
+    mask_inv = np.invert(mask)
+
+    mesh_tri = trimesh.Trimesh(mesh.vertices, mesh.faces)
+    mesh_tri.update_faces(mask)
+    mesh_tri.remove_unreferenced_vertices()
+    mesh_in = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
+
+    mesh_tri = trimesh.Trimesh(mesh.vertices, mesh.faces)
+    mesh_tri.update_faces(mask_inv)
+    mesh_tri.remove_unreferenced_vertices()
+    mesh_out = Mesh(vertices=mesh_tri.vertices, faces=mesh_tri.faces)
+
+    return mesh_in, mesh_out
+
+
+def is_mesh_valid(mesh: Mesh) -> bool:
+    if mesh is None:
+        return False
+
+    if np.any(calc_face_areas(mesh) < 0.01):
+        return False
+
+    if len(find_dup_faces(mesh)) > 0:
+        return False
+
+    return True
+
+
+def check_mesh(mesh: Mesh):
+    if mesh is None:
+        warning("Mesh is None")
+        return
+
+    small_faces = np.where(calc_face_areas(mesh) < 0.01)[0]
+    if len(small_faces) > 0:
+        warning(f"Mesh has {len(small_faces)} number of faces with area < 0.01")
+
+    face_dups = find_dup_faces(mesh)
+    if len(face_dups) > 0:
+        warning(f"Mesh has {len(face_dups)} number of duplicate faces")
+
+    vertex_dups = find_dup_vertices(mesh)
+    if len(vertex_dups) > 0:
+        warning(f"Mesh has {len(vertex_dups)} number of duplicate vertices")
+
+
+def reduce_mesh(mesh: Mesh, reduction_rate: float = None):
+    (vertices, faces) = fs.simplify(mesh.vertices, mesh.faces, reduction_rate)
+    mesh = Mesh(vertices=vertices, faces=faces)
+    return mesh
+
+
+def find_dup_faces(mesh: Mesh) -> List[Tuple[int, int, int]]:
+    """Find duplicate faces in the mesh."""
+    face_set = set()
+    duplicate_faces = []
+
+    for face in mesh.faces:
+        sorted_face = tuple(sorted(face))
+        if sorted_face in face_set:
+            duplicate_faces.append(face)
+        else:
+            face_set.add(sorted_face)
+
+    return duplicate_faces
+
+
+def find_dup_vertices(mesh: Mesh) -> List[int]:
+    """Find duplicate vertices in the mesh."""
+    vertex_dict = defaultdict(list)
+    duplicate_vertices = []
+
+    for index, vertex in enumerate(mesh.vertices):
+        vertex_tuple = tuple(vertex)
+        vertex_dict[vertex_tuple].append(index)
+
+    for indices in vertex_dict.values():
+        if len(indices) > 1:
+            duplicate_vertices.extend(indices[1:])
+
+    return duplicate_vertices
+
+
+def export_results(solpos):
+    with open("sunpath.txt", "w") as f:
+        for item in solpos["zenith"].values:
+            f.write(str(item[0]) + "\n")
+
+
+def print_list(listToPrint, path):
     counter = 0
-    index_list = subset.index
-    for index in index_list:
-        current_day = index.day
-        
-        if(counter > 0):
-           if(previous_day == current_day):
-               subset = subset.drop(index)
-               #print("Dropped item: " + str(index) ) 
-        
-        previous_day = current_day
-        counter += 1
+    with open(path, "w") as f:
+        for row in listToPrint:
+            f.write(str(row) + "\n")
+            counter += 1
 
-    return subset
+    print("Export completed")
+
+
+def print_results(shouldPrint, faceRayFaces):
+    counter = 0
+    if shouldPrint:
+        with open("faceRayFace.txt", "w") as f:
+            for key in faceRayFaces:
+                f.write("Face index:" + str(key) + " " + str(faceRayFaces[key]) + "\n")
+                counter += 1
+
+    print(counter)
+
+
+def write_to_csv(filename: str, data):
+    print("Write to CSV")
+    print(type(data))
+
+    data_list = data.to_list()
+
+    print(type(data_list))
+
+    with open(filename, "w", newline="") as csvfile:
+        filewriter = csv.writer(csvfile)
+        for d in data:
+            filewriter.writerow(str(d))
+
+
+def read_sunpath_diagram_from_csv_file(filename):
+    pts = []
+    with open(filename, "r") as read_obj:
+        csv_reader = reader(read_obj)
+        header = next(csv_reader)
+        # Check file as empty
+        if header != None:
+            # Iterate over each row after the header in the csv
+            for row in csv_reader:
+                # row variable is a list that represents a row in csv
+                pt = np.array([float(row[0]), float(row[1]), float(row[2])])
+                pts.append(pt)
+
+    return pts
+
+
+def match_sunpath_scale(loop_pts, radius: float):
+    # Calculate the correct scale factor for the imported sunpath diagram
+    pt = loop_pts[0][0]
+    current_raduis = math.sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z)
+    sf = radius / current_raduis
+
+    for hour in loop_pts:
+        print(len(loop_pts[hour]))
+        for i in range(len(loop_pts[hour])):
+            pt = loop_pts[hour][i]
+            pt.x = sf * pt.x
+            pt.y = sf * pt.y
+            pt.z = sf * pt.z
+            loop_pts[hour][i] = pt
+
+    return loop_pts
+
+
+def calc_face_mid_points(mesh):
+    faceVertexIndex1 = mesh.faces[:, 0]
+    faceVertexIndex2 = mesh.faces[:, 1]
+    faceVertexIndex3 = mesh.faces[:, 2]
+    vertex1 = np.array(mesh.vertices[faceVertexIndex1])
+    vertex2 = np.array(mesh.vertices[faceVertexIndex2])
+    vertex3 = np.array(mesh.vertices[faceVertexIndex3])
+    face_mid_points = (vertex1 + vertex2 + vertex3) / 3.0
+    return face_mid_points
+
+
+def create_ls_circle(center, radius, num_segments):
+    # Calculate the angle between each segment
+    angle_step = 2 * math.pi / num_segments
+
+    # Generate points around the circumference of the circle
+    vertices = []
+    for i in range(num_segments):
+        x = center[0] + radius * math.cos(i * angle_step)
+        y = center[1] + radius * math.sin(i * angle_step)
+        z = 0.0
+        vertices.append([x, y, z])
+
+    vertices.append(vertices[0])
+    vertices = np.array(vertices)
+    circle_ls = LineString(vertices=vertices)
+    return circle_ls
+
+
+def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
+    """Export a mesh and its associated data to a JSON file."""
+
+    info("-----------------------------------------------------")
+    info(f"Exporting to json:")
+    info(f"  path: {filename}")
+    mask = output.data_mask
+    analysis_mesh, shading_mesh = split_mesh_by_face_mask(output.mesh, mask)
+
+    face_mpts = np.mean(analysis_mesh.vertices[analysis_mesh.faces], axis=1)
+    face_normals = calc_face_normals(analysis_mesh)
+
+    guid_mpt = [f"{{{', '.join(f'{val:.4f}' for val in row)}}}" for row in face_mpts]
+    guid_nrl = [f"{{{', '.join(f'{val:.4f}' for val in row)}}}" for row in face_normals]
+    guid_combined = [f"{a},{b}" for a, b in zip(guid_mpt, guid_nrl)]
+
+    face_count = len(analysis_mesh.faces)
+
+    parameters = {
+        "analysis_type": p.analysis_type.name,
+        "sun_mapping": p.sun_mapping.name,
+        "start_date": str(p.start),
+        "end_date": str(p.end),
+        "weather_data": p.weather_file,
+    }
+
+    # Create the structure to hold the mesh data
+    if p.analysis_type == AnalysisType.TWO_PHASE:
+        svf = output.sky_view_factor[mask]
+        total_irr = output.total_irradiance[mask]
+
+        assert len(svf) == face_count
+        assert len(total_irr) == face_count
+
+        results_data = {
+            "GUID": guid_combined,
+            "SkyViewFactor": svf.tolist(),
+            "TotalIrradiation": total_irr.tolist(),
+            "Parameters": parameters,
+        }
+    elif p.analysis_type == AnalysisType.THREE_PHASE:
+        svf = output.sky_view_factor[mask]
+        sun_hours = output.sun_hours[mask]
+        total_irr = output.total_irradiance[mask]
+        sky_irr = output.sky_irradiance[mask]
+        sun_irr = output.sun_irradiance[mask]
+
+        assert len(svf) == face_count
+        assert len(sun_hours) == face_count
+        assert len(total_irr) == face_count
+        assert len(sky_irr) == face_count
+        assert len(sun_irr) == face_count
+
+        results_data = {
+            "GUID": guid_combined,
+            "SkyViewFactor": svf.tolist(),
+            "SunHours": sun_hours.tolist(),
+            "TotalIrradiation": total_irr.tolist(),
+            "SkyIrradiation": sky_irr.tolist(),
+            "SunIrradiation": sun_irr.tolist(),
+            "Parameters": parameters,
+        }
+
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+    # Write the data to a JSON file
+    with open(filename, "w") as json_file:
+        json.dump(results_data, json_file, indent=4)
+
+    info(f"  Results exported successfully")
+    info("-----------------------------------------------------")

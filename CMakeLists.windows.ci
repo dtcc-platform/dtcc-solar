@@ -1,0 +1,95 @@
+# CMake configuration for Windows CI
+cmake_minimum_required(VERSION 3.15)
+project(dtcc-solar)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release")
+  message(STATUS "Build type not specified, using Release by default")
+endif()
+
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(MSVC)
+  add_compile_options(/W3)
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2")
+else()
+  add_compile_options(
+    -Wall
+    -Werror
+    -Wno-unused-but-set-variable
+    -Wno-reorder
+  )
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -pg -DLLVM_ENABLE_ASSERTIONS=ON")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+endif()
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+
+# Help CMake locate third-party dependencies installed by the CI job
+set(_embree_prefix "C:/Program Files/Embree")
+if(DEFINED ENV{EMBREE_VERSION})
+  set(_embree_config "${_embree_prefix}/lib/cmake/embree-$ENV{EMBREE_VERSION}")
+  if(EXISTS "${_embree_config}/embree-config.cmake")
+    set(embree_DIR "${_embree_config}" CACHE PATH "Embree config directory" FORCE)
+    list(APPEND CMAKE_PREFIX_PATH "${_embree_config}")
+  endif()
+endif()
+list(APPEND CMAKE_PREFIX_PATH
+  "${_embree_prefix}"
+  "${_embree_prefix}/lib"
+  "${_embree_prefix}/lib/cmake"
+)
+
+set(_eigen_prefix "C:/Program Files/Eigen3")
+if(DEFINED ENV{EIGEN_VERSION})
+  set(_eigen_candidate "${_eigen_prefix}/eigen-$ENV{EIGEN_VERSION}")
+  if(EXISTS "${_eigen_candidate}/Eigen")
+    set(EIGEN3_INCLUDE_DIR "${_eigen_candidate}" CACHE PATH "Eigen include directory" FORCE)
+    list(APPEND CMAKE_PREFIX_PATH "${_eigen_candidate}" "${_eigen_candidate}/cmake")
+  endif()
+endif()
+if(DEFINED ENV{EIGEN3_INCLUDE_DIR})
+  set(EIGEN3_INCLUDE_DIR "$ENV{EIGEN3_INCLUDE_DIR}" CACHE PATH "Eigen include directory" FORCE)
+  list(APPEND CMAKE_PREFIX_PATH "$ENV{EIGEN3_INCLUDE_DIR}" "$ENV{EIGEN3_INCLUDE_DIR}/cmake")
+  list(APPEND CMAKE_MODULE_PATH "$ENV{EIGEN3_INCLUDE_DIR}/cmake")
+  message(STATUS "Using Eigen from $ENV{EIGEN3_INCLUDE_DIR}")
+endif()
+list(APPEND CMAKE_PREFIX_PATH "${_eigen_prefix}" "${_eigen_prefix}/cmake")
+
+find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
+
+execute_process(
+  COMMAND "${Python3_EXECUTABLE}" -c "import pybind11, sys; sys.stdout.write(pybind11.get_cmake_dir())"
+  OUTPUT_VARIABLE pybind11_DIR
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+set(pybind11_DIR "${pybind11_DIR}" CACHE PATH "Path to pybind11 CMake files")
+find_package(pybind11 CONFIG REQUIRED)
+
+# Try config package first (preferred). If that fails, fall back to the module helper.
+find_package(Eigen3 3.3 QUIET CONFIG)
+if(NOT Eigen3_FOUND)
+  find_package(Eigen3 3.3 REQUIRED)
+endif()
+
+find_package(OpenMP)
+if(OpenMP_FOUND)
+  list(APPEND EXTRA_LIBS OpenMP::OpenMP_CXX)
+endif()
+
+include_directories(${CMAKE_SOURCE_DIR}/src/cpp)
+set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/src)
+set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
+
+add_subdirectory(src)
+if(NOT WIN32)
+  add_subdirectory(tests/cpp)
+endif()
+
+if(NOT WIN32)
+  set(_pre_commit_script "${CMAKE_SOURCE_DIR}/utils/git/git-pre-commit-format")
+  if(EXISTS "${_pre_commit_script}")
+    execute_process(COMMAND bash -c "${_pre_commit_script} install")
+  endif()
+endif()

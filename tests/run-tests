@@ -3,4 +3,3 @@
 echo "Running python tests"
 echo "===================="
 pytest python/test_1.py python/test_2.py python/test_3.py
-
