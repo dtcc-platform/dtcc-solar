@@ -113,7 +113,7 @@ class Sunpath:
         self.sunc = self._create_sun_collection(self.df, include_night)
         self.sunc.info_print()
 
-    def _get_epw_timezone(self, p: SolarParameters, dfw: pd.DataFrame) -> int:
+    def _get_epw_timezone(self, p: SolarParameters) -> int:
         """
         Extracts the 'Time Zone' offset from the EPW file header.
 
