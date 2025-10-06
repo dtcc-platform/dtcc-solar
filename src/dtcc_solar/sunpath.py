@@ -260,8 +260,7 @@ class Sunpath:
         """
         Calculate sun positions for the timestamps in provided DataFrame.
         """
-        shift = pd.Timedelta(minutes=30)
-        solpos = solarposition.get_solarposition(df.index - shift, self.lat, self.lon)
+        solpos = solarposition.get_solarposition(df.index, self.lat, self.lon)
         elev = np.radians(solpos.apparent_elevation.to_list())
         azim = np.radians(solpos.azimuth.to_list())
         zeni = np.radians(solpos.apparent_zenith.to_list())
@@ -367,10 +366,7 @@ class Sunpath:
         num_of_days = int(np.ceil(times_to_evaluate / 24))
 
         # Get solar position from the pvLib library
-        shift = pd.Timedelta(minutes=30)
-        sol_pos_hour = solarposition.get_solarposition(
-            times - shift, self.lat, self.lon
-        )
+        sol_pos_hour = solarposition.get_solarposition(times, self.lat, self.lon)
 
         # Reduce the number of days to reduce the density of the sunpath diagram
         days = np.zeros(num_of_days)
@@ -430,10 +426,9 @@ class Sunpath:
         days_dict = dict.fromkeys([d for d in range(0, n)])
         min_step_str = str(minute_step) + "min"
         day_step = pd.Timedelta(str(24) + "h")
-        shift = pd.Timedelta(minutes=30)
 
         for date in dates.values:
-            times = pd.date_range(date, date + day_step, freq=min_step_str) - shift
+            times = pd.date_range(date, date + day_step, freq=min_step_str)
             sol_pos_day = solarposition.get_solarposition(times, self.lat, self.lon)
             rad_elev_day = np.radians(sol_pos_day.elevation)
             rad_azim_day = np.radians(sol_pos_day.azimuth)

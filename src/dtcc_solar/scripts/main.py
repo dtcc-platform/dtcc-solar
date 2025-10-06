@@ -202,8 +202,8 @@ def analyse_mesh_1():
         weather_file=str(sth_epw),
         analysis_type=AnalysisType.TWO_PHASE,
         sun_mapping=SunMapping.SMOOTH_SMEAR,
-        start=pd.Timestamp("2019-07-15 16:00:00"),
-        end=pd.Timestamp("2019-07-15 17:00:00"),
+        start=pd.Timestamp("2019-07-15 17:00:00"),
+        end=pd.Timestamp("2019-07-15 18:00:00"),
     )
 
     # Setup model, run analysis and view results
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     # only_perez_test()
     # radiance_test()
     # synthetic_data_test()
-    # analyse_mesh_1()
+    analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
-    analyse_mesh_4()
+    # analyse_mesh_4()
