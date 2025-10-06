@@ -268,8 +268,8 @@ class Sunpath:
         elev = np.radians(solpos.apparent_elevation.to_list())
         azim = np.radians(solpos.azimuth.to_list())
         zeni = np.radians(solpos.apparent_zenith.to_list())
-        x_sun = self.r * np.cos(elev) * np.sin(-azim) + self.origin[0]
-        y_sun = self.r * np.cos(elev) * np.cos(-azim) + self.origin[1]
+        x_sun = self.r * np.cos(elev) * np.sin(azim) + self.origin[0]
+        y_sun = self.r * np.cos(elev) * np.cos(azim) + self.origin[1]
         z_sun = self.r * np.sin(elev) + self.origin[2]
         sun_vecs = []
         positions = []
@@ -397,8 +397,8 @@ class Sunpath:
 
         # Convert hourly sun path loops from spherical to cartesian coordinates
         for h in range(0, 24):
-            x = r * np.cos(elev[h, :]) * np.sin(-azim[h, :]) + self.origin[0]
-            y = r * np.cos(elev[h, :]) * np.cos(-azim[h, :]) + self.origin[1]
+            x = r * np.cos(elev[h, :]) * np.sin(azim[h, :]) + self.origin[0]
+            y = r * np.cos(elev[h, :]) * np.cos(azim[h, :]) + self.origin[1]
             z = r * np.sin(elev[h, :]) + self.origin[2]
 
             sun_pos_dict[h] = create_list_of_vec3(x, y, z)
@@ -441,8 +441,8 @@ class Sunpath:
             date_counter = date_counter + 1
 
         for d in range(0, date_counter):
-            x = self.r * np.cos(elev[d, :]) * np.sin(-azim[d, :]) + self.origin[0]
-            y = self.r * np.cos(elev[d, :]) * np.cos(-azim[d, :]) + self.origin[1]
+            x = self.r * np.cos(elev[d, :]) * np.sin(azim[d, :]) + self.origin[0]
+            y = self.r * np.cos(elev[d, :]) * np.cos(azim[d, :]) + self.origin[1]
             z = self.r * np.sin(elev[d, :]) + self.origin[2]
 
             days_dict[d] = create_list_of_vec3(x, y, z)

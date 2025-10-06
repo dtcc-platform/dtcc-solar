@@ -132,7 +132,7 @@ def radiance_test():
     skydome = ReinhartM2()
     sunpath = Sunpath(p, include_night=True)
 
-    (sky_res, sun_res) = calc_2_phase_matrices(sunpath, skydome, p.sun_mapping)
+    (sky_res, sun_res) = calc_2_phase_matrices(sunpath, skydome, p)
 
     dtcc_sky = sky_res.matrix
     dtcc_sun = sun_res.matrix
@@ -202,12 +202,12 @@ def analyse_mesh_1():
         weather_file=str(sth_epw),
         analysis_type=AnalysisType.TWO_PHASE,
         sun_path_type=SunPathType.NORMAL,
-        start=pd.Timestamp("2019-01-01 00:00:00"),
-        end=pd.Timestamp("2019-12-31 23:00:00"),
+        start=pd.Timestamp("2019-07-15 16:00:00"),
+        end=pd.Timestamp("2019-07-15 17:00:00"),
     )
 
     # Setup model, run analysis and view results
-    skydome = Tregenza()
+    skydome = ReinhartM2()
     sunpath = Sunpath(p, engine.sunpath_radius)
 
     output = engine.run_analysis(sunpath, skydome, p)
@@ -249,7 +249,7 @@ def analyse_mesh_3():
     filename = data_file("validation", "boxes_soft_f5248.obj")
     mesh = io.load_mesh(str(filename))
 
-    (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.2, 0.8], [0.2, 0.8])
+    (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.3, 0.9], [0.3, 0.9])
     engine = SolarEngine(analysis_mesh, shading_mesh)
 
     weather_dir = data_dir("weather")
@@ -311,9 +311,9 @@ if __name__ == "__main__":
     info("#################### DTCC-SOLAR #####################")
 
     # only_perez_test()
-    # radiance_test()
+    radiance_test()
     # synthetic_data_test()
-    analyse_mesh_1()
+    # analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
     # analyse_mesh_4()
