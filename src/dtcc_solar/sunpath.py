@@ -173,56 +173,53 @@ class Sunpath:
             n_hours = 8760
 
         # EPW timestamps are in local STANDARD time (no DST)
-        index = pd.date_range(start=p.start, periods=n_hours, freq="h")
+        # index = pd.date_range(start=p.start, periods=n_hours, freq="h")
 
         # Invert sign for Etc/GMT
-        index = index.tz_localize(f"Etc/GMT{-self.tz_offset}")
+        # index = index.tz_localize(f"Etc/GMT{-self.tz_offset}")
+
+        index = pd.date_range(
+            start=p.start, periods=n_hours, freq="h", tz=f"Etc/GMT{-self.tz_offset}"
+        )
+
+        # Shift 30 min back to match Ladybug’s midpoint convention
+        index = index - pd.Timedelta(minutes=30)
 
         return index
 
     def _create_irradiance_dataframe(self, p: SolarParameters) -> DataFrame:
         """
-        Extract DNI and DHI data from an EPW file and align it with the given datetime index.
-
-        Parameters:
-            p (SolarParameters): Object with .weather_file path.
-            datetime_index (DatetimeIndex): Timezone-localized index matching EPW time format.
-
-        Returns:
-            pd.DataFrame: A DataFrame with 'dni' and 'dhi' columns aligned to the datetime index.
+        Extract DNI and DHI data from an EPW file and align it with Ladybug's convention
+        (timestamps represent the midpoint of the preceding hour).
         """
-
-        # Step 1: Load the EPW data (skip 8 header rows)
+        # Step 1: Load EPW data (skip 8 header rows)
         df = pd.read_csv(p.weather_file, skiprows=8, header=None)
 
-        # Step 2: Create the full EPW datetime index (EPW timestamps are END of hour)
-        full_index_endhour = pd.date_range(
-            start="2019-01-01 00:00",  # Adjust if not 2019 or make it dynamic
-            periods=len(df),
-            freq="h",
-            tz=f"Etc/GMT{-self.tz_offset}",  # EPW time is in local standard time
+        # Step 2: EPW timestamps are END of hour, so start from 01:00 and shift -30 min
+        shift = pd.Timedelta(minutes=30)  # shift to midpoint of the previous hour
+        full_index = (
+            pd.date_range(
+                start=f"{p.start.year}-01-01 01:00",
+                periods=len(df),
+                freq="h",
+                tz=f"Etc/GMT{-self.tz_offset}",
+            )
+            - shift
         )
 
-        full_index_starthour = pd.date_range(
-            start="2019-01-01 00:00",  # Adjust if not 2019 or make it dynamic
-            periods=len(df),
-            freq="h",
-            tz=f"Etc/GMT{-self.tz_offset}",  # EPW time is in local standard time
-        )
+        # Step 3: Assign full index to DataFrame
+        df.index = full_index
 
-        # Step 3: Assign full index to the DataFrame
-        df.index = full_index_starthour
-
-        # Step 4: Extract DNI and DHI columns (0-indexed)
-        DNI_COL = 14  # Column 15
-        DHI_COL = 15  # Column 16
-        irradiance_df = df[[DNI_COL, DHI_COL]]
+        # Step 4: Extract DNI and DHI columns
+        DNI_COL = 14  # 0-based → column 15
+        DHI_COL = 15  # 0-based → column 16
+        irradiance_df = df[[DNI_COL, DHI_COL]].copy()
         irradiance_df.columns = ["dni", "dhi"]
 
         # Step 5: Reindex to match requested times
-        result_df = irradiance_df.reindex(self.dt_index)
+        result_df = irradiance_df.reindex(self.dt_index, method="nearest")
 
-        # Step 6: Fill NaN values with 0.0
+        # Step 6: Fill NaNs
         result_df = result_df.fillna(0.0)
 
         return result_df
@@ -263,7 +260,8 @@ class Sunpath:
         """
         Calculate sun positions for the timestamps in provided DataFrame.
         """
-        solpos = solarposition.get_solarposition(df.index, self.lat, self.lon)
+        shift = pd.Timedelta(minutes=30)
+        solpos = solarposition.get_solarposition(df.index - shift, self.lat, self.lon)
         elev = np.radians(solpos.apparent_elevation.to_list())
         azim = np.radians(solpos.azimuth.to_list())
         zeni = np.radians(solpos.apparent_zenith.to_list())
@@ -368,8 +366,11 @@ class Sunpath:
         # Number of days will be 365 or 366 at leep year
         num_of_days = int(np.ceil(times_to_evaluate / 24))
 
-        # Get solar position from the pvLib libra
-        sol_pos_hour = solarposition.get_solarposition(times, self.lat, self.lon)
+        # Get solar position from the pvLib library
+        shift = pd.Timedelta(minutes=30)
+        sol_pos_hour = solarposition.get_solarposition(
+            times - shift, self.lat, self.lon
+        )
 
         # Reduce the number of days to reduce the density of the sunpath diagram
         days = np.zeros(num_of_days)
@@ -429,9 +430,10 @@ class Sunpath:
         days_dict = dict.fromkeys([d for d in range(0, n)])
         min_step_str = str(minute_step) + "min"
         day_step = pd.Timedelta(str(24) + "h")
+        shift = pd.Timedelta(minutes=30)
 
         for date in dates.values:
-            times = pd.date_range(date, date + day_step, freq=min_step_str)
+            times = pd.date_range(date, date + day_step, freq=min_step_str) - shift
             sol_pos_day = solarposition.get_solarposition(times, self.lat, self.lon)
             rad_elev_day = np.radians(sol_pos_day.elevation)
             rad_azim_day = np.radians(sol_pos_day.azimuth)

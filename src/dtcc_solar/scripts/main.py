@@ -127,7 +127,7 @@ def radiance_test():
         str(path), sky_type=SkyType.REINHART_578, rad_path=rad_path
     )
 
-    p = SolarParameters(weather_file=str(path))
+    p = SolarParameters(weather_file=str(path), sun_mapping=SunMapping.RADIANCE)
 
     skydome = ReinhartM2()
     sunpath = Sunpath(p, include_night=True)
@@ -187,10 +187,10 @@ def radiance_test():
 
 
 def analyse_mesh_1():
-    # filename = "../../../data/validation/boxes_sharp_f5248.obj"
+    filename = "../../../data/validation/boxes_sharp_f5248.obj"
     # filename = "../../../data/validation/boxes_soft_f5248.obj"
     # filename = data_file("models", "City136kSoft.stl")
-    filename = data_file("validation", "boxes_soft_f5248.obj")
+    # filename = data_file("validation", "boxes_soft_f5248.obj")
     mesh = io.load_mesh(str(filename))
     engine = SolarEngine(mesh)
 
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     # only_perez_test()
     # radiance_test()
     # synthetic_data_test()
-    analyse_mesh_1()
+    # analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
-    # analyse_mesh_4()
+    analyse_mesh_4()
