@@ -3,7 +3,7 @@ import pandas as pd
 import datetime
 from pandas import Timestamp, DatetimeIndex, DataFrame
 from dtcc_solar.utils import SunCollection
-from dtcc_solar.utils import SolarParameters, SunPathType
+from dtcc_solar.utils import SolarParameters
 from dtcc_solar.logging import info, debug, warning, error
 
 

@@ -8,7 +8,6 @@ from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar.utils import SunCollection, SolarParameters, unitize
 from dtcc_solar.utils import concatenate_meshes, hours_count, create_list_of_vec3
 from dtcc_solar.logging import info, debug, warning, error
-from dtcc_solar.interpolate import Interpolator
 from pandas import DatetimeIndex, DataFrame
 from pprint import pp
 
