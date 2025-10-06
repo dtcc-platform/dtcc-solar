@@ -27,19 +27,15 @@ class Rays(IntEnum):
     BUNDLE_8 = 2
 
 
-class SunMapping(IntEnum):
-    NONE = 0
-    RADIANCE = 1
-
-
 class AnalysisType(IntEnum):
     TWO_PHASE = 1
     THREE_PHASE = 2
 
 
-class SunPathType(IntEnum):
-    NORMAL = 1  # Normal sun path with 1 h steps
-    INTERPOLATED = 2  # Interpolated sun path for better sun patch discretisation
+class SunMapping(IntEnum):
+    NONE = 1
+    RADIANCE = 2
+    SMOOTH_SMEAR = 3
 
 
 @dataclass
@@ -53,9 +49,8 @@ class Vec3:
 class SolarParameters:
     weather_file: str = "Undefined weather data file"
     display: bool = True
-    sun_path_type: SunPathType = SunPathType.NORMAL
     analysis_type: AnalysisType = AnalysisType.TWO_PHASE
-    sun_mapping: SunMapping = SunMapping.RADIANCE
+    sun_mapping: SunMapping = SunMapping.NONE
     start: Timestamp = field(default_factory=lambda: Timestamp("2019-01-01 00:00"))
     end: Timestamp = field(default_factory=lambda: Timestamp("2020-01-01 00:00"))
 

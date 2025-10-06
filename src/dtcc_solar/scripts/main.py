@@ -127,7 +127,7 @@ def radiance_test():
         str(path), sky_type=SkyType.REINHART_578, rad_path=rad_path
     )
 
-    p = SolarParameters(weather_file=str(path), sun_mapping=SunMapping.RADIANCE)
+    p = SolarParameters(weather_file=str(path))
 
     skydome = ReinhartM2()
     sunpath = Sunpath(p, include_night=True)
@@ -201,7 +201,7 @@ def analyse_mesh_1():
     p = SolarParameters(
         weather_file=str(sth_epw),
         analysis_type=AnalysisType.TWO_PHASE,
-        sun_path_type=SunPathType.NORMAL,
+        sun_mapping=SunMapping.SMOOTH_SMEAR,
         start=pd.Timestamp("2019-07-15 16:00:00"),
         end=pd.Timestamp("2019-07-15 17:00:00"),
     )
@@ -209,9 +209,7 @@ def analyse_mesh_1():
     # Setup model, run analysis and view results
     skydome = ReinhartM2()
     sunpath = Sunpath(p, engine.sunpath_radius)
-
     output = engine.run_analysis(sunpath, skydome, p)
-
     export_path = data_dir("validation") / "export_test.json"
     export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)
@@ -228,7 +226,7 @@ def analyse_mesh_2():
     p = SolarParameters(
         weather_file=str(gbg_epw),
         analysis_type=AnalysisType.TWO_PHASE,
-        sun_path_type=SunPathType.NORMAL,
+        sun_mapping=SunMapping.RADIANCE,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
@@ -239,7 +237,6 @@ def analyse_mesh_2():
     skydome = ReinhartM2()
     engine = SolarEngine(analysis_mesh, shading_mesh)
     sunpath = Sunpath(p, engine.sunpath_radius)
-
     output = engine.run_analysis(sunpath, skydome, p)
     viewer = Viewer(output, skydome, sunpath, p)
 
@@ -259,7 +256,7 @@ def analyse_mesh_3():
     p = SolarParameters(
         weather_file=str(lnd_epw),
         analysis_type=AnalysisType.TWO_PHASE,
-        sun_path_type=SunPathType.NORMAL,
+        sun_mapping=SunMapping.NONE,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
@@ -267,9 +264,7 @@ def analyse_mesh_3():
     # Setup model, run analysis and view results
     skydome = ReinhartM4()
     sunpath = Sunpath(p, engine.sunpath_radius)
-
     output = engine.run_analysis(sunpath, skydome, p)
-
     export_path = data_dir("validation") / "export_test.json"
     export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)
@@ -289,7 +284,6 @@ def analyse_mesh_4():
     p = SolarParameters(
         weather_file=str(sth_epw),
         analysis_type=AnalysisType.THREE_PHASE,
-        sun_path_type=SunPathType.NORMAL,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
@@ -297,9 +291,7 @@ def analyse_mesh_4():
     # Setup model, run analysis and view results
     skydome = ReinhartM2()
     sunpath = Sunpath(p, engine.sunpath_radius)
-
     output = engine.run_analysis(sunpath, skydome, p)
-
     export_path = data_dir("validation") / "export_test.json"
     export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)

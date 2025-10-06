@@ -6,8 +6,8 @@ from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.skydome import Skydome
 from dtcc_solar.coefficients import calc_perez_coeffs
-from dtcc_solar.utils import SkyResults, SunResults, SunMapping, SolarParameters
-from dtcc_solar.utils import AnalysisType
+from dtcc_solar.utils import SkyResults, SunResults, SolarParameters
+from dtcc_solar.utils import AnalysisType, SunMapping
 
 
 """
@@ -185,12 +185,15 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
 def calc_2_phase_matrices(
     sunpath: Sunpath, skydome: Skydome, p: SolarParameters
 ) -> list[SkyResults, SunResults]:
-    sky_res = calc_sky_matrix(sunpath, skydome)
 
-    if p.sun_mapping == SunMapping.NONE:
-        sun_res = calc_sun_matrix(sunpath, skydome)
+    if p.sun_mapping == SunMapping.SMOOTH_SMEAR:
+        sun_res = calc_sun_matrix_smooth_smear(sunpath, skydome, da=15)
     elif p.sun_mapping == SunMapping.RADIANCE:
-        sun_res = calc_sun_matrix_rad(sunpath, skydome)
+        sun_res = calc_sun_matrix_rad(sunpath, skydome, n_targets=4)
+    else:
+        sun_res = calc_sun_matrix(sunpath, skydome)
+
+    sky_res = calc_sky_matrix(sunpath, skydome)
 
     calc_tot_error(sky_res, skydome, sun_res, sunpath, p.analysis_type)
 
@@ -399,6 +402,70 @@ def calc_sun_matrix_rad(
 
         for k, patch in enumerate(idx):
             sun_matrix[patch, t] += w[k] * dni[t] / solid_angles[patch]
+
+    return SunResults(matrix=sun_matrix)
+
+
+def calc_sun_matrix_smooth_smear(
+    sunpath: Sunpath, skydome: Skydome, da=15
+) -> SunResults:
+    """
+    Smeared sun matrix across multiple patches within smear_angle_deg of the sun direction,
+    with stronger weights near the sun and tapering to zero at da.
+    """
+    sun_vecs = sunpath.sunc.sun_vecs
+    dni_vals = sunpath.sunc.dni
+    ray_dirs = np.array(skydome.ray_dirs)  # Shape: (N_patches, 3)
+    N_patches = len(ray_dirs)
+    N_times = len(sun_vecs)
+    solid_angles = np.array(skydome.solid_angles)
+
+    sun_matrix = np.zeros((N_patches, N_times))
+
+    smear_angle_rad = np.radians(da)
+    total_hits = []
+    errors = []
+
+    for i, sun_vec in enumerate(sun_vecs):
+        dni = dni_vals[i]
+        if dni <= 0.0:
+            continue
+
+        sun_vec = sun_vec / np.linalg.norm(sun_vec)  # Safety
+
+        # Compute angles between sun and each patch
+        dots = np.clip(np.dot(ray_dirs, sun_vec), -1.0, 1.0)
+        angles = np.arccos(dots)  # In radians
+
+        # Identify patches within smear angle
+        valid_indices = np.where(angles <= smear_angle_rad)[0]
+        total_hits.append(len(valid_indices))
+
+        if len(valid_indices) == 0:
+            continue  # fallback to closest patch?
+
+        valid_angles = angles[valid_indices]
+        valid_solid_angles = solid_angles[valid_indices]
+
+        # Define a falloff weighting function — e.g., cosine taper
+        # w = cos^2(angle / da * pi/2) for smooth falloff to zero
+        relative_angle = valid_angles / smear_angle_rad  # Range: 0 to 1
+        relative_angle = np.clip(relative_angle, 0, 1)
+        weights = np.cos(relative_angle * math.pi / 2) ** 2
+
+        weight_sum = np.sum(weights)
+        if weight_sum > 0:
+            dni_per_solid_angle = dni * (weights / weight_sum) / valid_solid_angles
+            sun_matrix[valid_indices, i] = dni_per_solid_angle
+            error = np.abs(np.sum(dni_per_solid_angle * valid_solid_angles) - dni) / dni
+            errors.append(error)
+
+    info(f"-----------------------------------------------------")
+    info(f"Sun matrix calculation summary (Smooth Smear):")
+    info(f"  Average number of patches hit per sun: {np.mean(total_hits):.2f}")
+    info(f"  Max patches hit: {np.max(total_hits)}")
+    info(f"  Average error in smeared sun matrix: {np.mean(errors):.4f}")
+    info(f"-----------------------------------------------------")
 
     return SunResults(matrix=sun_matrix)
 
