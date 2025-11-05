@@ -47,7 +47,7 @@ set(pybind11_DIR "${pybind11_DIR}" CACHE PATH "Path to pybind11 CMake files")
 find_package(pybind11 CONFIG REQUIRED)
 
 # Eigen (header-only)
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+find_package(Eigen3 REQUIRED NO_MODULE)
 get_target_property(EIGEN_INCLUDES Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
 message(STATUS "Eigen include dirs: ${EIGEN_INCLUDES}")
 
