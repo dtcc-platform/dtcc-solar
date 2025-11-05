@@ -68,9 +68,9 @@ set(pybind11_DIR "${pybind11_DIR}" CACHE PATH "Path to pybind11 CMake files")
 find_package(pybind11 CONFIG REQUIRED)
 
 # Try config package first (preferred). If that fails, fall back to the module helper.
-find_package(Eigen3 3.3 QUIET CONFIG)
+find_package(Eigen3 QUIET CONFIG)
 if(NOT Eigen3_FOUND)
-  find_package(Eigen3 3.3 REQUIRED)
+  find_package(Eigen3 REQUIRED)
 endif()
 
 find_package(OpenMP)
