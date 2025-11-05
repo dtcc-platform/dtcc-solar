@@ -201,9 +201,8 @@ def analyse_mesh_1():
     p = SolarParameters(
         weather_file=str(sth_epw),
         analysis_type=AnalysisType.TWO_PHASE,
-        sun_mapping=SunMapping.SMOOTH_SMEAR,
-        start=pd.Timestamp("2019-07-15 17:00:00"),
-        end=pd.Timestamp("2019-07-15 18:00:00"),
+        start=pd.Timestamp("2019-07-15 00:00:00"),
+        end=pd.Timestamp("2019-07-15 23:00:00"),
     )
 
     # Setup model, run analysis and view results

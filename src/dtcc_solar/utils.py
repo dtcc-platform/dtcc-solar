@@ -378,7 +378,7 @@ def split_mesh_by_vertical_faces(mesh: Mesh) -> Mesh:
     # Check if the cross product is pointing upwards
     mask = cross_p[:, 2] > 0.01
     mesh_1, mesh_2 = split_mesh_by_face_mask(mesh, mask)
-    return mesh_2, mesh_1
+    return mesh_2, mesh_1, mask
 
 
 def split_mesh_by_face_mask(mesh: Mesh, mask: list[bool]) -> Mesh:
@@ -644,4 +644,58 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
         json.dump(results_data, json_file, indent=4)
 
     info(f"  Results exported successfully")
+    info("-----------------------------------------------------")
+
+
+def simple_export_json(
+    output: OutputCollection, p: SolarParameters, filename: str, initial_mask=None
+):
+    """Simple export of mesh data to JSON for testing purposes."""
+
+    info("-----------------------------------------------------")
+    info(f"Exporting simple mesh data to json:")
+    info(f"  path: {filename}")
+
+    mask = output.data_mask
+    analysis_mesh, shading_mesh = split_mesh_by_face_mask(output.mesh, mask)
+
+    if initial_mask is not None:
+        initial_mask = np.invert(initial_mask)
+        face_indices = np.arange(len(output.mesh.faces))[initial_mask]
+    else:
+        face_indices = np.arange(len(analysis_mesh.faces))
+
+    face_count = len(analysis_mesh.faces)
+
+    total_irr = output.total_irradiance[mask]
+    svf = output.sky_view_factor[mask]
+
+    assert len(total_irr) == face_count
+    assert len(svf) == face_count
+
+    if initial_mask is not None:
+        assert np.sum(np.array(initial_mask, dtype=int)) == face_count
+
+    p_dict = {
+        "analysis_type": p.analysis_type.name,
+        "sun_mapping": p.sun_mapping.name,
+        "start_date": str(p.start),
+        "end_date": str(p.end),
+        "weather_data": p.weather_file,
+    }
+
+    results_dict = {
+        "parameters": p_dict,
+        "total_irradiation": total_irr.tolist(),
+        "sky_view_factor": svf.tolist(),
+        "results_face_indices": face_indices.tolist(),
+    }
+
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+    # Write the data to a JSON file
+    with open(filename, "w") as json_file:
+        json.dump(results_dict, json_file, indent=4)
+
+    info(f"  Simple mesh data exported successfully")
     info("-----------------------------------------------------")

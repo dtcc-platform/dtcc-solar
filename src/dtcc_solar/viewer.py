@@ -1,7 +1,7 @@
 import os
 import sys
 import numpy as np
-from dtcc_viewer import Scene, Window
+from dtcc_viewer import Scene, Window, Situation
 from dtcc_core.model import Mesh, PointCloud
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import concatenate_meshes, SolarParameters, create_ls_circle
@@ -21,13 +21,14 @@ class Viewer:
         skydome: Skydome,
         sunpath: Sunpath,
         p: SolarParameters,
+        situation: Situation = None,
     ):
 
         self.has_display = has_display()
 
         if self.has_display and p.display:
             self.window = Window(1200, 800)
-            self.scene = Scene()
+            self.scene = Scene(situation=situation)
             self.prepare_scene(output, skydome, sunpath, p)
             self.show()
         else:
