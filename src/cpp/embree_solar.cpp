@@ -67,7 +67,7 @@ EmbreeSolar::EmbreeSolar(fArray2D vertices, iArray2D faces, bArray1D faceMask, f
     set_log_level(INFO);
 
     Eigen::setNbThreads(std::thread::hardware_concurrency());
-    Eigen::initParallel();
+    // Eigen::initParallel();
     info("Eigen using " + str(Eigen::nbThreads()) + " threads.");
 
     mVertexCount = (int)vertices.size();
