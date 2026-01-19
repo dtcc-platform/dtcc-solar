@@ -1,5 +1,7 @@
 #pragma once
-#include <embree4/rtcore.h>
+#include "bvh_types.h"
+#include "Accel.h"
+
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <unsupported/Eigen/CXX11/Tensor>
@@ -12,6 +14,7 @@
 #include <chrono>
 #include <vector>
 #include <algorithm>
+#include <memory>
 #include "common.h"
 #include "sunrays.h"
 #include "skydome.h"
@@ -25,18 +28,16 @@
 namespace py = pybind11;
 #endif
 
-class EmbreeSolar
+class DtccSolar
 {
 
 public:
-    EmbreeSolar();
-    EmbreeSolar(fArray2D vertices, iArray2D faces);
-    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D sunSkyRays, fArray1D solidAngles);
-    EmbreeSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D skyRays, fArray1D skySolidAngles, fArray2D sunRays, fArray1D sunSolidAngles);
-    virtual ~EmbreeSolar();
+    DtccSolar();
+    DtccSolar(fArray2D vertices, iArray2D faces);
+    DtccSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D sunSkyRays, fArray1D solidAngles);
+    DtccSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D skyRays, fArray1D skySolidAngles, fArray2D sunRays, fArray1D sunSolidAngles);
+    virtual ~DtccSolar();
 
-    void CreateDevice();
-    void CreateScene();
     void CreateGeom(fArray2D vertices, iArray2D faces);
     void CreateGeomPlane();
     void CalcFaceMidPoints();
@@ -73,8 +74,7 @@ public:
     fArray1D Flatten2D(fArray2D &matrix);
 
     bool CalcProjMatrix(Rays *rays, fArray2D &projMatrix);
-    bool CalcVisMatrix_Occ1(Rays *rays, fArray2D &visMatrix);
-    bool CalcVisMatrix_Occ8(Rays *rays, fArray2D &visMatrix);
+    bool CalcVisMatrix(Rays *rays, fArray2D &visMatrix);
     bool CalcVisProjMatrix(Rays *rays, fArray2D &visMatrix, fArray2D &projMatrix, fArray2D &visProjMatrix);
 
     bool CalcIrradiance2Phase(Rays *rays, fArray2D &skySunMatrix, fArray2D &visProjMatrix, fArray2D &irrMatrix);
@@ -83,19 +83,8 @@ public:
     bool Run2PhaseAnalysis(fArray2D sunSkyMatrix);
     bool Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix);
 
-    void ErrorFunction(void *userPtr, enum RTCError error, const char *str);
-
 private:
-    // Skydome *mSkydome = NULL;
-    // Sunrays *mSunrays = NULL;
-
-    Rays *mSunSkyRays = NULL;
-    Rays *mSkyRays = NULL;
-    Rays *mSunRays = NULL;
-
-    RTCScene mScene;
-    RTCDevice mDevice;
-    RTCGeometry mGeometry;
+    std::unique_ptr<Accel> mAccel;
 
     Parameters mPp; // plane parameters
 
@@ -136,4 +125,9 @@ private:
     fArray2D mIrrMatrixSun;
 
     float mDomeSolidAngle = 2 * M_PI; // Solid angle of the dome, 2 * pi steradians
+
+    // Ray objects for analysis
+    Rays *mSunSkyRays = nullptr;
+    Rays *mSkyRays = nullptr;
+    Rays *mSunRays = nullptr;
 };

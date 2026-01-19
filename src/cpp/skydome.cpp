@@ -6,7 +6,6 @@ Skydome::Skydome()
     CreateTregenzaMesh();
     InitRays((int)mRayDirections.size());
     CreateRays();
-    BundleRays();
 
     info("Skydome instance created with default constructor, ready for raytracing.");
 }
@@ -30,38 +29,22 @@ Skydome::Skydome(int skyType)
 
     InitRays((int)mRayDirections.size());
     CreateRays();
-    BundleRays();
     info("Skydome instance created, ready for raytracing.");
 }
 
 Skydome::~Skydome()
 {
-    // Delete the 2d arrays
-    for (int i = 0; i < mBundle8Count; i++)
-        delete[] mRays8Valid[i];
-    delete[] mRays8Valid;
+    // Vectors clean themselves up automatically
 }
 
 void Skydome::InitRays(int rayCount)
 {
     mRayCount = rayCount;
-    mBundle8Count = ceil((float)mRayCount / 8.0f);
 
     debug("Skydome rays data:");
     debug("Number of rays:" + str(mRayCount) + ".");
-    debug("Number of 8 bundles:" + str(mBundle8Count) + ".");
 
-    mRays = std::vector<RTCRay>(mRayCount);
-    mRays8 = std::vector<RTCRay8>(mBundle8Count);
-
-    // Defining a 2d array for the vadility of each ray in the 8 group bundles.
-    mRays8Valid = new int *[mBundle8Count];
-    for (int i = 0; i < mBundle8Count; i++)
-    {
-        mRays8Valid[i] = new int[8];
-        for (int j = 0; j < 8; j++)
-            mRays8Valid[i][j] = 0;
-    }
+    mRays.resize(mRayCount);
 }
 
 int Skydome::GetFaceCount()
@@ -74,24 +57,9 @@ int Skydome::GetRayCount()
     return mRayCount;
 }
 
-int Skydome::GetBundle8Count()
-{
-    return mBundle8Count;
-}
-
-std::vector<RTCRay> &Skydome::GetRays()
+std::vector<Ray> &Skydome::GetRays()
 {
     return mRays;
-}
-
-std::vector<RTCRay8> &Skydome::GetRays8()
-{
-    return mRays8;
-}
-
-int **Skydome::GetValid8()
-{
-    return mRays8Valid;
 }
 
 std::vector<std::vector<int>> Skydome::GetFaces()
@@ -116,72 +84,10 @@ std::vector<float> Skydome::GetRayAreas()
 
 void Skydome::TranslateRays(Vertex new_origin)
 {
+    Vec3 origin(new_origin.x, new_origin.y, new_origin.z);
     for (int i = 0; i < mRayCount; i++)
     {
-        mRays[i].org_x = new_origin.x;
-        mRays[i].org_y = new_origin.y;
-        mRays[i].org_z = new_origin.z;
-    }
-}
-
-void Skydome::Translate8Rays(Vertex new_origin)
-{
-    for (int i = 0; i < mBundle8Count; i++)
-    {
-        for (int j = 0; j < 8; j++)
-        {
-            if (mRays8Valid[i][j] == -1)
-            {
-                mRays8[i].org_x[j] = new_origin.x;
-                mRays8[i].org_y[j] = new_origin.y;
-                mRays8[i].org_z[j] = new_origin.z;
-            }
-        }
-    }
-}
-
-void Skydome::BundleRays()
-{
-    int bundleIndex8 = -1;
-    int rayIndex8 = 0;
-
-    /* Sort the rays in groups of 4, 8 and 16 */
-    for (int i = 0; i < mRayCount; i++)
-    {
-        float x = mRays[i].org_x;
-        float y = mRays[i].org_y;
-        float z = mRays[i].org_z;
-
-        float dir_x = mRays[i].dir_x;
-        float dir_y = mRays[i].dir_y;
-        float dir_z = mRays[i].dir_z;
-
-        float tNear = mRays[i].tnear;
-        float tFar = mRays[i].tfar;
-        unsigned int mask = mRays[i].mask;
-        unsigned int flag = mRays[i].flags;
-
-        rayIndex8 = i % 8;
-
-        if (rayIndex8 == 0)
-            bundleIndex8++;
-
-        // Collect rays in bundles of 16
-        mRays8[bundleIndex8].org_x[rayIndex8] = x;
-        mRays8[bundleIndex8].org_y[rayIndex8] = y;
-        mRays8[bundleIndex8].org_z[rayIndex8] = z;
-
-        mRays8[bundleIndex8].dir_x[rayIndex8] = dir_x;
-        mRays8[bundleIndex8].dir_y[rayIndex8] = dir_y;
-        mRays8[bundleIndex8].dir_z[rayIndex8] = dir_z;
-
-        mRays8[bundleIndex8].tnear[rayIndex8] = tNear;
-        mRays8[bundleIndex8].tfar[rayIndex8] = tFar;
-        mRays8[bundleIndex8].mask[rayIndex8] = mask;
-        mRays8[bundleIndex8].flags[rayIndex8] = flag;
-
-        // Set the validity of the ray in the bundle, -1 = Valied, 0 = Invalid
-        mRays8Valid[bundleIndex8][rayIndex8] = -1;
+        mRays[i].org = origin;
     }
 }
 
@@ -189,18 +95,10 @@ void Skydome::CreateRays()
 {
     for (int i = 0; i < mRayCount; i++)
     {
-        RTCRay ray;
-        ray.org_x = mRayOrigin[0];
-        ray.org_y = mRayOrigin[1];
-        ray.org_z = mRayOrigin[2];
-        ray.dir_x = mRayDirections[i][0];
-        ray.dir_y = mRayDirections[i][1];
-        ray.dir_z = mRayDirections[i][2];
-        ray.tnear = 0.05f;
-        ray.tfar = std::numeric_limits<float>::infinity();
-        ray.mask = 0xFFFFFFFF;
-        ray.time = 0.0f;
-        mRays[i] = ray;
+        // BVH Ray constructor: Ray(origin, direction, tmin, tmax)
+        Vec3 origin(mRayOrigin[0], mRayOrigin[1], mRayOrigin[2]);
+        Vec3 direction(mRayDirections[i][0], mRayDirections[i][1], mRayDirections[i][2]);
+        mRays[i] = Ray(origin, direction, 0.05f, std::numeric_limits<Scalar>::infinity());
     }
 }
 

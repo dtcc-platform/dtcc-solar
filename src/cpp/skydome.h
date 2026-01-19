@@ -1,5 +1,5 @@
 #pragma once
-#include <embree4/rtcore.h>
+#include "bvh_types.h"
 #include <stdio.h>
 #include <math.h>
 #include <limits>
@@ -21,10 +21,8 @@ public:
     void CreateTregenzaMesh();
     void CreateReinhartMesh();
     void CreateRays();
-    void BundleRays();
 
     void TranslateRays(Vertex new_origin);
-    void Translate8Rays(Vertex new_origin);
 
     float CalcSphereCapArea(float elevation);
     float CalcHemisphereArea();
@@ -39,12 +37,8 @@ public:
 
     int GetFaceCount();
     int GetRayCount();
-    int GetBundle8Count();
 
-    std::vector<RTCRay> &GetRays();
-    std::vector<RTCRay8> &GetRays8();
-
-    int **GetValid8();
+    std::vector<Ray> &GetRays();
 
     std::vector<std::vector<int>> GetFaces();
     std::vector<std::vector<float>> GetVertices();
@@ -53,7 +47,6 @@ public:
 
 private:
     int mRayCount;
-    int mBundle8Count;
 
     // Skydome mesh entities
     std::vector<std::vector<int>> mFaces;
@@ -64,8 +57,5 @@ private:
     std::vector<float> mRayAreas;
     std::vector<std::vector<float>> mRayDirections;
 
-    std::vector<RTCRay> mRays;
-    std::vector<RTCRay8> mRays8;
-
-    int **mRays8Valid;
+    std::vector<Ray> mRays;
 };

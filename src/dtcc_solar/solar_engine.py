@@ -2,13 +2,13 @@ import math
 import numpy as np
 from pprint import pp
 
-try:  # Attempt to import the compiled Embree bindings
-    from dtcc_solar import py_embree_solar as embree
+try:  # Attempt to import the compiled BVH-based solar bindings
+    from dtcc_solar import py_solar as solar_module
 except ImportError as exc:  # pragma: no cover - platform dependent
-    embree = None
-    _EMBREE_IMPORT_ERROR = exc
+    solar_module = None
+    _SOLAR_IMPORT_ERROR = exc
 else:
-    _EMBREE_IMPORT_ERROR = None
+    _SOLAR_IMPORT_ERROR = None
 from dtcc_solar.utils import SolarParameters, concatenate_meshes
 from dtcc_solar.utils import OutputCollection, SkyType
 from dtcc_solar.utils import Rays, split_mesh_by_face_mask, AnalysisType
@@ -19,20 +19,19 @@ from dtcc_solar.perez import calc_2_phase_matrices, calc_3_phase_matrices
 from dtcc_core.model import Mesh, Bounds
 
 
-def _require_embree():
-    """Return the Embree bindings or raise a clear error when unavailable."""
+def _require_solar():
+    """Return the solar bindings or raise a clear error when unavailable."""
 
-    if embree is None:  # pragma: no cover - executed only when Embree missing
+    if solar_module is None:  # pragma: no cover - executed only when bindings missing
         msg = (
-            "Embree ray-tracing bindings (py_embree_solar) are not available. "
-            "This typically happens when the extension wheel is missing a "
-            "compatible Embree runtime on macOS. Build dtcc-solar from source "
-            "or install a wheel that bundles Embree. Original import error: "
-            f"{_EMBREE_IMPORT_ERROR}"
+            "Solar ray-tracing bindings (py_solar) are not available. "
+            "This typically happens when the extension is not built. "
+            "Build dtcc-solar from source. Original import error: "
+            f"{_SOLAR_IMPORT_ERROR}"
         )
-        raise RuntimeError(msg) from _EMBREE_IMPORT_ERROR
+        raise RuntimeError(msg) from _SOLAR_IMPORT_ERROR
 
-    return embree
+    return solar_module
 
 
 class SolarEngine:
@@ -238,12 +237,12 @@ class SolarEngine:
         solid_angles = np.array(skydome.solid_angles)
 
         info("-----------------------------------------------------")
-        info(f"Creating Embree instance and running analysis...")
+        info(f"Creating solar instance and running analysis...")
         info("-----------------------------------------------------")
 
-        embree_mod = _require_embree()
+        solar_mod = _require_solar()
 
-        self.embree = embree_mod.PyEmbreeSolar(
+        self.solar = solar_mod.PySolar(
             self.mesh.vertices,
             self.mesh.faces,
             self.face_mask,
@@ -251,10 +250,10 @@ class SolarEngine:
             solid_angles,
         )
 
-        self.embree.run_2_phase_analysis(matrix)
+        self.solar.run_2_phase_analysis(matrix)
 
-        vis_vec = self.embree.get_visibility_vector_tot()
-        irr_vec = self.embree.get_irradiance_vector_tot()
+        vis_vec = self.solar.get_visibility_vector_tot()
+        irr_vec = self.solar.get_irradiance_vector_tot()
 
         sky_view_factor = vis_vec / skydome.patch_counter
         irr_vec = irr_vec * 0.001  # Convert to kWh/m2
@@ -286,12 +285,12 @@ class SolarEngine:
         sun_solid_angles = np.ones(sunpath.sunc.count)
 
         info("-----------------------------------------------------")
-        info(f"Creating Embree instance and running analysis...")
+        info(f"Creating solar instance and running analysis...")
         info("-----------------------------------------------------")
 
-        embree_mod = _require_embree()
+        solar_mod = _require_solar()
 
-        self.embree = embree_mod.PyEmbreeSolar(
+        self.solar = solar_mod.PySolar(
             self.mesh.vertices,
             self.mesh.faces,
             self.face_mask,
@@ -301,13 +300,13 @@ class SolarEngine:
             sun_solid_angles,
         )
 
-        self.embree.run_3_phase_analysis(sky_matrix, sun_matrix)
+        self.solar.run_3_phase_analysis(sky_matrix, sun_matrix)
 
-        sky_vis = self.embree.get_visibility_vector_sky()
-        sky_irr = self.embree.get_irradiance_vector_sky()
+        sky_vis = self.solar.get_visibility_vector_sky()
+        sky_irr = self.solar.get_irradiance_vector_sky()
 
-        sun_vis = self.embree.get_visibility_vector_sun()
-        sun_irr = self.embree.get_irradiance_vector_sun()
+        sun_vis = self.solar.get_visibility_vector_sun()
+        sun_irr = self.solar.get_irradiance_vector_sun()
 
         sky_view_factor = sky_vis / skydome.patch_counter
         sky_irr = sky_irr * 0.001  # Convert to kWh/m2

@@ -1,10 +1,10 @@
 #pragma once
-#include "embree_solar.h"
+#include "dtcc_solar.h"
 
 int main()
 {
     // Create raytracer instance
-    EmbreeSolar *raytracer = new EmbreeSolar();
+    DtccSolar *raytracer = new DtccSolar();
 
     // Sun vector 1
     std::vector<float> sunVec1 = {0.0, 0.0, 1.0};
@@ -17,5 +17,6 @@ int main()
     sun_vecs.push_back(sunVec2);
     sun_vecs.push_back(sunVec3);
 
+    delete raytracer;
     return 0;
 }

@@ -10,7 +10,7 @@ endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # Compiler settings
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(MSVC)
@@ -73,6 +73,7 @@ endif()
 
 # Include project headers
 include_directories(${CMAKE_SOURCE_DIR}/src/cpp)
+include_directories(${CMAKE_SOURCE_DIR}/src/cpp/extern SYSTEM)
 
 # Installation setup
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/src)

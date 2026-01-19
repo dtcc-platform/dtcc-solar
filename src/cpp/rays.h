@@ -1,5 +1,5 @@
 #pragma once
-#include <embree4/rtcore.h>
+#include "bvh_types.h"
 #include <stdio.h>
 #include <math.h>
 #include <limits>
@@ -19,18 +19,12 @@ public:
 
     void InitRays(fArray2D rays);
     void CreateRays();
-    void BundleRays();
 
     void TranslateRays(Vertex new_origin);
-    void Translate8Rays(Vertex new_origin);
 
     int GetRayCount();
-    int GetBundle8Count();
 
-    std::vector<RTCRay> &GetRays();
-    std::vector<RTCRay8> &GetRays8();
-
-    int **GetValid8();
+    std::vector<Ray> &GetRays();
 
     fArray2D GetRayDirections();
     fArray1D GetSolidAngles();
@@ -38,7 +32,6 @@ public:
 
 private:
     int mRayCount;
-    int mBundle8Count;
 
     // Skydome ray data
     std::vector<float> mRayOrigin;
@@ -47,8 +40,5 @@ private:
     // Ray areas / tot area
     std::vector<float> mRaySolidAngles;
 
-    std::vector<RTCRay> mRays;
-    std::vector<RTCRay8> mRays8;
-
-    int **mRays8Valid;
+    std::vector<Ray> mRays;
 };

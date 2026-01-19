@@ -64,7 +64,7 @@ namespace
     static inline std::string __format__(LogLevel log_level, const std::string &message)
     {
         // Set component (hard-coded for now)
-        std::string component{"[dtcc-embree]"};
+        std::string component{"[dtcc-solar]"};
 
         // Format level
         std::string level{};
