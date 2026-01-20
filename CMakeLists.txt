@@ -73,7 +73,7 @@ endif()
 
 # Include project headers
 include_directories(${CMAKE_SOURCE_DIR}/src/cpp)
-include_directories(${CMAKE_SOURCE_DIR}/src/cpp/extern SYSTEM)
+include_directories(${CMAKE_SOURCE_DIR}/src/cpp/external SYSTEM)
 
 # Installation setup
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/src)
