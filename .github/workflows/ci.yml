@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (Ubuntu, Python 3.10)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.10
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeigen3-dev libomp-dev
+
+      - name: Install project and dependencies
+        run: |
+          uv venv
+          uv pip install build pytest
+          uv pip install .
+
+      - name: Run tests
+        run: |
+          uv run pytest tests/python -v
+
+  notify:
+    name: Notify
+    needs: test
+    runs-on: ubuntu-latest
+    if: failure()
+    steps:
+      - name: Slack notification on failure
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{
+              \"text\": \"❌ *FAILURE* dtcc-solar\nCommit: \`${SHORT_SHA}\`\nAuthor: ${{ github.actor }}\"
+            }" \
+            ${{ secrets.SLACK_WEBHOOK_URL_DEVELOPMENT }} || true
