@@ -179,7 +179,7 @@ class Sunpath:
         # index = index.tz_localize(f"Etc/GMT{-self.tz_offset}")
 
         index = pd.date_range(
-            start=p.start, periods=n_hours, freq="h", tz=f"Etc/GMT{-self.tz_offset}"
+            start=p.start, periods=n_hours, freq="h", tz=f"Etc/GMT{-self.tz_offset:+d}"
         )
 
         # Shift 30 min back to match Ladybug’s midpoint convention
@@ -202,7 +202,7 @@ class Sunpath:
                 start=f"{p.start.year}-01-01 01:00",
                 periods=len(df),
                 freq="h",
-                tz=f"Etc/GMT{-self.tz_offset}",
+                tz=f"Etc/GMT{-self.tz_offset:+d}",
             )
             - shift
         )
