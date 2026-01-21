@@ -37,15 +37,22 @@ if "dtcc_model" not in sys.modules:
 
 from .solar_engine import SolarEngine
 from .sunpath import Sunpath
-
+from .reinhart2 import ReinhartM2
+from .reinhart4 import ReinhartM4
+from .tregenza import Tregenza
 from .viewer import Viewer as SolarViewer
-from .utils import SolarParameters, OutputCollection
+from .utils import SolarParameters, OutputCollection, AnalysisType
 
 # Classes and methods visible on the Docs page
 __all__ = [
+    "AnalysisType",
     "SolarEngine",
     "Sunpath",
     "OutputCollection",
     "SolarParameters",
     "SolarViewer",
+    "Sunpath",
+    "ReinhartM2",
+    "ReinhartM4",
+    "Tregenza",
 ]
