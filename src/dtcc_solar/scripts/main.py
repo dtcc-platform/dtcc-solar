@@ -20,7 +20,7 @@ from dtcc_solar.synthetic_data import synthetic_epw_df, df_to_epw
 import matplotlib.pyplot as plt
 import numpy as np
 from urllib.request import urlretrieve
-
+from time import time
 
 def _candidate_data_roots():
     """Yield plausible roots for the ``data`` folder in priority order."""
@@ -244,7 +244,7 @@ def analyse_mesh_3():
     # filename = "...../../data/validation/boxes_sharp_f5248.obj"
     filename = data_file("validation", "boxes_soft_f5248.obj")
     mesh = io.load_mesh(str(filename))
-
+    start_time = time()
     (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.3, 0.9], [0.3, 0.9])
     engine = SolarEngine(analysis_mesh, shading_mesh)
 
@@ -264,6 +264,8 @@ def analyse_mesh_3():
     skydome = ReinhartM4()
     sunpath = Sunpath(p, engine.sunpath_radius)
     output = engine.run_analysis(sunpath, skydome, p)
+    end_time = time()
+    print("Analysis time (s): ", end_time - start_time)
     export_path = data_dir("validation") / "export_test.json"
     export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)

@@ -1,5 +1,7 @@
 # Project configuration
-cmake_minimum_required(VERSION 3.15)   # Bump to >= 3.15 (needed by scikit-build-core)
+cmake_minimum_required(VERSION 3.15)
+include(FetchContent)
+
 project(dtcc-solar)
 
 # Set default build type to Release
@@ -46,9 +48,23 @@ execute_process(
 set(pybind11_DIR "${pybind11_DIR}" CACHE PATH "Path to pybind11 CMake files")
 find_package(pybind11 CONFIG REQUIRED)
 
-# Eigen (header-only)
 find_package(Eigen3 REQUIRED NO_MODULE)
-get_target_property(EIGEN_INCLUDES Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
+
+if(Eigen3_FOUND)
+  message(STATUS "Eigen3 found.")
+  get_target_property(EIGEN_INCLUDES Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
+else ()
+  message(STATUS "Eigen3 not found, downloading with FetchContent...")
+  FetchContent_Declare(
+          eigen
+          GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+          GIT_TAG 3.4.0 # or the version you need
+  )
+  FetchContent_MakeAvailable(eigen)
+  set(EIGEN3_INCLUDES ${eigen_SOURCE_DIR})
+endif()
+
+
 message(STATUS "Eigen include dirs: ${EIGEN_INCLUDES}")
 
 if(APPLE)
