@@ -529,7 +529,6 @@ bool DtccSolar::CalcVisMatrix(Rays *rays, fArray2D &visMatrix)
 {
     int hitCounter = 0;
     int hitAttempts = 0;
-    float hitPortion = 0.0f;
     float thisPortion = 0.0f;
 
     mSkyViewFactor = fArray1D(mFaceCount, 0);
@@ -537,19 +536,21 @@ bool DtccSolar::CalcVisMatrix(Rays *rays, fArray2D &visMatrix)
     info("Calculating visibility matrix with BVH for " + str(mMaskCount) + " faces and " + str(rays->GetRayCount()) + " rays.");
 
     static constexpr size_t stack_size = 64;
+    #pragma omp parallel for schedule(dynamic) reduction(+:hitCounter,hitAttempts)
     for (int i = 0; i < mFaceCount; i++)
     {
 
         if (mFaceMask[i])
         {
-            rays->TranslateRays(mFaceMidPts[i]);
+            // rays->TranslateRays(mFaceMidPts[i]);
+            Vec3 face_origin(mFaceMidPts[i].x, mFaceMidPts[i].y, mFaceMidPts[i].z);
             int nRays = rays->GetRayCount();
-            hitPortion = 0.0;
+            float hitPortion = 0.0;
 
             for (int j = 0; j < nRays; j++)
             {
                 Ray ray = rays->GetRays()[j];
-
+                ray.org = face_origin;
                 // Check for any intersection (occlusion test) using BVH traversal
                 bool occluded = false;
                 bvh::v2::SmallStack<Bvh::Index, stack_size> stack;
@@ -593,6 +594,7 @@ bool DtccSolar::CalcVisMatrix(Rays *rays, fArray2D &visMatrix)
 bool DtccSolar::CalcVisProjMatrix(Rays *rays, fArray2D &visMatrix, fArray2D &projMatrix, fArray2D &visProjMatrix)
 {
     int rayCount = rays->GetRayCount();
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < mFaceCount; i++)
     {
         if (mFaceMask[i])
@@ -676,10 +678,12 @@ bool DtccSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, fArray2D &sky
 
     MatrixXfRM skyVP = VectorToEigen(skyVisProjMatrix);
     MatrixXfRM skyS = VectorToEigen(skyMatrix);
+    info("Converting to Eigen");
     MatrixXfRM skyE(mFaceCount, skyTimeSteps);
 
     auto start1 = hrClock::now();
     skyE.noalias() = skyVP * skyS;
+    info("skyE calculation done");
     auto end1 = hrClock::now();
     fDuration durationSky = end1 - start1;
     info("Irradiance from sky calculated with Eigen in " + str(durationSky.count()) + " seconds.");
