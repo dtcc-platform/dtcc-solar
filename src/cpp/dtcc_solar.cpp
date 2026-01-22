@@ -506,7 +506,6 @@ bool DtccSolar::CalcProjMatrix(Rays *rays, fArray2D &mProjectionMatrix)
     fArray2D rayDirections = rays->GetRayDirections();
     fArray1D raySolidAngles = rays->GetSolidAngles();
     size_t numRays = rayDirections.size();
-    #pragma omp parallel for schedule(static)
     for (int i = 0; i < mFaceCount; ++i)
     {
         auto n = surfaceNormals[i];
@@ -538,9 +537,9 @@ bool DtccSolar::CalcVisMatrix(Rays *rays, fArray2D &visMatrix)
     info("Calculating visibility matrix with BVH for " + str(mMaskCount) + " faces and " + str(rays->GetRayCount()) + " rays.");
 
     static constexpr size_t stack_size = 64;
-    #pragma omp parallel for schedule(dynamic) reduction(+:hitCounter,hitAttempts)
     for (int i = 0; i < mFaceCount; i++)
     {
+
         if (mFaceMask[i])
         {
             rays->TranslateRays(mFaceMidPts[i]);
@@ -579,9 +578,8 @@ bool DtccSolar::CalcVisMatrix(Rays *rays, fArray2D &visMatrix)
                 hitAttempts++;
             }
             mSkyViewFactor[i] = 1.0 - hitPortion;
-            if (i > 0 && i % 10000 == 0)
-                info("Raytracing for " + str(i) + " faces completed.");
         }
+
     }
 
     info("Visibility matrix calculated successfully");
@@ -595,7 +593,6 @@ bool DtccSolar::CalcVisMatrix(Rays *rays, fArray2D &visMatrix)
 bool DtccSolar::CalcVisProjMatrix(Rays *rays, fArray2D &visMatrix, fArray2D &projMatrix, fArray2D &visProjMatrix)
 {
     int rayCount = rays->GetRayCount();
-
     for (int i = 0; i < mFaceCount; i++)
     {
         if (mFaceMask[i])
