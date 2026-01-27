@@ -19,13 +19,15 @@
 
 #include <iostream>
 
-class Accel {
+class Accel
+{
 public:
     Bvh bvh;
     std::vector<PrecomputedTri> precomputed_tris;
     std::vector<size_t> permutation_map;
 
-    Accel(const std::vector<Tri> &tris, const std::string &quality) {
+    Accel(const std::vector<Tri> &tris, const std::string &quality)
+    {
         bvh::v2::ThreadPool thread_pool;
         bvh::v2::ParallelExecutor executor(thread_pool);
 
@@ -33,21 +35,28 @@ public:
 
         std::vector<BBox> bboxes(tris.size());
         std::vector<Vec3> centers(tris.size());
-        executor.for_each(0, tris.size(), [&](size_t begin, size_t end) {
+        executor.for_each(0, tris.size(), [&](size_t begin, size_t end)
+                          {
             for (size_t i = begin; i < end; ++i) {
                 bboxes[i] = tris[i].get_bbox();
                 centers[i] = tris[i].get_center();
-            }
-        });
+            } });
 
         typename bvh::v2::DefaultBuilder<Node>::Config config;
-        if (quality == "high") {
+        if (quality == "high")
+        {
             config.quality = bvh::v2::DefaultBuilder<Node>::Quality::High;
-        } else if (quality == "medium") {
+        }
+        else if (quality == "medium")
+        {
             config.quality = bvh::v2::DefaultBuilder<Node>::Quality::Medium;
-        } else if (quality == "low") {
+        }
+        else if (quality == "low")
+        {
             config.quality = bvh::v2::DefaultBuilder<Node>::Quality::Low;
-        } else {
+        }
+        else
+        {
             std::cerr << "Unknown quality level: " << quality << ", using medius" << std::endl;
             config.quality = bvh::v2::DefaultBuilder<Node>::Quality::Medium;
         }
@@ -55,14 +64,14 @@ public:
 
         precomputed_tris.resize(tris.size());
         // This precomputes some data to speed up traversal further.
-        executor.for_each(0, tris.size(), [&](size_t begin, size_t end) {
+        executor.for_each(0, tris.size(), [&](size_t begin, size_t end)
+                          {
             for (size_t i = begin; i < end; ++i) {
                 auto j = bvh.prim_ids[i];
                 precomputed_tris[i] = tris[j];
                 permutation_map[j] = i;
-            }
-        });
+            } });
     }
 };
 
-#endif //DTCC_SOLAR_ACCEL_H
+#endif // DTCC_SOLAR_ACCEL_H

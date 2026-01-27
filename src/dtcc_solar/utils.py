@@ -28,8 +28,10 @@ class Rays(IntEnum):
 
 
 class AnalysisType(IntEnum):
-    TWO_PHASE = 1
-    THREE_PHASE = 2
+    TWO_PHASE_1D = 1
+    TWO_PHASE_2D = 2
+    THREE_PHASE_1D = 3
+    THREE_PHASE_2D = 4
 
 
 class SunMapping(IntEnum):
@@ -49,7 +51,7 @@ class Vec3:
 class SolarParameters:
     weather_file: str = "Undefined weather data file"
     display: bool = True
-    analysis_type: AnalysisType = AnalysisType.TWO_PHASE
+    analysis_type: AnalysisType = AnalysisType.TWO_PHASE_1D
     sun_mapping: SunMapping = SunMapping.NONE
     start: Timestamp = field(default_factory=lambda: Timestamp("2019-01-01 00:00"))
     end: Timestamp = field(default_factory=lambda: Timestamp("2020-01-01 00:00"))
@@ -599,38 +601,31 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
         "end_date": str(p.end),
         "weather_data": p.weather_file,
     }
+    a_type = p.analysis_type
+    results_data = {}
 
     # Create the structure to hold the mesh data
-    if p.analysis_type == AnalysisType.TWO_PHASE:
-        svf = output.sky_view_factor[mask]
+    if a_type == AnalysisType.TWO_PHASE_1D or a_type == AnalysisType.TWO_PHASE_2D:
         total_irr = output.total_irradiance[mask]
-
-        assert len(svf) == face_count
         assert len(total_irr) == face_count
-
         results_data = {
             "GUID": guid_combined,
-            "SkyViewFactor": svf.tolist(),
             "TotalIrradiation": total_irr.tolist(),
             "Parameters": parameters,
         }
-    elif p.analysis_type == AnalysisType.THREE_PHASE:
-        svf = output.sky_view_factor[mask]
-        sun_hours = output.sun_hours[mask]
+    elif a_type == AnalysisType.THREE_PHASE_1D or a_type == AnalysisType.THREE_PHASE_2D:
+        # sun_hours = output.sun_hours[mask]
         total_irr = output.total_irradiance[mask]
         sky_irr = output.sky_irradiance[mask]
         sun_irr = output.sun_irradiance[mask]
 
-        assert len(svf) == face_count
-        assert len(sun_hours) == face_count
+        # assert len(sun_hours) == face_count
         assert len(total_irr) == face_count
         assert len(sky_irr) == face_count
         assert len(sun_irr) == face_count
 
         results_data = {
             "GUID": guid_combined,
-            "SkyViewFactor": svf.tolist(),
-            "SunHours": sun_hours.tolist(),
             "TotalIrradiation": total_irr.tolist(),
             "SkyIrradiation": sky_irr.tolist(),
             "SunIrradiation": sun_irr.tolist(),

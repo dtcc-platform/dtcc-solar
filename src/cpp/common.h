@@ -163,6 +163,13 @@ static inline std::vector<float> Spherical2Cartesian(float r, float elevation, f
     return {x, y, z};
 }
 
+static inline std::pair<int, int> GetShape(const MatrixXfRM &mat)
+{
+    int rows = mat.rows();
+    int cols = mat.cols();
+    return {rows, cols};
+}
+
 template <typename T>
 static inline std::pair<int, int> GetShape(const std::vector<std::vector<T>> &array2D)
 {
@@ -202,6 +209,18 @@ static inline MatrixXf VectorToEigen(const std::vector<std::vector<float>> &vec)
     return mat;
 }
 
+static inline Eigen::VectorXf VectorToEigen(const std::vector<float> &vec)
+{
+    if (vec.empty())
+        throw std::runtime_error("Empty input vector");
+
+    Eigen::VectorXf v(static_cast<int>(vec.size()));
+    for (size_t i = 0; i < vec.size(); ++i)
+        v(static_cast<int>(i)) = vec[i];
+
+    return v;
+}
+
 static inline MatrixXfRM VectorToEigenRM(const std::vector<std::vector<float>> &vec)
 {
     if (vec.empty() || vec[0].empty())
@@ -218,16 +237,31 @@ static inline MatrixXfRM VectorToEigenRM(const std::vector<std::vector<float>> &
     return mat;
 }
 
-static inline fArray2D EigenToVector(const Eigen::MatrixXf &mat)
+template <typename Derived>
+inline Eigen::Matrix<typename Derived::Scalar, Eigen::Dynamic, 1>
+RowSums(const Eigen::MatrixBase<Derived> &M)
+{
+    // .eval() forces evaluation if M is an expression (safe + avoids dangling refs)
+    return M.rowwise().sum().eval();
+}
+
+template <typename Derived>
+static inline fArray2D EigenToVector(const Eigen::MatrixBase<Derived> &mat)
 {
     fArray2D result(mat.rows(), std::vector<float>(mat.cols()));
-
     for (int i = 0; i < mat.rows(); ++i)
-    {
         for (int j = 0; j < mat.cols(); ++j)
-        {
             result[i][j] = mat(i, j);
-        }
+    return result;
+}
+
+static inline fArray1D EigenToVector(const Eigen::VectorXf &vec)
+{
+    fArray1D result(static_cast<size_t>(vec.size()));
+
+    for (int i = 0; i < vec.size(); ++i)
+    {
+        result[static_cast<size_t>(i)] = vec(i);
     }
     return result;
 }

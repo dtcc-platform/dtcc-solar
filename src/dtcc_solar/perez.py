@@ -200,6 +200,18 @@ def calc_2_phase_matrices(
     return (sky_res, sun_res)
 
 
+def calc_2_phase_vector(
+    sunpath: Sunpath, skydome: Skydome, p: SolarParameters
+) -> np.ndarray:
+
+    (skyres, sunres) = calc_2_phase_matrices(sunpath, skydome, p)
+
+    ss_matrix = sunres.matrix + skyres.matrix
+    ss_vector = np.sum(ss_matrix, axis=1)
+
+    return ss_vector, skyres, sunres
+
+
 def calc_3_phase_matrices(
     sunpath: Sunpath, skydome: Skydome, p: SolarParameters
 ) -> tuple[SkyResults, SunResults]:
@@ -210,7 +222,7 @@ def calc_3_phase_matrices(
     return sky_res, sun_res
 
 
-def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
+def calc_sky_matrix_old(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
     dni = sunpath.sunc.dni
     dhi = sunpath.sunc.dhi
@@ -309,20 +321,143 @@ def calc_sky_matrix(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
     return perez_results
 
 
+def calc_sky_matrix(
+    sunpath: Sunpath, skydome: Skydome, store_angles: bool = False
+) -> SkyResults:
+    dni = np.asarray(sunpath.sunc.dni, dtype=float)
+    dhi = np.asarray(sunpath.sunc.dhi, dtype=float)
+    sun_vecs = np.asarray(sunpath.sunc.sun_vecs, dtype=float)
+    sun_zenith = np.asarray(sunpath.sunc.zeniths, dtype=float)
+    sun_times = pd.DatetimeIndex(sunpath.sunc.time_stamps)
+
+    # Sky patch constants
+    ray_dirs = np.asarray(skydome.ray_dirs, dtype=float)  # (P,3)
+    solid_angles = np.asarray(skydome.solid_angles, dtype=float)  # (P,)
+    ksis = np.asarray(skydome.patch_zeniths, dtype=float)  # (P,)
+
+    cos_ksi = np.cos(ksis)
+    cos_ksi_safe = np.maximum(cos_ksi, 1e-4)  # for exp(B/cos)
+    dome_solid = float(np.sum(solid_angles))
+
+    P = ray_dirs.shape[0]
+    T = sun_vecs.shape[0]
+
+    rel_lum = np.zeros((P, T), dtype=np.float32)
+    sky_mat = np.zeros((P, T), dtype=np.float32)
+
+    if store_angles:
+        all_ksis = np.zeros((P, T), dtype=np.float32)
+        all_gammas = np.zeros((P, T), dtype=np.float32)
+        all_ksis[:] = ksis[:, None]  # constant per patch
+    else:
+        all_ksis = None
+        all_gammas = None
+
+    zenith_limit = np.deg2rad(89.9)
+    norm_limit = 0.01
+
+    # Precompute E0 per time (avoids per-iteration Timestamp maths)
+    doy = sun_times.dayofyear.to_numpy()
+    day_angle = (doy - 1.0) * (2.0 * np.pi / 365.0)
+    E0 = (
+        1.00011
+        + 0.034221 * np.cos(day_angle)
+        + 0.00128 * np.sin(day_angle)
+        + 0.000719 * np.cos(2.0 * day_angle)
+        + 0.000077 * np.sin(2.0 * day_angle)
+    )
+
+    valid = (dhi > 0.0) & (sun_zenith < zenith_limit)
+    valid_idx = np.where(valid)[0]
+
+    small_norms = 0
+    eval_count = 0
+    ignored_dhi = float(np.sum(dhi[~valid]))
+
+    for i in valid_idx:
+        z = float(sun_zenith[i])
+        dhi_i = float(dhi[i])
+        dni_i = float(dni[i])
+
+        # air mass (scalar)
+        # (you can still clamp if you want; this matches your newer version)
+        m = 1.0 / (math.cos(z) + 0.15 * (93.885 - math.degrees(z)) ** -1.253)
+
+        # epsilon (scalar)
+        eps = ((dni_i + dhi_i) / dhi_i + 1.041 * z**3) / (1.0 + 1.041 * z**3)
+        eps = min(11.9, max(1.0, eps))
+
+        # delta (scalar) with Radiance-style clamps
+        delta = (m * dhi_i) / (1367.0 * float(E0[i]))
+        delta = min(0.6, max(0.01, delta))
+        if 1.065 < eps < 2.8 and delta < 0.2:
+            delta = 0.2
+
+        A, B, C, D, E = calc_perez_coeffs(eps, delta, z)
+
+        # Vectorised over patches
+        sv = sun_vecs[i]  # (3,)
+        dots = ray_dirs @ sv  # (P,)
+        dots = np.clip(dots, -1.0, 1.0)
+
+        gamma = np.arccos(dots)
+        gamma = np.clip(gamma, 1e-4, np.pi)
+
+        # Perez relative luminance
+        term1 = 1.0 + A * np.exp(B / cos_ksi_safe)
+        term2 = 1.0 + C * np.exp(D * gamma) + E * (dots * dots)  # cos^2(gamma)=dot^2
+        lvs = term1 * term2
+        lvs = np.maximum(lvs, 0.0)
+
+        # normalisation (Perez eq)
+        norm = float(np.sum(lvs * cos_ksi * solid_angles))
+
+        if norm <= norm_limit:
+            small_norms += 1
+            Rvs = np.full(P, dhi_i / np.pi, dtype=np.float64)
+        else:
+            Rvs = (lvs * dhi_i) / norm
+
+        rel_lum[:, i] = lvs.astype(np.float32)
+        sky_mat[:, i] = Rvs.astype(np.float32)
+
+        if store_angles:
+            all_gammas[:, i] = gamma.astype(np.float32)
+
+        eval_count += 1
+
+    info("-----------------------------------------------------")
+    info("Sky matrix calculation summary (Perez):")
+    info(f"  Evaluated {eval_count} sun positions of {T} which passed the checks.")
+    info(f"  Conditions: dhi > 0 and sun zenith < {math.degrees(zenith_limit)} °")
+    info(f"  For {small_norms} cases the norm factor <  {norm_limit} => uniform sky")
+    info("-----------------------------------------------------")
+
+    res = SkyResults()
+    res.count = T
+    res.relative_luminance = rel_lum
+    res.solid_angles = solid_angles
+    res.matrix = sky_mat
+    res.ksis = all_ksis
+    res.gammas = all_gammas
+    res.ignored_dhi = ignored_dhi
+    return res
+
+
 def calc_tot_error(
     sky_res: SkyResults,
     skydome: Skydome,
     sun_res: SunResults,
     sunp: Sunpath,
-    analysis_type: AnalysisType,
+    a_type: AnalysisType,
 ):
 
     cos_zeniths = np.cos(np.array(skydome.patch_zeniths))
     solid_angles = np.array(skydome.solid_angles)
 
-    if analysis_type == AnalysisType.TWO_PHASE:
+    if a_type == AnalysisType.TWO_PHASE_1D or a_type == AnalysisType.TWO_PHASE_2D:
         sun_dni = np.sum(np.sum(sun_res.matrix, axis=1) * solid_angles)
-    elif analysis_type == AnalysisType.THREE_PHASE:
+    elif a_type == AnalysisType.THREE_PHASE_1D or a_type == AnalysisType.THREE_PHASE_2D:
         sun_dni = np.sum(np.sum(sun_res.matrix, axis=1))
 
     sky_dhi = np.sum(np.sum(sky_res.matrix, axis=1) * cos_zeniths * solid_angles)

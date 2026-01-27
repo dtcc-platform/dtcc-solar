@@ -33,9 +33,7 @@ def single_triangle_mesh():
 @pytest.fixture
 def unit_square_mesh():
     """A unit square made of two triangles at z=0."""
-    vertices = np.array(
-        [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=float
-    )
+    vertices = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=float)
     faces = np.array([[0, 1, 2], [0, 2, 3]], dtype=int)
     return Mesh(vertices=vertices, faces=faces)
 
@@ -43,24 +41,42 @@ def unit_square_mesh():
 @pytest.fixture
 def small_cube_mesh():
     """A small cube mesh (6 faces, 12 triangles)."""
-    vertices = np.array([
-        [0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0],  # bottom
-        [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1],  # top
-    ], dtype=float)
-    faces = np.array([
-        # bottom
-        [0, 2, 1], [0, 3, 2],
-        # top
-        [4, 5, 6], [4, 6, 7],
-        # front
-        [0, 1, 5], [0, 5, 4],
-        # back
-        [2, 3, 7], [2, 7, 6],
-        # left
-        [0, 4, 7], [0, 7, 3],
-        # right
-        [1, 2, 6], [1, 6, 5],
-    ], dtype=int)
+    vertices = np.array(
+        [
+            [0, 0, 0],
+            [1, 0, 0],
+            [1, 1, 0],
+            [0, 1, 0],  # bottom
+            [0, 0, 1],
+            [1, 0, 1],
+            [1, 1, 1],
+            [0, 1, 1],  # top
+        ],
+        dtype=float,
+    )
+    faces = np.array(
+        [
+            # bottom
+            [0, 2, 1],
+            [0, 3, 2],
+            # top
+            [4, 5, 6],
+            [4, 6, 7],
+            # front
+            [0, 1, 5],
+            [0, 5, 4],
+            # back
+            [2, 3, 7],
+            [2, 7, 6],
+            # left
+            [0, 4, 7],
+            [0, 7, 3],
+            # right
+            [1, 2, 6],
+            [1, 6, 5],
+        ],
+        dtype=int,
+    )
     return Mesh(vertices=vertices, faces=faces)
 
 
@@ -119,7 +135,7 @@ def solar_params_day(synthetic_epw_path):
     return SolarParameters(
         weather_file=synthetic_epw_path,
         display=False,
-        analysis_type=AnalysisType.TWO_PHASE,
+        analysis_type=AnalysisType.TWO_PHASE_1D,
         sun_mapping=SunMapping.NONE,
         start=pd.Timestamp("2024-06-21 00:00"),
         end=pd.Timestamp("2024-06-22 00:00"),
@@ -132,7 +148,7 @@ def solar_params_week(synthetic_epw_path):
     return SolarParameters(
         weather_file=synthetic_epw_path,
         display=False,
-        analysis_type=AnalysisType.TWO_PHASE,
+        analysis_type=AnalysisType.TWO_PHASE_1D,
         sun_mapping=SunMapping.NONE,
         start=pd.Timestamp("2024-06-21 00:00"),
         end=pd.Timestamp("2024-06-28 00:00"),
@@ -206,6 +222,7 @@ def solar_bindings_available():
     """Check if C++ solar bindings are available."""
     try:
         from dtcc_solar import py_solar
+
         return True
     except ImportError:
         return False

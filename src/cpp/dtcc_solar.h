@@ -47,40 +47,40 @@ public:
     fArray2D GetMeshVertices();
     fArray2D GetFaceNormals();
 
-    fArray2D GetVisibilityMatrixTot();
-    fArray2D GetProjectionMatrixTot();
-    fArray2D GetIrradianceMatrixTot();
+    MatrixXfRM GetVPMatrix();
+    MatrixXfRM &GetIrradianceMatrix();
+    VectorXf GetVPMatrixFlat();
+    VectorXf GetIrradianceVector();
+    VectorXf GetIrradianceMatrixFlat();
 
-    fArray1D GetVisibilityVectorTot();
-    fArray1D GetProjectionVectorTot();
-    fArray1D GetIrradianceVectorTot();
+    MatrixXfRM GetVPMatrixSky();
+    MatrixXfRM GetVPMatrixSun();
+    VectorXf GetVPMatrixSkyFlat();
+    VectorXf GetVPMatrixSunFlat();
+    VectorXf GetIrradianceVectorSun();
+    VectorXf GetIrradianceVectorSky();
 
-    fArray2D GetVisibilityMatrixSky();
-    fArray2D GetProjectionMatrixSky();
-    fArray2D GetIrradianceMatrixSky();
+    MatrixXfRM &GetIrradianceMatrixSky();
+    MatrixXfRM &GetIrradianceMatrixSun();
+    VectorXf GetIrradianceMatrixSkyFlat();
+    VectorXf GetIrradianceMatrixSunFlat();
 
-    fArray1D GetVisibilityVectorSky();
-    fArray1D GetProjectionVectorSky();
-    fArray1D GetIrradianceVectorSky();
-
-    fArray2D GetVisibilityMatrixSun();
-    fArray2D GetProjectionMatrixSun();
-    fArray2D GetIrradianceMatrixSun();
-
-    fArray1D GetVisibilityVectorSun();
-    fArray1D GetProjectionVectorSun();
-    fArray1D GetIrradianceVectorSun();
-
-    fArray1D Flatten2D(fArray2D &matrix);
-
-    bool CalcProjMatrix(Rays *rays, fArray2D &projMatrix);
-    bool CalcVisMatrix(Rays *rays, fArray2D &visMatrix);
+    bool CalcProjMatrix(Rays *rays, fArray2D &projMatrix, fArray2D &surfaceNormals);
+    bool CalcVisMatrix(Rays *rays, fArray2D &visMatrix, fArray2D &surfaceNormals);
     bool CalcVisProjMatrix(Rays *rays, fArray2D &visMatrix, fArray2D &projMatrix, fArray2D &visProjMatrix);
 
-    bool CalcIrradiance2Phase(Rays *rays, fArray2D &skySunMatrix, fArray2D &visProjMatrix, fArray2D &irrMatrix);
-    bool CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, fArray2D &skyMatrix, fArray2D &sunMatrix, fArray2D &skyVisProjMatrix, fArray2D &sunVisProjMatrix, fArray2D &skyIrrMatrix, fArray2D &sunIrrMatrix);
+    bool CalcVPMatrix(Rays *rays, MatrixXfRM &visProjMatrix, fArray2D &surfaceNormals);
 
+    bool CalcIrradiance2Phase(Rays *rays, fArray1D &skySunVector, const MatrixXfRM &VP, VectorXf &irrVector);
+    bool CalcIrradiance2Phase(Rays *rays, const MatrixXfRM &skySunMatrix, const MatrixXfRM &visProjMatrix, MatrixXfRM &irrMatrix);
+
+    bool CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, VectorXf &skyS, VectorXf &sunS, const MatrixXfRM &skyVP, const MatrixXfRM &sunVP, VectorXf &skyIrrVec, VectorXf &sunIrrVec);
+    bool CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, MatrixXfRM &skyS, MatrixXfRM &sunS, MatrixXfRM &skyVPMatrix, MatrixXfRM &sunVPMatrix, MatrixXfRM &skyIrrMatrix, MatrixXfRM &sunIrrMatrix);
+
+    bool Run2PhaseAnalysis(fArray1D sunSkyVector);
     bool Run2PhaseAnalysis(fArray2D sunSkyMatrix);
+
+    bool Run3PhaseAnalysis(fArray1D skyVector, fArray1D sunVector);
     bool Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix);
 
 private:
@@ -109,20 +109,16 @@ private:
     iArray2D mFaceSkyHit;
     std::vector<float> mSkyViewFactor;
 
-    fArray2D mProjMatrixTot;
-    fArray2D mVisMatrixTot;
-    fArray2D mVisProjMatrixTot;
-    fArray2D mIrrMatrixTot;
+    VectorXf mIrrVector;
+    VectorXf mIrrVectorSky;
+    VectorXf mIrrVectorSun;
 
-    fArray2D mProjMatrixSky;
-    fArray2D mVisMatrixSky;
-    fArray2D mVisProjMatrixSky;
-    fArray2D mIrrMatrixSky;
-
-    fArray2D mProjMatrixSun;
-    fArray2D mVisMatrixSun;
-    fArray2D mVisProjMatrixSun;
-    fArray2D mIrrMatrixSun;
+    MatrixXfRM mVPMatrix;
+    MatrixXfRM mVPMatrixSky;
+    MatrixXfRM mVPMatrixSun;
+    MatrixXfRM mIrrMatrix;
+    MatrixXfRM mIrrMatrixSky;
+    MatrixXfRM mIrrMatrixSun;
 
     float mDomeSolidAngle = 2 * M_PI; // Solid angle of the dome, 2 * pi steradians
 

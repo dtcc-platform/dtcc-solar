@@ -24,6 +24,7 @@ from dtcc_solar.utils import (
 # Check if solar bindings are available
 try:
     from dtcc_solar import py_solar
+
     SOLAR_BINDINGS_AVAILABLE = True
 except ImportError:
     SOLAR_BINDINGS_AVAILABLE = False
@@ -48,9 +49,7 @@ class TestSolarEngineCreation:
         assert engine.shading_mesh is not None
         assert engine.mesh is not None
 
-    def test_combined_mesh_has_all_faces(
-        self, single_triangle_mesh, unit_square_mesh
-    ):
+    def test_combined_mesh_has_all_faces(self, single_triangle_mesh, unit_square_mesh):
         """Test that combined mesh includes all faces."""
         engine = SolarEngine(single_triangle_mesh, shading_mesh=unit_square_mesh)
 
@@ -133,8 +132,7 @@ class TestSunpathRadius:
 
         # Radius should be based on mesh diagonal
         mesh_diagonal = np.sqrt(
-            engine.bb.width**2 + engine.bb.height**2 +
-            (engine.zmax - engine.zmin)**2
+            engine.bb.width**2 + engine.bb.height**2 + (engine.zmax - engine.zmin) ** 2
         )
         assert engine.sunpath_radius >= mesh_diagonal / 2
 
@@ -170,8 +168,7 @@ class TestSolarBindingsRequired:
 
 
 @pytest.mark.skipif(
-    not SOLAR_BINDINGS_AVAILABLE,
-    reason="C++ solar bindings not available"
+    not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"
 )
 class TestSolarEngineAnalysis:
     """Tests for solar analysis execution (requires C++ bindings)."""
@@ -184,7 +181,7 @@ class TestSolarEngineAnalysis:
         sunpath = Sunpath(solar_params_week)
         skydome = Tregenza()
 
-        output = engine.run_2_phase_analysis(sunpath, skydome, solar_params_week)
+        output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
         assert isinstance(output, OutputCollection)
 
@@ -196,7 +193,7 @@ class TestSolarEngineAnalysis:
         sunpath = Sunpath(solar_params_week)
         skydome = Tregenza()
 
-        output = engine.run_2_phase_analysis(sunpath, skydome, solar_params_week)
+        output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
         assert output.total_irradiance is not None
         assert len(output.total_irradiance) > 0
@@ -210,7 +207,7 @@ class TestSolarEngineAnalysis:
         params = SolarParameters(
             weather_file=synthetic_epw_path,
             display=False,
-            analysis_type=AnalysisType.THREE_PHASE,
+            analysis_type=AnalysisType.THREE_PHASE_1D,
             start=pd.Timestamp("2024-06-21 00:00"),
             end=pd.Timestamp("2024-06-28 00:00"),
         )
@@ -230,7 +227,7 @@ class TestSolarEngineAnalysis:
         params = SolarParameters(
             weather_file=synthetic_epw_path,
             display=False,
-            analysis_type=AnalysisType.THREE_PHASE,
+            analysis_type=AnalysisType.THREE_PHASE_1D,
             start=pd.Timestamp("2024-06-21 00:00"),
             end=pd.Timestamp("2024-06-28 00:00"),
         )
@@ -252,19 +249,17 @@ class TestSolarEngineAnalysis:
         sunpath = Sunpath(solar_params_week)
         skydome = Tregenza()
 
-        output = engine.run_2_phase_analysis(sunpath, skydome, solar_params_week)
+        output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
         assert np.all(output.total_irradiance >= 0)
 
-    def test_sky_view_factor_in_range(
-        self, single_triangle_mesh, solar_params_week
-    ):
+    def test_sky_view_factor_in_range(self, single_triangle_mesh, solar_params_week):
         """Test that sky view factor is in valid range [0, 1]."""
         engine = SolarEngine(single_triangle_mesh)
         sunpath = Sunpath(solar_params_week)
         skydome = Tregenza()
 
-        output = engine.run_2_phase_analysis(sunpath, skydome, solar_params_week)
+        output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
         assert np.all(output.sky_view_factor >= 0)
         assert np.all(output.sky_view_factor <= 1)
@@ -283,8 +278,7 @@ class TestSolarEngineAnalysis:
 
 
 @pytest.mark.skipif(
-    not SOLAR_BINDINGS_AVAILABLE,
-    reason="C++ solar bindings not available"
+    not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"
 )
 class TestSolarEngineWithShading:
     """Tests for solar analysis with shading mesh."""
@@ -296,7 +290,7 @@ class TestSolarEngineWithShading:
         params = SolarParameters(
             weather_file=synthetic_epw_path,
             display=False,
-            analysis_type=AnalysisType.TWO_PHASE,
+            analysis_type=AnalysisType.TWO_PHASE_1D,
             start=pd.Timestamp("2024-06-21 00:00"),
             end=pd.Timestamp("2024-06-28 00:00"),
         )
@@ -306,15 +300,15 @@ class TestSolarEngineWithShading:
         # Without shading
         engine_no_shade = SolarEngine(horizontal_upward_triangle)
         sunpath = Sunpath(params)
-        output_no_shade = engine_no_shade.run_2_phase_analysis(
+        output_no_shade = engine_no_shade.run_2_phase_analysis_1D(
             sunpath, skydome, params
         )
         irr_no_shade = output_no_shade.total_irradiance[0]
 
         # With shading (large panel above the triangle)
-        shading_vertices = np.array([
-            [-5, -5, 5], [5, -5, 5], [5, 5, 5], [-5, 5, 5]
-        ], dtype=float)
+        shading_vertices = np.array(
+            [[-5, -5, 5], [5, -5, 5], [5, 5, 5], [-5, 5, 5]], dtype=float
+        )
         shading_faces = np.array([[0, 1, 2], [0, 2, 3]], dtype=int)
         shading_mesh = Mesh(vertices=shading_vertices, faces=shading_faces)
 
@@ -322,7 +316,7 @@ class TestSolarEngineWithShading:
             horizontal_upward_triangle, shading_mesh=shading_mesh
         )
         sunpath2 = Sunpath(params)
-        output_with_shade = engine_with_shade.run_2_phase_analysis(
+        output_with_shade = engine_with_shade.run_2_phase_analysis_1D(
             sunpath2, skydome, params
         )
 
@@ -336,8 +330,7 @@ class TestSolarEngineWithShading:
 
 
 @pytest.mark.skipif(
-    not SOLAR_BINDINGS_AVAILABLE,
-    reason="C++ solar bindings not available"
+    not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"
 )
 class TestSkyViewFactor:
     """Tests for sky view factor calculations."""
@@ -350,7 +343,7 @@ class TestSkyViewFactor:
         sunpath = Sunpath(solar_params_week)
         skydome = Tregenza()
 
-        output = engine.run_2_phase_analysis(sunpath, skydome, solar_params_week)
+        output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
         # Unobstructed upward-facing surface should see nearly full sky
         # Allow some tolerance for discretization and numerical errors
@@ -362,8 +355,7 @@ class TestOutputCollection:
     """Tests for OutputCollection structure."""
 
     @pytest.mark.skipif(
-        not SOLAR_BINDINGS_AVAILABLE,
-        reason="C++ solar bindings not available"
+        not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"
     )
     def test_output_has_mesh(self, single_triangle_mesh, solar_params_week):
         """Test that output contains mesh."""
@@ -371,13 +363,12 @@ class TestOutputCollection:
         sunpath = Sunpath(solar_params_week)
         skydome = Tregenza()
 
-        output = engine.run_2_phase_analysis(sunpath, skydome, solar_params_week)
+        output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
         assert output.mesh is not None
 
     @pytest.mark.skipif(
-        not SOLAR_BINDINGS_AVAILABLE,
-        reason="C++ solar bindings not available"
+        not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"
     )
     def test_output_has_data_mask(self, single_triangle_mesh, solar_params_week):
         """Test that output contains data mask."""
@@ -385,14 +376,13 @@ class TestOutputCollection:
         sunpath = Sunpath(solar_params_week)
         skydome = Tregenza()
 
-        output = engine.run_2_phase_analysis(sunpath, skydome, solar_params_week)
+        output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
         assert output.data_mask is not None
         assert len(output.data_mask) == len(output.mesh.faces)
 
     @pytest.mark.skipif(
-        not SOLAR_BINDINGS_AVAILABLE,
-        reason="C++ solar bindings not available"
+        not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"
     )
     def test_output_has_sky_results(self, single_triangle_mesh, solar_params_week):
         """Test that output contains sky results."""
@@ -400,13 +390,12 @@ class TestOutputCollection:
         sunpath = Sunpath(solar_params_week)
         skydome = Tregenza()
 
-        output = engine.run_2_phase_analysis(sunpath, skydome, solar_params_week)
+        output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
         assert output.sky_results is not None
 
     @pytest.mark.skipif(
-        not SOLAR_BINDINGS_AVAILABLE,
-        reason="C++ solar bindings not available"
+        not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"
     )
     def test_output_has_sun_results(self, single_triangle_mesh, solar_params_week):
         """Test that output contains sun results."""
@@ -414,7 +403,7 @@ class TestOutputCollection:
         sunpath = Sunpath(solar_params_week)
         skydome = Tregenza()
 
-        output = engine.run_2_phase_analysis(sunpath, skydome, solar_params_week)
+        output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
         assert output.sun_results is not None
 
@@ -438,8 +427,7 @@ class TestMultipleMeshes:
 
 
 @pytest.mark.skipif(
-    not SOLAR_BINDINGS_AVAILABLE,
-    reason="C++ solar bindings not available"
+    not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"
 )
 class TestOcclusionAndShadowing:
     """Tests for occlusion and shadowing behavior in ray-tracing."""
@@ -454,23 +442,23 @@ class TestOcclusionAndShadowing:
         params = SolarParameters(
             weather_file=synthetic_epw_path,
             display=False,
-            analysis_type=AnalysisType.TWO_PHASE,
+            analysis_type=AnalysisType.TWO_PHASE_1D,
             start=pd.Timestamp("2024-06-21 00:00"),
             end=pd.Timestamp("2024-06-28 00:00"),
         )
 
         # Create horizontal analysis triangle at z=0, centered at origin
-        analysis_vertices = np.array([
-            [-0.5, -0.5, 0], [0.5, -0.5, 0], [0, 0.5, 0]
-        ], dtype=float)
+        analysis_vertices = np.array(
+            [[-0.5, -0.5, 0], [0.5, -0.5, 0], [0, 0.5, 0]], dtype=float
+        )
         analysis_faces = np.array([[0, 1, 2]], dtype=int)
         analysis_mesh = Mesh(vertices=analysis_vertices, faces=analysis_faces)
 
         # Create large vertical wall on +X side, blocking roughly half the sky
         # Wall spans from ground level up high and wide enough to block hemisphere
-        wall_vertices = np.array([
-            [2, -20, 0], [2, 20, 0], [2, 20, 30], [2, -20, 30]
-        ], dtype=float)
+        wall_vertices = np.array(
+            [[2, -20, 0], [2, 20, 0], [2, 20, 30], [2, -20, 30]], dtype=float
+        )
         wall_faces = np.array([[0, 1, 2], [0, 2, 3]], dtype=int)
         shading_mesh = Mesh(vertices=wall_vertices, faces=wall_faces)
 
@@ -478,7 +466,7 @@ class TestOcclusionAndShadowing:
         sunpath = Sunpath(params)
         skydome = Tregenza()
 
-        output = engine.run_2_phase_analysis(sunpath, skydome, params)
+        output = engine.run_2_phase_analysis_1D(sunpath, skydome, params)
 
         # Extract SVF for analysis face only
         svf = output.sky_view_factor[output.data_mask][0]
@@ -497,7 +485,7 @@ class TestOcclusionAndShadowing:
         params = SolarParameters(
             weather_file=synthetic_epw_path,
             display=False,
-            analysis_type=AnalysisType.TWO_PHASE,
+            analysis_type=AnalysisType.TWO_PHASE_1D,
             start=pd.Timestamp("2024-06-21 00:00"),
             end=pd.Timestamp("2024-06-28 00:00"),
         )
@@ -505,23 +493,33 @@ class TestOcclusionAndShadowing:
         # Create two stacked horizontal triangles
         # Lower triangle at z=0
         # Upper triangle at z=5, large enough to cast shadow
-        vertices = np.array([
-            # Lower triangle (small)
-            [-0.5, -0.5, 0], [0.5, -0.5, 0], [0, 0.5, 0],
-            # Upper triangle (larger, to provide significant occlusion)
-            [-3, -3, 5], [3, -3, 5], [0, 3, 5],
-        ], dtype=float)
-        faces = np.array([
-            [0, 1, 2],  # Lower triangle (face 0)
-            [3, 4, 5],  # Upper triangle (face 1)
-        ], dtype=int)
+        vertices = np.array(
+            [
+                # Lower triangle (small)
+                [-0.5, -0.5, 0],
+                [0.5, -0.5, 0],
+                [0, 0.5, 0],
+                # Upper triangle (larger, to provide significant occlusion)
+                [-3, -3, 5],
+                [3, -3, 5],
+                [0, 3, 5],
+            ],
+            dtype=float,
+        )
+        faces = np.array(
+            [
+                [0, 1, 2],  # Lower triangle (face 0)
+                [3, 4, 5],  # Upper triangle (face 1)
+            ],
+            dtype=int,
+        )
         mesh = Mesh(vertices=vertices, faces=faces)
 
         engine = SolarEngine(mesh)
         sunpath = Sunpath(params)
         skydome = Tregenza()
 
-        output = engine.run_2_phase_analysis(sunpath, skydome, params)
+        output = engine.run_2_phase_analysis_1D(sunpath, skydome, params)
 
         # Both faces are analysis faces
         svf_lower = output.sky_view_factor[0]
@@ -531,9 +529,9 @@ class TestOcclusionAndShadowing:
         assert svf_upper > 0.8, f"Upper face SVF should be high, got {svf_upper}"
 
         # Lower triangle should have reduced SVF due to upper triangle
-        assert svf_lower < svf_upper, (
-            f"Lower face SVF ({svf_lower}) should be less than upper ({svf_upper})"
-        )
+        assert (
+            svf_lower < svf_upper
+        ), f"Lower face SVF ({svf_lower}) should be less than upper ({svf_upper})"
 
     def test_shading_reduces_sun_hours(self, synthetic_epw_path):
         """Test that shading mesh reduces sun hours in 3-phase analysis.
@@ -544,15 +542,13 @@ class TestOcclusionAndShadowing:
         params = SolarParameters(
             weather_file=synthetic_epw_path,
             display=False,
-            analysis_type=AnalysisType.THREE_PHASE,
+            analysis_type=AnalysisType.THREE_PHASE_1D,
             start=pd.Timestamp("2024-06-21 00:00"),
             end=pd.Timestamp("2024-06-28 00:00"),
         )
 
         # Create horizontal analysis triangle
-        analysis_vertices = np.array([
-            [0, 0, 0], [1, 0, 0], [0.5, 1, 0]
-        ], dtype=float)
+        analysis_vertices = np.array([[0, 0, 0], [1, 0, 0], [0.5, 1, 0]], dtype=float)
         analysis_faces = np.array([[0, 1, 2]], dtype=int)
         analysis_mesh = Mesh(vertices=analysis_vertices, faces=analysis_faces)
 
@@ -567,9 +563,9 @@ class TestOcclusionAndShadowing:
         sun_hours_no_shade = output_no_shade.sun_hours[0]
 
         # Create shading panel above (large panel to block sun)
-        shading_vertices = np.array([
-            [-5, -5, 3], [5, -5, 3], [5, 5, 3], [-5, 5, 3]
-        ], dtype=float)
+        shading_vertices = np.array(
+            [[-5, -5, 3], [5, -5, 3], [5, 5, 3], [-5, 5, 3]], dtype=float
+        )
         shading_faces = np.array([[0, 1, 2], [0, 2, 3]], dtype=int)
         shading_mesh = Mesh(vertices=shading_vertices, faces=shading_faces)
 
@@ -579,7 +575,9 @@ class TestOcclusionAndShadowing:
         output_with_shade = engine_with_shade.run_3_phase_analysis(
             sunpath_with_shade, skydome, params
         )
-        sun_hours_with_shade = output_with_shade.sun_hours[output_with_shade.data_mask][0]
+        sun_hours_with_shade = output_with_shade.sun_hours[output_with_shade.data_mask][
+            0
+        ]
 
         # Shading should reduce sun hours
         assert sun_hours_with_shade < sun_hours_no_shade, (
@@ -597,23 +595,23 @@ class TestOcclusionAndShadowing:
         params = SolarParameters(
             weather_file=synthetic_epw_path,
             display=False,
-            analysis_type=AnalysisType.TWO_PHASE,
+            analysis_type=AnalysisType.TWO_PHASE_1D,
             start=pd.Timestamp("2024-06-21 00:00"),
             end=pd.Timestamp("2024-06-28 00:00"),
         )
 
         # Create horizontal analysis triangle at z=0
-        analysis_vertices = np.array([
-            [-0.5, -0.5, 0], [0.5, -0.5, 0], [0, 0.5, 0]
-        ], dtype=float)
+        analysis_vertices = np.array(
+            [[-0.5, -0.5, 0], [0.5, -0.5, 0], [0, 0.5, 0]], dtype=float
+        )
         analysis_faces = np.array([[0, 1, 2]], dtype=int)
         analysis_mesh = Mesh(vertices=analysis_vertices, faces=analysis_faces)
 
         # Create a tall but narrow vertical wall on +X side
         # This should block sky from one direction but leave most of hemisphere open
-        wall_vertices = np.array([
-            [2, -5, 0], [2, 5, 0], [2, 5, 15], [2, -5, 15]
-        ], dtype=float)
+        wall_vertices = np.array(
+            [[2, -5, 0], [2, 5, 0], [2, 5, 15], [2, -5, 15]], dtype=float
+        )
         wall_faces = np.array([[0, 1, 2], [0, 2, 3]], dtype=int)
         shading_mesh = Mesh(vertices=wall_vertices, faces=wall_faces)
 
@@ -621,7 +619,7 @@ class TestOcclusionAndShadowing:
         engine_with_wall = SolarEngine(analysis_mesh, shading_mesh=shading_mesh)
         sunpath1 = Sunpath(params)
         skydome = Tregenza()
-        output_with_wall = engine_with_wall.run_2_phase_analysis(
+        output_with_wall = engine_with_wall.run_2_phase_analysis_1D(
             sunpath1, skydome, params
         )
         svf_with_wall = output_with_wall.sky_view_factor[output_with_wall.data_mask][0]
@@ -629,7 +627,7 @@ class TestOcclusionAndShadowing:
         # Get SVF without wall (reference)
         engine_no_wall = SolarEngine(analysis_mesh)
         sunpath2 = Sunpath(params)
-        output_no_wall = engine_no_wall.run_2_phase_analysis(
+        output_no_wall = engine_no_wall.run_2_phase_analysis_1D(
             sunpath2, skydome, params
         )
         svf_no_wall = output_no_wall.sky_view_factor[0]
@@ -641,6 +639,6 @@ class TestOcclusionAndShadowing:
             f"SVF with wall ({svf_with_wall}) should be less than "
             f"without wall ({svf_no_wall})"
         )
-        assert svf_with_wall > 0.5, (
-            f"SVF with single wall ({svf_with_wall}) should still be > 0.5"
-        )
+        assert (
+            svf_with_wall > 0.5
+        ), f"SVF with single wall ({svf_with_wall}) should still be > 0.5"

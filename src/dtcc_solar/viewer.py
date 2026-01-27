@@ -51,11 +51,15 @@ class Viewer:
         mask = output.data_mask
         r = sunpath.r
         a_mesh, s_mesh = split_mesh_by_face_mask(output.mesh, mask)
+        a_type = p.analysis_type
 
-        if p.analysis_type == AnalysisType.TWO_PHASE:
+        if a_type == AnalysisType.TWO_PHASE_1D or a_type == AnalysisType.TWO_PHASE_2D:
             data_dict["total_irradiance (kW/m²)"] = output.total_irradiance[mask]
 
-        if p.analysis_type == AnalysisType.THREE_PHASE:
+        if (
+            a_type == AnalysisType.THREE_PHASE_1D
+            or a_type == AnalysisType.THREE_PHASE_2D
+        ):
             data_dict["total_irradiance (kW/m²)"] = output.total_irradiance[mask]
             data_dict["sky_irradiance (kW/m²)"] = output.sky_irradiance[mask]
             data_dict["sun_irradiance (kW/m²)"] = output.sun_irradiance[mask]
@@ -65,9 +69,12 @@ class Viewer:
         if output.shading_mesh is not None:
             self.scene.add_mesh(name="Shading mesh", mesh=s_mesh)
 
-        if p.analysis_type == AnalysisType.TWO_PHASE:
+        if a_type == AnalysisType.TWO_PHASE_1D or a_type == AnalysisType.TWO_PHASE_2D:
             self.build_skydome_2_phase(output, skydome, r)
-        if p.analysis_type == AnalysisType.THREE_PHASE:
+        if (
+            a_type == AnalysisType.THREE_PHASE_1D
+            or a_type == AnalysisType.THREE_PHASE_2D
+        ):
             self.build_skydome_3_phase(output, skydome, r)
             self.build_sunpath_diagram(sunpath, p)
 

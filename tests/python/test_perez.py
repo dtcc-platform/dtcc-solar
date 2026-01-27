@@ -252,11 +252,13 @@ class TestFindClosestPatch:
     def test_finds_closest_zenith(self):
         """Test finding patch closest to zenith."""
         # Ray directions including zenith
-        ray_dirs = np.array([
-            [0, 0, 1],      # Zenith
-            [1, 0, 0],      # East horizon
-            [0, 1, 0],      # North horizon
-        ])
+        ray_dirs = np.array(
+            [
+                [0, 0, 1],  # Zenith
+                [1, 0, 0],  # East horizon
+                [0, 1, 0],  # North horizon
+            ]
+        )
         sun_vec = np.array([0, 0, 1])  # Sun at zenith
 
         idx = find_closest_patch(sun_vec, ray_dirs)
@@ -264,11 +266,13 @@ class TestFindClosestPatch:
 
     def test_finds_closest_east(self):
         """Test finding patch closest to east."""
-        ray_dirs = np.array([
-            [0, 0, 1],      # Zenith
-            [1, 0, 0],      # East horizon
-            [0, 1, 0],      # North horizon
-        ])
+        ray_dirs = np.array(
+            [
+                [0, 0, 1],  # Zenith
+                [1, 0, 0],  # East horizon
+                [0, 1, 0],  # North horizon
+            ]
+        )
         sun_vec = np.array([0.9, 0.1, 0.2])  # Roughly east
         sun_vec = sun_vec / np.linalg.norm(sun_vec)
 
@@ -355,7 +359,7 @@ class TestCalc3PhaseMatrices:
         params = SolarParameters(
             weather_file=solar_params_week.weather_file,
             display=False,
-            analysis_type=AnalysisType.THREE_PHASE,
+            analysis_type=AnalysisType.THREE_PHASE_1D,
             start=solar_params_week.start,
             end=solar_params_week.end,
         )
@@ -371,7 +375,7 @@ class TestCalc3PhaseMatrices:
         params = SolarParameters(
             weather_file=solar_params_week.weather_file,
             display=False,
-            analysis_type=AnalysisType.THREE_PHASE,
+            analysis_type=AnalysisType.THREE_PHASE_1D,
             start=solar_params_week.start,
             end=solar_params_week.end,
         )
@@ -386,10 +390,13 @@ class TestCalc3PhaseMatrices:
 class TestDifferentSkydomes:
     """Tests for matrix calculations with different skydome types."""
 
-    @pytest.mark.parametrize("dome_class,expected_patches", [
-        (Tregenza, 145),
-        (ReinhartM2, 578),
-    ])
+    @pytest.mark.parametrize(
+        "dome_class,expected_patches",
+        [
+            (Tregenza, 145),
+            (ReinhartM2, 578),
+        ],
+    )
     def test_sky_matrix_shape_varies_with_dome(
         self, solar_params_week, dome_class, expected_patches
     ):

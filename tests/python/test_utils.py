@@ -71,8 +71,8 @@ class TestEnums:
 
     def test_analysis_type_values(self):
         """Test AnalysisType enum values."""
-        assert AnalysisType.TWO_PHASE == 1
-        assert AnalysisType.THREE_PHASE == 2
+        assert AnalysisType.TWO_PHASE_1D == 1
+        assert AnalysisType.THREE_PHASE_1D == 2
 
     def test_sun_mapping_values(self):
         """Test SunMapping enum values."""
@@ -95,7 +95,7 @@ class TestSolarParameters:
         epw_path.touch()
         p = SolarParameters(weather_file=str(epw_path))
         assert p.display is True
-        assert p.analysis_type == AnalysisType.TWO_PHASE
+        assert p.analysis_type == AnalysisType.TWO_PHASE_1D
         assert p.sun_mapping == SunMapping.NONE
 
     def test_custom_values(self, tmp_path):
@@ -105,13 +105,13 @@ class TestSolarParameters:
         p = SolarParameters(
             weather_file=str(epw_path),
             display=False,
-            analysis_type=AnalysisType.THREE_PHASE,
+            analysis_type=AnalysisType.THREE_PHASE_1D,
             sun_mapping=SunMapping.RADIANCE,
             start=pd.Timestamp("2024-01-01"),
             end=pd.Timestamp("2024-12-31"),
         )
         assert p.display is False
-        assert p.analysis_type == AnalysisType.THREE_PHASE
+        assert p.analysis_type == AnalysisType.THREE_PHASE_1D
         assert p.sun_mapping == SunMapping.RADIANCE
 
 
@@ -403,9 +403,10 @@ class TestFindDuplicates:
 
     def test_with_duplicate_vertex(self):
         """Test detection of duplicate vertex."""
-        vertices = np.array([
-            [0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 0]  # Last is duplicate
-        ], dtype=float)
+        vertices = np.array(
+            [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 0]],  # Last is duplicate
+            dtype=float,
+        )
         faces = np.array([[0, 1, 2]], dtype=int)
         mesh = Mesh(vertices=vertices, faces=faces)
 
@@ -427,9 +428,7 @@ class TestIsMeshValid:
     def test_mesh_with_tiny_faces(self):
         """Test mesh with very small faces is invalid."""
         # Create a degenerate triangle with nearly zero area
-        vertices = np.array([
-            [0, 0, 0], [0.001, 0, 0], [0.0005, 0.001, 0]
-        ], dtype=float)
+        vertices = np.array([[0, 0, 0], [0.001, 0, 0], [0.0005, 0.001, 0]], dtype=float)
         faces = np.array([[0, 1, 2]], dtype=int)
         mesh = Mesh(vertices=vertices, faces=faces)
 

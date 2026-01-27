@@ -22,6 +22,7 @@ import numpy as np
 from urllib.request import urlretrieve
 from time import time
 
+
 def _candidate_data_roots():
     """Yield plausible roots for the ``data`` folder in priority order."""
 
@@ -80,7 +81,7 @@ def only_perez_test():
 
     p = SolarParameters(
         weather_file=str(path_lnd),
-        analysis_type=AnalysisType.TWO_PHASE,
+        analysis_type=AnalysisType.TWO_PHASE_1D,
         start=pd.Timestamp("2019-01-01 12:00:00"),
         end=pd.Timestamp("2019-12-02 12:00:00"),
     )
@@ -200,7 +201,7 @@ def analyse_mesh_1():
     # Stockholm
     p = SolarParameters(
         weather_file=str(sth_epw),
-        analysis_type=AnalysisType.TWO_PHASE,
+        analysis_type=AnalysisType.TWO_PHASE_1D,
         start=pd.Timestamp("2019-07-15 00:00:00"),
         end=pd.Timestamp("2019-07-15 23:00:00"),
     )
@@ -224,7 +225,7 @@ def analyse_mesh_2():
     # Gothenburg
     p = SolarParameters(
         weather_file=str(gbg_epw),
-        analysis_type=AnalysisType.TWO_PHASE,
+        analysis_type=AnalysisType.TWO_PHASE_1D,
         sun_mapping=SunMapping.RADIANCE,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
@@ -244,6 +245,7 @@ def analyse_mesh_3():
     # filename = "...../../data/validation/boxes_sharp_f5248.obj"
     filename = data_file("validation", "boxes_soft_f5248.obj")
     mesh = io.load_mesh(str(filename))
+    mesh = subdivide_mesh(mesh, 0.3)  # Smallest 0.05 => 13 m faces
     start_time = time()
     (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.3, 0.9], [0.3, 0.9])
     engine = SolarEngine(analysis_mesh, shading_mesh)
@@ -254,14 +256,14 @@ def analyse_mesh_3():
     # London
     p = SolarParameters(
         weather_file=str(lnd_epw),
-        analysis_type=AnalysisType.TWO_PHASE,
+        analysis_type=AnalysisType.THREE_PHASE_1D,
         sun_mapping=SunMapping.NONE,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
     # Setup model, run analysis and view results
-    skydome = ReinhartM4()
+    skydome = ReinhartM2()
     sunpath = Sunpath(p, engine.sunpath_radius)
     output = engine.run_analysis(sunpath, skydome, p)
     end_time = time()
@@ -284,7 +286,7 @@ def analyse_mesh_4():
     # Stockholm
     p = SolarParameters(
         weather_file=str(sth_epw),
-        analysis_type=AnalysisType.THREE_PHASE,
+        analysis_type=AnalysisType.THREE_PHASE_1D,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
