@@ -16,8 +16,6 @@
 #include <algorithm>
 #include <memory>
 #include "common.h"
-#include "sunrays.h"
-#include "skydome.h"
 #include "rays.h"
 #include "logging.h"
 

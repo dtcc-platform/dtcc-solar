@@ -4,11 +4,8 @@ set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cpp/)
 # Build Python extension with pybind11
 pybind11_add_module(${BINDINGS}
     ${SRC_DIR}/dtcc_solar.cpp
-    ${SRC_DIR}/skydome.cpp
-    ${SRC_DIR}/sunrays.cpp
     ${SRC_DIR}/rays.cpp
 )
-
 
 # Link libraries
 target_link_libraries(${BINDINGS}
