@@ -21,6 +21,7 @@ from dtcc_solar.perez import (
     calc_2_phase_vector,
 )
 from dtcc_core.model import Mesh, Bounds
+from time import time
 
 
 def _require_solar():
@@ -255,6 +256,7 @@ class SolarEngine:
 
         self.solar.run_2_phase_analysis_vec(ss_vector)
         irr_vec = self.solar.get_irradiance_vector()
+        runtime = self.solar.get_runtime()
         irr_vec = irr_vec * 0.001  # Convert to kWh/m2
 
         outc = OutputCollection(
@@ -264,6 +266,7 @@ class SolarEngine:
             sky_results=skyres,
             sun_results=sunres,
             total_irradiance=irr_vec,
+            runtime=runtime,
         )
 
         return outc
@@ -292,13 +295,13 @@ class SolarEngine:
         )
 
         self.solar.run_2_phase_analysis_mat(ss_matrix)
-        irr_mat = self.solar.get_irradiance_matrix()
+        # irr_mat = self.solar.get_irradiance_matrix()
+        start = time()
         irr_vec = self.solar.get_irradiance_matrix_flat()
+        runtime = self.solar.get_runtime()
         irr_vec = irr_vec * 0.001  # Convert to kWh/m2
-
-        info(f"Matrix shape: {irr_mat.shape}")
-        info(f"Min max irr matrix: {irr_mat.min()} {irr_mat.max()}")
-        info(f"Mean irr matrix: {np.mean(irr_mat)}")
+        end = time()
+        info(f"Retrieving irradiance matrix flat took {end - start} seconds.")
 
         outc = OutputCollection(
             mesh=self.mesh,
@@ -307,6 +310,7 @@ class SolarEngine:
             sky_results=skyres,
             sun_results=sunres,
             total_irradiance=irr_vec,
+            runtime=runtime,
         )
 
         return outc
@@ -342,9 +346,9 @@ class SolarEngine:
         )
 
         self.solar.run_3_phase_analysis_mat(sky_matrix, sun_matrix)
-
         sky_irr = self.solar.get_irradiance_matrix_sky_flat()
         sun_irr = self.solar.get_irradiance_matrix_sun_flat()
+        runtime = self.solar.get_runtime()
 
         # sky_view_factor = sky_vis / skydome.patch_counter
         sky_irr = sky_irr * 0.001  # Convert to kWh/m2
@@ -361,6 +365,7 @@ class SolarEngine:
             total_irradiance=tot_irr,
             sky_irradiance=sky_irr,
             sun_irradiance=sun_irr,
+            runtime=runtime,
             # sun_hours=sun_vis,
             # sky_view_factor=sky_view_factor,
         )

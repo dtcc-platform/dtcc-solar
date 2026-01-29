@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from urllib.request import urlretrieve
 from time import time
+from pprint import pprint
 
 
 def _candidate_data_roots():
@@ -245,18 +246,18 @@ def analyse_mesh_3():
     # filename = "...../../data/validation/boxes_sharp_f5248.obj"
     filename = data_file("validation", "boxes_soft_f5248.obj")
     mesh = io.load_mesh(str(filename))
-    mesh = subdivide_mesh(mesh, 0.3)  # Smallest 0.05 => 13 m faces
+    mesh = subdivide_mesh(mesh, 1)  # Smallest 0.05 => 13 m faces
     start_time = time()
     (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.3, 0.9], [0.3, 0.9])
     engine = SolarEngine(analysis_mesh, shading_mesh)
-
+    print("Face count mesh: ", len(analysis_mesh.faces))
     weather_dir = data_dir("weather")
     lnd_epw = weather_dir / "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
 
     # London
     p = SolarParameters(
         weather_file=str(lnd_epw),
-        analysis_type=AnalysisType.THREE_PHASE_1D,
+        analysis_type=AnalysisType.TWO_PHASE_2D,
         sun_mapping=SunMapping.NONE,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
@@ -271,6 +272,73 @@ def analyse_mesh_3():
     export_path = data_dir("validation") / "export_test.json"
     export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)
+
+
+def analyse_mesh_3_multi():
+    filename = data_file("validation", "boxes_soft_f5248.obj")
+    base_mesh = io.load_mesh(str(filename))
+
+    # Choose targets (log or linear)
+    targets = np.linspace(1e5, 1e6, num=10, dtype=int)
+
+    lengths, face_counts = subdivision_lengths_for_targets(base_mesh, targets)
+
+    pprint({"Lengths": lengths})
+    pprint({"Face counts": face_counts})
+
+    types = [AnalysisType.TWO_PHASE_1D, AnalysisType.TWO_PHASE_2D]
+
+    # Store results per type
+    results = {
+        t: {
+            "faces": [],
+            "python_total_time": [],
+            "cpp_total_time": [],
+            "multiplication_time": [],
+            "raytracing_time": [],
+        }
+        for t in types
+    }
+
+    weather_dir = data_dir("weather")
+    lnd_epw = weather_dir / "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+
+    for t in types:
+        for i, length in enumerate(lengths):
+            mesh = subdivide_mesh(base_mesh, length)
+            f_count = len(mesh.faces)
+            start_time = time()
+
+            print(f"# Target: {targets[i]}, length {length}, count {f_count} #")
+
+            (analysis_mesh, shading_mesh) = split_mesh_with_domain(
+                mesh, [0.3, 0.9], [0.3, 0.9]
+            )
+            engine = SolarEngine(analysis_mesh, shading_mesh)
+
+            p = SolarParameters(
+                weather_file=str(lnd_epw),
+                analysis_type=t,
+                sun_mapping=SunMapping.NONE,
+                start=pd.Timestamp("2019-01-01 00:00:00"),
+                end=pd.Timestamp("2019-12-31 23:00:00"),
+            )
+
+            skydome = ReinhartM2()
+            sunpath = Sunpath(p, engine.sunpath_radius)
+            output = engine.run_analysis(sunpath, skydome, p)
+
+            elapsed = time() - start_time
+
+            results[t]["faces"].append(f_count)
+            results[t]["python_total_time"].append(elapsed)
+            results[t]["cpp_total_time"].append(output.runtime[2])
+            results[t]["multiplication_time"].append(output.runtime[1])
+            results[t]["raytracing_time"].append(output.runtime[0])
+
+    # ---- Plot ----
+    plot_timings_vs_faces(results, types)
+    return results
 
 
 def analyse_mesh_4():
@@ -310,5 +378,6 @@ if __name__ == "__main__":
     # synthetic_data_test()
     # analyse_mesh_1()
     # analyse_mesh_2()
-    analyse_mesh_3()
+    # analyse_mesh_3()
+    analyse_mesh_3_multi()
     # analyse_mesh_4()

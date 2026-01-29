@@ -14,6 +14,7 @@ from dtcc_core.model import Mesh, LineString
 from csv import reader
 from pandas import Timestamp
 from dtcc_solar.logging import info, debug, warning, error
+import matplotlib.pyplot as plt
 
 
 class SkyType(IntEnum):
@@ -163,6 +164,8 @@ class OutputCollection:
     sun_hours: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Sky view factor
     sky_view_factor: np.ndarray = field(default_factory=lambda: np.empty(0))
+    # Runtime for analysis
+    runtime: np.ndarray = field(default_factory=lambda: np.empty(0))
 
     def info_print(self) -> None:
         info("-----------------------------------------------------")
@@ -178,6 +181,47 @@ class OutputCollection:
             else:
                 info(f"  {f.name:15}: {type(value).__name__}")
         info("-----------------------------------------------------")
+
+
+def subdivision_lengths_for_targets(
+    base_mesh,
+    targets,
+    lo: float = 0.05,
+    hi: float = 5.0,
+    iters: int = 20,
+):
+    """
+    For each target in `targets`, find a max_edge_length L such that
+    len(subdivide_mesh(base_mesh, L).faces) is roughly target.
+
+    targets: e.g. [50000, 100000, 200000]  (no underscores needed)
+    Assumes: smaller length -> more faces.
+    """
+    # Convert targets to plain ints (handles e.g. "50000" or 50000.0)
+    targets = [int(float(t)) for t in targets]
+
+    lengths = []
+    face_counts = []
+
+    for target in targets:
+        a, b = lo, hi
+
+        for _ in range(iters):
+            mid = 0.5 * (a + b)
+            n = len(subdivide_mesh(base_mesh, mid).faces)
+
+            if n > target:
+                a = mid  # too many faces -> increase length
+            else:
+                b = mid  # too few faces -> decrease length
+
+        L = 0.5 * (a + b)
+        n_final = len(subdivide_mesh(base_mesh, L).faces)
+
+        lengths.append(float(L))
+        face_counts.append(int(n_final))
+
+    return lengths, face_counts
 
 
 def hours_count(start: pd.Timestamp, end: pd.Timestamp) -> int:
@@ -694,3 +738,91 @@ def simple_export_json(
 
     info(f"  Simple mesh data exported successfully")
     info("-----------------------------------------------------")
+
+
+def plot_timings_vs_faces(
+    results,
+    types,
+    *,
+    title="Timings vs face count",
+    marker="o",
+    legend_cols=2,
+    lw_scale=1.0,
+):
+    """
+    Plot multiple timing series against face count.
+
+    - One colour per analysis type (t in `types`)
+    - Different line style + line weight per timing series
+
+    Expects results[t] to contain:
+      "faces", "seconds", "raytracing_time", "multiplication_time", "total_time"
+    """
+    timing_keys = [
+        ("python_total_time", "Python Total time"),
+        ("cpp_total_time", "C++ Total time"),
+        ("multiplication_time", "Matrix multiplication"),
+        ("raytracing_time", "Ray tracing"),
+    ]
+
+    linestyles = {
+        "python_total_time": "-",
+        "cpp_total_time": "-.",
+        "multiplication_time": ":",
+        "raytracing_time": "--",
+    }
+
+    # Line thickness per series (tweak to taste)
+    lineweights = {
+        "python_total_time": 2.5,  # emphasise wall clock
+        "cpp_total_time": 1.5,  # emphasise reported total
+        "multiplication_time": 1.5,
+        "raytracing_time": 1.5,
+    }
+
+    plt.figure()
+
+    type_color = {}
+
+    for t in types:
+        faces = np.array(results[t]["faces"])
+        idx = np.argsort(faces)
+        faces_sorted = faces[idx]
+
+        base_line = None
+        for key, label in timing_keys:
+            y = np.array(results[t][key])[idx]
+            lw = lw_scale * lineweights.get(key, 2.0)
+
+            if base_line is None:
+                (base_line,) = plt.plot(
+                    faces_sorted,
+                    y,
+                    linestyle=linestyles[key],
+                    linewidth=lw,
+                    marker=marker,
+                    label=f"2-Phase ({t}D) — {label}",
+                )
+                type_color[t] = base_line.get_color()
+            else:
+                plt.plot(
+                    faces_sorted,
+                    y,
+                    linestyle=linestyles[key],
+                    linewidth=lw,
+                    marker=marker,
+                    color=type_color[t],
+                    label=f"2-Phase ({t}D) — {label}",
+                )
+
+    plt.xlabel("Face count")
+    plt.ylabel("Time (s)")
+    plt.title(title)
+    plt.grid(True, alpha=0.3)
+    plt.legend(
+        ncol=legend_cols,
+        handlelength=8.0,  # make the line sample longer (try 3–6)
+        handletextpad=0.8,  # space between sample and text
+    )
+    plt.tight_layout()
+    plt.show()

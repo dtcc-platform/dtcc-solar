@@ -43,12 +43,13 @@ public:
     void CalcFaceMidPoints();
     void CalcFaceNormals();
 
+    fArray1D GetRuntime();
+
     iArray2D GetMeshFaces();
     fArray2D GetMeshVertices();
     fArray2D GetFaceNormals();
 
     MatrixXfRM GetVPMatrix();
-    MatrixXfRM &GetIrradianceMatrix();
     VectorXf GetVPMatrixFlat();
     VectorXf GetIrradianceVector();
     VectorXf GetIrradianceMatrixFlat();
@@ -60,26 +61,20 @@ public:
     VectorXf GetIrradianceVectorSun();
     VectorXf GetIrradianceVectorSky();
 
+    MatrixXfRM &GetIrradianceMatrix();
     MatrixXfRM &GetIrradianceMatrixSky();
     MatrixXfRM &GetIrradianceMatrixSun();
     VectorXf GetIrradianceMatrixSkyFlat();
     VectorXf GetIrradianceMatrixSunFlat();
 
-    bool CalcProjMatrix(Rays *rays, fArray2D &projMatrix, fArray2D &surfaceNormals);
-    bool CalcVisMatrix(Rays *rays, fArray2D &visMatrix, fArray2D &surfaceNormals);
-    bool CalcVisProjMatrix(Rays *rays, fArray2D &visMatrix, fArray2D &projMatrix, fArray2D &visProjMatrix);
-
     bool CalcVPMatrix(Rays *rays, MatrixXfRM &visProjMatrix, fArray2D &surfaceNormals);
-
     bool CalcIrradiance2Phase(Rays *rays, fArray1D &skySunVector, const MatrixXfRM &VP, VectorXf &irrVector);
     bool CalcIrradiance2Phase(Rays *rays, const MatrixXfRM &skySunMatrix, const MatrixXfRM &visProjMatrix, MatrixXfRM &irrMatrix);
-
     bool CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, VectorXf &skyS, VectorXf &sunS, const MatrixXfRM &skyVP, const MatrixXfRM &sunVP, VectorXf &skyIrrVec, VectorXf &sunIrrVec);
     bool CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, MatrixXfRM &skyS, MatrixXfRM &sunS, MatrixXfRM &skyVPMatrix, MatrixXfRM &sunVPMatrix, MatrixXfRM &skyIrrMatrix, MatrixXfRM &sunIrrMatrix);
 
     bool Run2PhaseAnalysis(fArray1D sunSkyVector);
     bool Run2PhaseAnalysis(fArray2D sunSkyMatrix);
-
     bool Run3PhaseAnalysis(fArray1D skyVector, fArray1D sunVector);
     bool Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix);
 
@@ -90,6 +85,11 @@ private:
 
     int mVertexCount;
     int mFaceCount;
+
+    float mRayTracingTime;
+    float mMultiTime;
+    float mEigenTime;
+    float mTotalTime;
 
     Face *mFaces;
     Vertex *mVertices;
