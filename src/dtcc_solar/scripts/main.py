@@ -384,6 +384,6 @@ if __name__ == "__main__":
     # synthetic_data_test()
     # analyse_mesh_1()
     # analyse_mesh_2()
-    # analyse_mesh_3()
-    analyse_mesh_3_multi()
+    analyse_mesh_3()
+    # analyse_mesh_3_multi()
     # analyse_mesh_4()

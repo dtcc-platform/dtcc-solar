@@ -662,6 +662,8 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
         total_irr = output.total_irradiance[mask]
         sky_irr = output.sky_irradiance[mask]
         sun_irr = output.sun_irradiance[mask]
+        svf = output.sky_view_factor[mask]
+        sun_hours = output.sun_hours[mask]
 
         # assert len(sun_hours) == face_count
         assert len(total_irr) == face_count
@@ -673,6 +675,8 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
             "TotalIrradiation": total_irr.tolist(),
             "SkyIrradiation": sky_irr.tolist(),
             "SunIrradiation": sun_irr.tolist(),
+            "SkyViewFactor": svf.tolist(),
+            "SunHours": sun_hours.tolist(),
             "Parameters": parameters,
         }
 
