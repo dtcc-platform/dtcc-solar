@@ -145,11 +145,9 @@ class SunCollection:
 @dataclass
 class OutputCollection:
     # Analysis mesh
-    mesh: Mesh = field(default_factory=lambda: Mesh())
+    analysis_mesh: Mesh = field(default_factory=lambda: Mesh())
     # Shading mesh
     shading_mesh: Optional[Mesh] = None
-    # Data mask
-    data_mask: np.ndarray = field(default_factory=lambda: np.empty(0))
     # Sky results
     sky_results: SkyResults = field(default_factory=lambda: SkyResults())
     # Sun results
@@ -626,17 +624,16 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
     info("-----------------------------------------------------")
     info(f"Exporting to json:")
     info(f"  path: {filename}")
-    mask = output.data_mask
-    analysis_mesh, shading_mesh = split_mesh_by_face_mask(output.mesh, mask)
+    a_mesh = output.analysis_mesh
 
-    face_mpts = np.mean(analysis_mesh.vertices[analysis_mesh.faces], axis=1)
-    face_normals = calc_face_normals(analysis_mesh)
+    face_mpts = np.mean(a_mesh.vertices[a_mesh.faces], axis=1)
+    face_normals = calc_face_normals(a_mesh)
 
     guid_mpt = [f"{{{', '.join(f'{val:.4f}' for val in row)}}}" for row in face_mpts]
     guid_nrl = [f"{{{', '.join(f'{val:.4f}' for val in row)}}}" for row in face_normals]
     guid_combined = [f"{a},{b}" for a, b in zip(guid_mpt, guid_nrl)]
 
-    face_count = len(analysis_mesh.faces)
+    face_count = len(a_mesh.faces)
 
     parameters = {
         "analysis_type": p.analysis_type.name,
@@ -650,7 +647,7 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
 
     # Create the structure to hold the mesh data
     if a_type == AnalysisType.TWO_PHASE_1D or a_type == AnalysisType.TWO_PHASE_2D:
-        total_irr = output.total_irradiance[mask]
+        total_irr = output.total_irradiance
         assert len(total_irr) == face_count
         results_data = {
             "GUID": guid_combined,
@@ -659,11 +656,11 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
         }
     elif a_type == AnalysisType.THREE_PHASE_1D or a_type == AnalysisType.THREE_PHASE_2D:
         # sun_hours = output.sun_hours[mask]
-        total_irr = output.total_irradiance[mask]
-        sky_irr = output.sky_irradiance[mask]
-        sun_irr = output.sun_irradiance[mask]
-        svf = output.sky_view_factor[mask]
-        sun_hours = output.sun_hours[mask]
+        total_irr = output.total_irradiance
+        sky_irr = output.sky_irradiance
+        sun_irr = output.sun_irradiance
+        svf = output.sky_view_factor
+        sun_hours = output.sun_hours
 
         # assert len(sun_hours) == face_count
         assert len(total_irr) == face_count
@@ -700,11 +697,11 @@ def simple_export_json(
     info(f"  path: {filename}")
 
     mask = output.data_mask
-    analysis_mesh, shading_mesh = split_mesh_by_face_mask(output.mesh, mask)
+    analysis_mesh, shading_mesh = split_mesh_by_face_mask(output.analysis_mesh, mask)
 
     if initial_mask is not None:
         initial_mask = np.invert(initial_mask)
-        face_indices = np.arange(len(output.mesh.faces))[initial_mask]
+        face_indices = np.arange(len(output.analysis_mesh.faces))[initial_mask]
     else:
         face_indices = np.arange(len(analysis_mesh.faces))
 

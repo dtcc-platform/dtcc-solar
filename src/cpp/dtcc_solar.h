@@ -15,6 +15,7 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
+
 #include "common.h"
 #include "rays.h"
 #include "logging.h"
@@ -28,29 +29,56 @@ namespace py = pybind11;
 
 class DtccSolar
 {
-
 public:
+    // Plane constructor: analysis and shading are the same generated plane
     DtccSolar();
+
+    // Single-mesh constructor: analysis == shading (backwards-ish compatibility)
     DtccSolar(fArray2D vertices, iArray2D faces);
-    DtccSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D sunSkyRays, fArray1D solidAngles);
-    DtccSolar(fArray2D vertices, iArray2D faces, std::vector<bool> face_mask, fArray2D skyRays, fArray1D skySolidAngles, fArray2D sunRays, fArray1D sunSolidAngles);
+
+    // Two-mesh constructors: analysis mesh + shading mesh
+    DtccSolar(
+        fArray2D analysisVertices, iArray2D analysisFaces,
+        fArray2D shadingVertices, iArray2D shadingFaces,
+        fArray2D sunSkyRays, fArray1D solidAngles);
+
+    DtccSolar(
+        fArray2D analysisVertices, iArray2D analysisFaces,
+        fArray2D shadingVertices, iArray2D shadingFaces,
+        fArray2D skyRays, fArray1D skySolidAngles,
+        fArray2D sunRays, fArray1D sunSolidAngles);
+
     virtual ~DtccSolar();
 
-    void CreateGeom(fArray2D vertices, iArray2D faces);
-    void CreateGeomPlane();
-    void CalcFaceMidPoints();
-    void CalcFaceNormals();
+    // Geometry setup
+    void CreateGeomPlane();                                       // creates both analysis+shading as same plane
+    void CreateGeomSingleMesh(fArray2D vertices, iArray2D faces); // analysis==shading
+    void CreateGeom(
+        fArray2D analysisVertices, iArray2D analysisFaces,
+        fArray2D shadingVertices, iArray2D shadingFaces);
 
+    void CalcFaceMidPoints(); // for analysis faces
+    void CalcFaceNormals();   // for analysis faces
+
+    // Runtime
     fArray1D GetRuntime();
 
-    iArray2D GetMeshFaces();
-    fArray2D GetMeshVertices();
-    fArray2D GetFaceNormals();
+    // Mesh getters (analysis)
+    iArray2D GetMeshFaces();    // analysis faces
+    fArray2D GetMeshVertices(); // analysis vertices
+    fArray2D GetFaceNormals();  // analysis normals
 
+    // Optional: shading mesh getters
+    iArray2D GetShadingMeshFaces();
+    fArray2D GetShadingMeshVertices();
+
+    // Results
     MatrixXfRM GetVPMatrix();
-    VectorXf GetVPMatrixFlat();
+    VectorXf GetVPMatrixFlat(); // if you implement as RowSums(mVPMatrix) or similar
+
     VectorXf GetIrradianceVector();
     VectorXf GetIrradianceMatrixFlat();
+
     VectorXf GetSunHours();
     VectorXf GetSkyViewFactor();
 
@@ -58,6 +86,7 @@ public:
     MatrixXfRM GetVPMatrixSun();
     VectorXf GetVPMatrixSkyFlat();
     VectorXf GetVPMatrixSunFlat();
+
     VectorXf GetIrradianceVectorSun();
     VectorXf GetIrradianceVectorSky();
 
@@ -67,61 +96,91 @@ public:
     VectorXf GetIrradianceMatrixSkyFlat();
     VectorXf GetIrradianceMatrixSunFlat();
 
-    bool CalcVPMatrix(Rays *rays, MatrixXfRM &visProjMatrix, fArray2D &surfaceNormals, bool computeSunHours, bool computeSkyViewFactor);
-    bool CalcIrradiance2Phase(Rays *rays, fArray1D &skySunVector, const MatrixXfRM &VP, VectorXf &irrVector);
-    bool CalcIrradiance2Phase(Rays *rays, const MatrixXfRM &skySunMatrix, const MatrixXfRM &visProjMatrix, MatrixXfRM &irrMatrix);
-    bool CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, VectorXf &skyS, VectorXf &sunS, const MatrixXfRM &skyVP, const MatrixXfRM &sunVP, VectorXf &skyIrrVec, VectorXf &sunIrrVec);
-    bool CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, MatrixXfRM &skyS, MatrixXfRM &sunS, MatrixXfRM &skyVPMatrix, MatrixXfRM &sunVPMatrix, MatrixXfRM &skyIrrMatrix, MatrixXfRM &sunIrrMatrix);
+    // Core compute
+    bool CalcVPMatrix(
+        Rays *rays,
+        MatrixXfRM &visProjMatrix,
+        fArray2D &surfaceNormals,
+        bool computeSunHours,
+        bool computeSkyViewFactor);
 
+    bool CalcIrradiance2Phase(
+        Rays *rays,
+        fArray1D &skySunVector,
+        const MatrixXfRM &VP,
+        VectorXf &irrVector);
+
+    bool CalcIrradiance2Phase(
+        Rays *rays,
+        const MatrixXfRM &skySunMatrix,
+        const MatrixXfRM &visProjMatrix,
+        MatrixXfRM &irrMatrix);
+
+    bool CalcIrradiance3Phase(
+        Rays *skyRays, Rays *sunRays,
+        VectorXf &skyS, VectorXf &sunS,
+        const MatrixXfRM &skyVP, const MatrixXfRM &sunVP,
+        VectorXf &skyIrrVec, VectorXf &sunIrrVec);
+
+    bool CalcIrradiance3Phase(
+        Rays *skyRays, Rays *sunRays,
+        MatrixXfRM &skyS, MatrixXfRM &sunS,
+        MatrixXfRM &skyVPMatrix, MatrixXfRM &sunVPMatrix,
+        MatrixXfRM &skyIrrMatrix, MatrixXfRM &sunIrrMatrix);
+
+    // Analyses
     bool Run2PhaseAnalysis(fArray1D sunSkyVector);
     bool Run2PhaseAnalysis(fArray2D sunSkyMatrix);
     bool Run3PhaseAnalysis(fArray1D skyVector, fArray1D sunVector);
     bool Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix);
 
 private:
+    // BVH built from shading mesh
     std::unique_ptr<Accel> mAccel;
 
     Parameters mPp; // plane parameters
 
-    int mVertexCount;
-    int mFaceCount;
+    // Analysis mesh counts
+    int mAnalysisVertexCount = 0;
+    int mAnalysisFaceCount = 0;
 
-    float mRayTracingTime;
-    float mMultiTime;
-    float mEigenTime;
-    float mTotalTime;
+    // Shading mesh counts
+    int mShadingVertexCount = 0;
+    int mShadingFaceCount = 0;
 
-    Face *mFaces;
-    Vertex *mVertices;
-    Vertex *mFaceMidPts;
-    Vector *mFaceNormals;
+    // Timings
+    float mRayTracingTime = 0.0f;
+    float mMultiTime = 0.0f;
+    float mEigenTime = 0.0f;
+    float mTotalTime = 0.0f;
 
-    int mMaskCount;
-    bool mApplyMask;
-    std::vector<bool> mFaceMask;
+    // Analysis mesh storage
+    Face *mAnalysisFaces = nullptr;
+    Vertex *mAnalysisVertices = nullptr;
+    Vertex *mFaceMidPts = nullptr;  // analysis face midpoints
+    Vector *mFaceNormals = nullptr; // analysis face normals
 
-    iArray2D mOccluded;
-    fArray2D mAngles;
+    // Shading mesh storage (ray-occluders)
+    Face *mShadingFaces = nullptr;
+    Vertex *mShadingVertices = nullptr;
 
-    std::vector<float> mAccumAngles;
-    std::vector<float> mAccumOcclud;
-
-    iArray2D mFaceSkyHit;
+    // Results (all sized by analysis faces)
     VectorXf mSkyViewFactor;
+    VectorXf mSunHours;
 
     VectorXf mIrrVector;
     VectorXf mIrrVectorSky;
     VectorXf mIrrVectorSun;
-    VectorXf mSunHours;
 
     MatrixXfRM mVPMatrix;
     MatrixXfRM mVPMatrixSky;
     MatrixXfRM mVPMatrixSun;
+
     MatrixXfRM mIrrMatrix;
     MatrixXfRM mIrrMatrixSky;
     MatrixXfRM mIrrMatrixSun;
 
-    float mDomeSolidAngle = 2 * M_PI; // Solid angle of the dome, 2 * pi steradians
+    float mDomeSolidAngle = 2 * M_PI; // hemisphere solid angle
 
     // Ray objects for analysis
     Rays *mSunSkyRays = nullptr;

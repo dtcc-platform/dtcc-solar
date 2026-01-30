@@ -48,23 +48,23 @@ class Viewer:
 
         sunpath.create_sunpath_geometry()
         data_dict = {}
-        mask = output.data_mask
         r = sunpath.r
-        a_mesh, s_mesh = split_mesh_by_face_mask(output.mesh, mask)
+        a_mesh = output.analysis_mesh
+        s_mesh = output.shading_mesh
         a_type = p.analysis_type
 
         if a_type == AnalysisType.TWO_PHASE_1D or a_type == AnalysisType.TWO_PHASE_2D:
-            data_dict["total_irradiance (kW/m²)"] = output.total_irradiance[mask]
+            data_dict["total_irradiance (kW/m²)"] = output.total_irradiance
 
         if (
             a_type == AnalysisType.THREE_PHASE_1D
             or a_type == AnalysisType.THREE_PHASE_2D
         ):
-            data_dict["total_irradiance (kW/m²)"] = output.total_irradiance[mask]
-            data_dict["sky_irradiance (kW/m²)"] = output.sky_irradiance[mask]
-            data_dict["sun_irradiance (kW/m²)"] = output.sun_irradiance[mask]
-            data_dict["sky_view_factor"] = output.sky_view_factor[mask]
-            data_dict["sun_hours (h)"] = output.sun_hours[mask]
+            data_dict["total_irradiance (kW/m²)"] = output.total_irradiance
+            data_dict["sky_irradiance (kW/m²)"] = output.sky_irradiance
+            data_dict["sun_irradiance (kW/m²)"] = output.sun_irradiance
+            data_dict["sky_view_factor"] = output.sky_view_factor
+            data_dict["sun_hours (h)"] = output.sun_hours
 
         self.scene.add_mesh(name="Analysis mesh", mesh=a_mesh, data=data_dict)
 

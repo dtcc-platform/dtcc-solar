@@ -365,7 +365,7 @@ class TestOutputCollection:
 
         output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
-        assert output.mesh is not None
+        assert output.analysis_mesh is not None
 
     @pytest.mark.skipif(
         not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"
@@ -379,7 +379,7 @@ class TestOutputCollection:
         output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
         assert output.data_mask is not None
-        assert len(output.data_mask) == len(output.mesh.faces)
+        assert len(output.data_mask) == len(output.analysis_mesh.faces)
 
     @pytest.mark.skipif(
         not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"

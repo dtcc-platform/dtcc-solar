@@ -279,10 +279,11 @@ def analyse_mesh_3():
 def analyse_mesh_3_multi():
     filename = data_file("validation", "boxes_soft_f5248.obj")
     base_mesh = io.load_mesh(str(filename))
-
+    sub_dom = [0.3, 0.9]
+    (a_mesh, s_mesh) = split_mesh_with_domain(base_mesh, sub_dom, sub_dom)
     # Choose targets (log or linear)
     targets = np.linspace(1e4, 1e5, num=10, dtype=int)
-    lengths, face_counts = subdivision_lengths_for_targets(base_mesh, targets)
+    lengths, face_counts = subdivision_lengths_for_targets(a_mesh, targets)
 
     pprint({"Lengths": lengths})
     pprint({"Face counts": face_counts})
@@ -311,16 +312,16 @@ def analyse_mesh_3_multi():
 
     for t in types:
         for i, length in enumerate(lengths):
-            mesh = subdivide_mesh(base_mesh, length)
-            f_count = len(mesh.faces)
-            start_time = time()
+
+            (a_mesh, s_mesh) = split_mesh_with_domain(base_mesh, sub_dom, sub_dom)
+            a_mesh = subdivide_mesh(a_mesh, length)
+            f_count = len(a_mesh.faces)
 
             print(f"# Target: {targets[i]}, length {length}, count {f_count} #")
 
-            (analysis_mesh, shading_mesh) = split_mesh_with_domain(
-                mesh, [0.3, 0.9], [0.3, 0.9]
-            )
-            engine = SolarEngine(analysis_mesh, shading_mesh)
+            start_time = time()
+
+            engine = SolarEngine(a_mesh, s_mesh)
 
             p = SolarParameters(
                 weather_file=str(lnd_epw),
@@ -384,6 +385,6 @@ if __name__ == "__main__":
     # synthetic_data_test()
     # analyse_mesh_1()
     # analyse_mesh_2()
-    analyse_mesh_3()
-    # analyse_mesh_3_multi()
+    # analyse_mesh_3()
+    analyse_mesh_3_multi()
     # analyse_mesh_4()
