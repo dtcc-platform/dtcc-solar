@@ -767,17 +767,17 @@ def plot_timings_vs_faces(
 
     linestyles = {
         "python_total_time": "-",
-        "cpp_total_time": "-.",
+        "cpp_total_time": "--",
         "multiplication_time": ":",
-        "raytracing_time": "--",
+        "raytracing_time": "-.",
     }
 
     # Line thickness per series (tweak to taste)
     lineweights = {
-        "python_total_time": 2.5,  # emphasise wall clock
-        "cpp_total_time": 1.5,  # emphasise reported total
-        "multiplication_time": 1.5,
-        "raytracing_time": 1.5,
+        "python_total_time": 3.0,  # emphasise wall clock
+        "cpp_total_time": 2.0,  # emphasise reported total
+        "multiplication_time": 1.0,
+        "raytracing_time": 1.0,
     }
 
     plt.figure()
@@ -801,7 +801,7 @@ def plot_timings_vs_faces(
                     linestyle=linestyles[key],
                     linewidth=lw,
                     marker=marker,
-                    label=f"2-Phase ({t}D) — {label}",
+                    label=f"{t.name} — {label}",
                 )
                 type_color[t] = base_line.get_color()
             else:
@@ -812,7 +812,7 @@ def plot_timings_vs_faces(
                     linewidth=lw,
                     marker=marker,
                     color=type_color[t],
-                    label=f"2-Phase ({t}D) — {label}",
+                    label=f"{t.name} — {label}",
                 )
 
     plt.xlabel("Face count")

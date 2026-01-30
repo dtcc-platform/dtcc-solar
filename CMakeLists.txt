@@ -48,6 +48,7 @@ execute_process(
 set(pybind11_DIR "${pybind11_DIR}" CACHE PATH "Path to pybind11 CMake files")
 find_package(pybind11 CONFIG REQUIRED)
 
+# Eigen (header-only)
 find_package(Eigen3 REQUIRED NO_MODULE)
 
 if(Eigen3_FOUND)

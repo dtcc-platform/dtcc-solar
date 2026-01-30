@@ -18,6 +18,7 @@ from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.perez import (
     calc_2_phase_matrices,
     calc_3_phase_matrices,
+    calc_3_phase_vector,
     calc_2_phase_vector,
 )
 from dtcc_core.model import Mesh, Bounds
@@ -225,7 +226,9 @@ class SolarEngine:
         elif p.analysis_type == AnalysisType.TWO_PHASE_2D:
             output = self.run_2_phase_analysis_2D(sunp, skyd, p)
         elif p.analysis_type == AnalysisType.THREE_PHASE_1D:
-            output = self.run_3_phase_analysis(sunp, skyd, p)
+            output = self.run_3_phase_analysis_1D(sunp, skyd, p)
+        elif p.analysis_type == AnalysisType.THREE_PHASE_2D:
+            output = self.run_3_phase_analysis_2D(sunp, skyd, p)
 
         if output is not None:
             output.info_print()
@@ -315,7 +318,63 @@ class SolarEngine:
 
         return outc
 
-    def run_3_phase_analysis(
+    def run_3_phase_analysis_1D(
+        self, sunpath: Sunpath, skydome: Skydome, p: SolarParameters
+    ) -> OutputCollection:
+
+        sky_vec, sun_vec, skyres, sunres = calc_3_phase_vector(sunpath, skydome, p)
+
+        sky_ray_dirs = np.array(skydome.ray_dirs)
+        sun_ray_dirs = np.array(sunpath.sunc.sun_vecs)
+        sky_solid_angles = np.array(skydome.solid_angles)
+        sun_solid_angles = np.ones(sunpath.sunc.count)
+
+        info("-----------------------------------------------------")
+        info(f"Creating solar instance and running analysis...")
+        info("-----------------------------------------------------")
+
+        solar_mod = _require_solar()
+
+        self.solar = solar_mod.PySolar(
+            self.mesh.vertices,
+            self.mesh.faces,
+            self.face_mask,
+            sky_ray_dirs,
+            sky_solid_angles,
+            sun_ray_dirs,
+            sun_solid_angles,
+        )
+
+        self.solar.run_3_phase_analysis_vec(sky_vec, sun_vec)
+        sky_irr = self.solar.get_irradiance_vector_sky()
+        sun_irr = self.solar.get_irradiance_vector_sun()
+        sun_hours = self.solar.get_sun_hours()
+        svf = self.solar.get_sky_view_factor()
+        runtime = self.solar.get_runtime()
+
+        # sky_view_factor = sky_vis / skydome.patch_counter
+        sky_irr = sky_irr * 0.001  # Convert to kWh/m2
+        sun_irr = sun_irr * 0.001  # Convert to kWh/m2
+
+        tot_irr = sky_irr + sun_irr
+
+        outc = OutputCollection(
+            mesh=self.mesh,
+            shading_mesh=self.shading_mesh,
+            data_mask=self.face_mask,
+            sky_results=skyres,
+            sun_results=sunres,
+            total_irradiance=tot_irr,
+            sky_irradiance=sky_irr,
+            sun_irradiance=sun_irr,
+            runtime=runtime,
+            sun_hours=sun_hours,
+            sky_view_factor=svf,
+        )
+
+        return outc
+
+    def run_3_phase_analysis_2D(
         self, sunpath: Sunpath, skydome: Skydome, p: SolarParameters
     ) -> OutputCollection:
 
@@ -348,6 +407,8 @@ class SolarEngine:
         self.solar.run_3_phase_analysis_mat(sky_matrix, sun_matrix)
         sky_irr = self.solar.get_irradiance_matrix_sky_flat()
         sun_irr = self.solar.get_irradiance_matrix_sun_flat()
+        sun_hours = self.solar.get_sun_hours()
+        svf = self.solar.get_sky_view_factor()
         runtime = self.solar.get_runtime()
 
         # sky_view_factor = sky_vis / skydome.patch_counter
@@ -366,8 +427,8 @@ class SolarEngine:
             sky_irradiance=sky_irr,
             sun_irradiance=sun_irr,
             runtime=runtime,
-            # sun_hours=sun_vis,
-            # sky_view_factor=sky_view_factor,
+            sun_hours=sun_hours,
+            sky_view_factor=svf,
         )
 
         return outc

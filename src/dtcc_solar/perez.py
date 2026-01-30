@@ -222,6 +222,18 @@ def calc_3_phase_matrices(
     return sky_res, sun_res
 
 
+def calc_3_phase_vector(
+    sunpath: Sunpath, skydome: Skydome, p: SolarParameters
+) -> np.ndarray:
+
+    (skyres, sunres) = calc_3_phase_matrices(sunpath, skydome, p)
+
+    sun_vector = np.sum(sunres.matrix, axis=1)
+    sky_vector = np.sum(skyres.matrix, axis=1)
+
+    return sky_vector, sun_vector, skyres, sunres
+
+
 def calc_sky_matrix_old(sunpath: Sunpath, skydome: Skydome) -> SkyResults:
 
     dni = sunpath.sunc.dni

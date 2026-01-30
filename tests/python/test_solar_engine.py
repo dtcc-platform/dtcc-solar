@@ -216,7 +216,7 @@ class TestSolarEngineAnalysis:
         sunpath = Sunpath(params)
         skydome = Tregenza()
 
-        output = engine.run_3_phase_analysis(sunpath, skydome, params)
+        output = engine.run_3_phase_analysis_2D(sunpath, skydome, params)
 
         assert isinstance(output, OutputCollection)
 
@@ -236,7 +236,7 @@ class TestSolarEngineAnalysis:
         sunpath = Sunpath(params)
         skydome = Tregenza()
 
-        output = engine.run_3_phase_analysis(sunpath, skydome, params)
+        output = engine.run_3_phase_analysis_2D(sunpath, skydome, params)
 
         assert output.sun_hours is not None
         assert len(output.sun_hours) > 0
@@ -557,7 +557,7 @@ class TestOcclusionAndShadowing:
         # Run without shading
         engine_no_shade = SolarEngine(analysis_mesh)
         sunpath_no_shade = Sunpath(params)
-        output_no_shade = engine_no_shade.run_3_phase_analysis(
+        output_no_shade = engine_no_shade.run_3_phase_analysis_2D(
             sunpath_no_shade, skydome, params
         )
         sun_hours_no_shade = output_no_shade.sun_hours[0]
@@ -572,7 +572,7 @@ class TestOcclusionAndShadowing:
         # Run with shading
         engine_with_shade = SolarEngine(analysis_mesh, shading_mesh=shading_mesh)
         sunpath_with_shade = Sunpath(params)
-        output_with_shade = engine_with_shade.run_3_phase_analysis(
+        output_with_shade = engine_with_shade.run_3_phase_analysis_2D(
             sunpath_with_shade, skydome, params
         )
         sun_hours_with_shade = output_with_shade.sun_hours[output_with_shade.data_mask][

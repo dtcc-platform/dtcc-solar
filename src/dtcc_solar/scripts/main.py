@@ -246,7 +246,9 @@ def analyse_mesh_3():
     # filename = "...../../data/validation/boxes_sharp_f5248.obj"
     filename = data_file("validation", "boxes_soft_f5248.obj")
     mesh = io.load_mesh(str(filename))
-    mesh = subdivide_mesh(mesh, 1)  # Smallest 0.05 => 13 m faces
+    lengths, face_counts = subdivision_lengths_for_targets(mesh, [1e5])
+
+    mesh = subdivide_mesh(mesh, lengths[0])  # Smallest 0.05 => 13 m faces
     start_time = time()
     (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.3, 0.9], [0.3, 0.9])
     engine = SolarEngine(analysis_mesh, shading_mesh)
@@ -257,7 +259,7 @@ def analyse_mesh_3():
     # London
     p = SolarParameters(
         weather_file=str(lnd_epw),
-        analysis_type=AnalysisType.TWO_PHASE_2D,
+        analysis_type=AnalysisType.THREE_PHASE_2D,
         sun_mapping=SunMapping.NONE,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
@@ -279,14 +281,18 @@ def analyse_mesh_3_multi():
     base_mesh = io.load_mesh(str(filename))
 
     # Choose targets (log or linear)
-    targets = np.linspace(1e5, 1e6, num=10, dtype=int)
-
+    targets = np.linspace(1e4, 1e5, num=10, dtype=int)
     lengths, face_counts = subdivision_lengths_for_targets(base_mesh, targets)
 
     pprint({"Lengths": lengths})
     pprint({"Face counts": face_counts})
 
-    types = [AnalysisType.TWO_PHASE_1D, AnalysisType.TWO_PHASE_2D]
+    types = [
+        AnalysisType.TWO_PHASE_1D,
+        AnalysisType.TWO_PHASE_2D,
+        AnalysisType.THREE_PHASE_1D,
+        AnalysisType.THREE_PHASE_2D,
+    ]
 
     # Store results per type
     results = {

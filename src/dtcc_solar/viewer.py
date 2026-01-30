@@ -63,6 +63,8 @@ class Viewer:
             data_dict["total_irradiance (kW/m²)"] = output.total_irradiance[mask]
             data_dict["sky_irradiance (kW/m²)"] = output.sky_irradiance[mask]
             data_dict["sun_irradiance (kW/m²)"] = output.sun_irradiance[mask]
+            data_dict["sky_view_factor"] = output.sky_view_factor[mask]
+            data_dict["sun_hours (h)"] = output.sun_hours[mask]
 
         self.scene.add_mesh(name="Analysis mesh", mesh=a_mesh, data=data_dict)
 

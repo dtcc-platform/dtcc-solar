@@ -282,6 +282,16 @@ VectorXf DtccSolar::GetIrradianceVectorSky()
     return mIrrVectorSky;
 }
 
+VectorXf DtccSolar::GetSunHours()
+{
+    return mSunHours;
+}
+
+VectorXf DtccSolar::GetSkyViewFactor()
+{
+    return mSkyViewFactor;
+}
+
 void DtccSolar::CreateGeom(fArray2D vertices, iArray2D faces)
 {
     // Store vertices locally
@@ -641,7 +651,7 @@ bool DtccSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, MatrixXfRM &s
     return true;
 }
 
-bool DtccSolar::CalcVPMatrix(Rays *rays, MatrixXfRM &visProj, fArray2D &surfaceNormals)
+bool DtccSolar::CalcVPMatrix(Rays *rays, MatrixXfRM &visProj, fArray2D &surfaceNormals, bool computeSunHours, bool computeSkyViewFactor)
 {
     if (!rays)
     {
@@ -654,15 +664,24 @@ bool DtccSolar::CalcVPMatrix(Rays *rays, MatrixXfRM &visProj, fArray2D &surfaceN
     const fArray1D solidAngles = rays->GetSolidAngles(); // (nRays)
     const int nRays = rays->GetRayCount();
 
-    // Allocate / resize contiguous VP matrix once
+    // Allocate / resize VP (faces x rays)
     if (visProj.rows() != mFaceCount || visProj.cols() != nRays)
         visProj.resize(mFaceCount, nRays);
-
-    // Important: set to zero so masked faces and skipped rays are 0 without touching them
     visProj.setZero();
 
-    // Sky view factor per face
-    mSkyViewFactor = fArray1D(mFaceCount, 0.0f);
+    // Eigen sky view factor per face (cosine-weighted)
+    if (computeSkyViewFactor)
+    {
+        mSkyViewFactor.resize(mFaceCount);
+        mSkyViewFactor.setZero();
+    }
+
+    // Optional: sun hours / hit counts (per face)
+    if (computeSunHours)
+    {
+        mSunHours.resize(mFaceCount);
+        mSunHours.setZero();
+    }
 
     int hitCounter = 0;
     int hitAttempts = 0;
@@ -682,28 +701,24 @@ bool DtccSolar::CalcVPMatrix(Rays *rays, MatrixXfRM &visProj, fArray2D &surfaceN
         const auto &n = surfaceNormals[i];
         Vec3 face_origin(mFaceMidPts[i].x, mFaceMidPts[i].y, mFaceMidPts[i].z);
 
-        // Cosine-weighted normalisation and visible sum
         float denom = 0.0f; // sum over front hemisphere: (n·d) Ω
         float numer = 0.0f; // sum over visible rays:   (n·d) Ω
 
-        // Fast pointer to the start of the row (RowMajor: contiguous row storage)
+        int sunHits = 0;
+
         float *row = visProj.data() + static_cast<size_t>(i) * static_cast<size_t>(nRays);
 
         for (int j = 0; j < nRays; ++j)
         {
             const auto &r = rayDirs[j];
 
-            // Lambert hemisphere test (and projection base)
             const float dot = n[0] * r[0] + n[1] * r[1] + n[2] * r[2];
-
-            // Back-facing rays contribute nothing -> skip BVH, keep 0
             if (dot <= 0.0f)
                 continue;
 
-            const float w = dot * solidAngles[j]; // cosine-weighted solid angle
+            const float w = dot * solidAngles[j];
             denom += w;
 
-            // Build ray at face origin
             Ray ray = rays->GetRays()[j]; // copy
             ray.org = face_origin;
 
@@ -719,7 +734,7 @@ bool DtccSolar::CalcVPMatrix(Rays *rays, MatrixXfRM &visProj, fArray2D &surfaceN
                         if (mAccel->precomputed_tris[k].intersect(ray))
                         {
                             occluded = true;
-                            return true; // early exit
+                            return true;
                         }
                     }
                     return false;
@@ -730,25 +745,28 @@ bool DtccSolar::CalcVPMatrix(Rays *rays, MatrixXfRM &visProj, fArray2D &surfaceN
             if (occluded)
             {
                 hitCounter++;
-                // row[j] stays 0
             }
             else
             {
-                row[j] = w; // visible => vis*proj = w
-                numer += w; // accumulate visible contribution
+                row[j] = w;
+                numer += w;
+
+                if (computeSunHours)
+                    sunHits += 1;
             }
         }
 
-        // Cosine-weighted sky view factor for this face
-        if (denom > 0.0f)
-            mSkyViewFactor[i] = numer / denom;
-        else
-            mSkyViewFactor[i] = 0.0f;
+        if (computeSkyViewFactor)
+            mSkyViewFactor(i) = (denom > 0.0f) ? (numer / denom) : 0.0f;
+
+        if (computeSunHours)
+            mSunHours(i) = static_cast<float>(sunHits);
     }
 
     auto end = hrClock::now();
     fDuration duration = end - start;
     mRayTracingTime = duration.count();
+
     info("Visibility-projection matrix calculated successfully.");
     info("Found " + str(hitCounter) + " intersections in " + str(hitAttempts) + " attempts");
     info("Time elapsed: " + str(duration.count()) + " seconds.");
@@ -777,7 +795,7 @@ bool DtccSolar::Run2PhaseAnalysis(fArray1D sunSkyVec)
     MatrixXfRM VP; // size will be set in CalcVPMatrix
 
     // Calculate VP matrix directly into contiguous storage
-    if (!CalcVPMatrix(mSunSkyRays, VP, surfaceNormals))
+    if (!CalcVPMatrix(mSunSkyRays, VP, surfaceNormals, false, true))
         return false;
 
     // Calculate irradiance: E = VP * S (S is 1D vector)
@@ -833,7 +851,7 @@ bool DtccSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
     MatrixXfRM VP; // sized inside CalcVPMatrix
 
     // Calculate VP matrix directly into contiguous storage
-    if (!CalcVPMatrix(mSunSkyRays, VP, surfaceNormals))
+    if (!CalcVPMatrix(mSunSkyRays, VP, surfaceNormals, false, true))
         return false;
 
     // Convert sky-sun matrix to Eigen once (avoid repeated conversions elsewhere)
@@ -874,8 +892,8 @@ bool DtccSolar::Run3PhaseAnalysis(fArray1D skyVector, fArray1D sunVector)
     MatrixXfRM skyVP; // size will be set in CalcVPMatrix
     MatrixXfRM sunVP; // size will be set in CalcVPMatrix
 
-    VectorXf skyIrrVector;
-    VectorXf sunIrrVector;
+    VectorXf Esky;
+    VectorXf Esun;
 
     fArray2D surfaceNormals = GetFaceNormals();
 
@@ -883,22 +901,22 @@ bool DtccSolar::Run3PhaseAnalysis(fArray1D skyVector, fArray1D sunVector)
     VectorXf sunS = VectorToEigen(sunVector);
 
     // Calculate sky projection matrix
-    if (!CalcVPMatrix(mSkyRays, skyVP, surfaceNormals))
+    if (!CalcVPMatrix(mSkyRays, skyVP, surfaceNormals, false, true))
         return false;
 
     // Calculate sun projection matrix
-    if (!CalcVPMatrix(mSunRays, sunVP, surfaceNormals))
+    if (!CalcVPMatrix(mSunRays, sunVP, surfaceNormals, true, false))
         return false;
 
     // Calculate irradiance
-    if (!CalcIrradiance3Phase(mSkyRays, mSunRays, skyS, sunS, skyVP, sunVP, skyIrrVector, sunIrrVector))
+    if (!CalcIrradiance3Phase(mSkyRays, mSunRays, skyS, sunS, skyVP, sunVP, Esky, Esun))
         return false;
 
     // Store the matrices for later retrieval
     mVPMatrixSky = std::move(skyVP);
     mVPMatrixSun = std::move(sunVP);
-    mIrrVectorSky = std::move(skyIrrVector);
-    mIrrVectorSun = std::move(sunIrrVector);
+    mIrrVectorSky = std::move(Esky);
+    mIrrVectorSun = std::move(Esun);
 
     auto end = hrClock::now();
     fDuration duration = end - start;
@@ -960,10 +978,10 @@ bool DtccSolar::Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix)
     MatrixXfRM skyVP;
     MatrixXfRM sunVP;
 
-    if (!CalcVPMatrix(mSkyRays, skyVP, surfaceNormals))
+    if (!CalcVPMatrix(mSkyRays, skyVP, surfaceNormals, false, true))
         return false;
 
-    if (!CalcVPMatrix(mSunRays, sunVP, surfaceNormals))
+    if (!CalcVPMatrix(mSunRays, sunVP, surfaceNormals, true, false))
         return false;
 
     // Output irradiance matrices (Eigen)
@@ -1045,6 +1063,10 @@ PYBIND11_MODULE(py_solar, m)
              { py::array out = py::cast(self.Run3PhaseAnalysis(sky_mat, sun_mat)); return out; })
         .def("get_irradiance_vector", [](DtccSolar &self)
              { return vec_to_numpy_1d(self.GetIrradianceVector()); })
+        .def("get_irradiance_vector_sun", [](DtccSolar &self)
+             { return vec_to_numpy_1d(self.GetIrradianceVectorSun()); })
+        .def("get_irradiance_vector_sky", [](DtccSolar &self)
+             { return vec_to_numpy_1d(self.GetIrradianceVectorSky()); })
         .def("get_irradiance_matrix", [](DtccSolar &self)
              { return arr_from_eigen_rm(self.GetIrradianceMatrix(), py::cast(&self)); }, py::return_value_policy::reference_internal)
         .def("get_irradiance_matrix_flat", [](DtccSolar &self)
@@ -1058,7 +1080,11 @@ PYBIND11_MODULE(py_solar, m)
         .def("get_irradiance_matrix_sun_flat", [](DtccSolar &self)
              { return vec_to_numpy_1d(self.GetIrradianceMatrixSunFlat()); })
         .def("get_runtime", [](DtccSolar &self)
-             { py::array out = py::cast(self.GetRuntime()); return out; });
+             { py::array out = py::cast(self.GetRuntime()); return out; })
+        .def("get_sun_hours", [](DtccSolar &self)
+             { return vec_to_numpy_1d(self.GetSunHours()); })
+        .def("get_sky_view_factor", [](DtccSolar &self)
+             { return vec_to_numpy_1d(self.GetSkyViewFactor()); });
 }
 
 #endif

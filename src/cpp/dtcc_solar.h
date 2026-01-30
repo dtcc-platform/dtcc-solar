@@ -51,6 +51,8 @@ public:
     VectorXf GetVPMatrixFlat();
     VectorXf GetIrradianceVector();
     VectorXf GetIrradianceMatrixFlat();
+    VectorXf GetSunHours();
+    VectorXf GetSkyViewFactor();
 
     MatrixXfRM GetVPMatrixSky();
     MatrixXfRM GetVPMatrixSun();
@@ -65,7 +67,7 @@ public:
     VectorXf GetIrradianceMatrixSkyFlat();
     VectorXf GetIrradianceMatrixSunFlat();
 
-    bool CalcVPMatrix(Rays *rays, MatrixXfRM &visProjMatrix, fArray2D &surfaceNormals);
+    bool CalcVPMatrix(Rays *rays, MatrixXfRM &visProjMatrix, fArray2D &surfaceNormals, bool computeSunHours, bool computeSkyViewFactor);
     bool CalcIrradiance2Phase(Rays *rays, fArray1D &skySunVector, const MatrixXfRM &VP, VectorXf &irrVector);
     bool CalcIrradiance2Phase(Rays *rays, const MatrixXfRM &skySunMatrix, const MatrixXfRM &visProjMatrix, MatrixXfRM &irrMatrix);
     bool CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays, VectorXf &skyS, VectorXf &sunS, const MatrixXfRM &skyVP, const MatrixXfRM &sunVP, VectorXf &skyIrrVec, VectorXf &sunIrrVec);
@@ -105,11 +107,12 @@ private:
     std::vector<float> mAccumOcclud;
 
     iArray2D mFaceSkyHit;
-    std::vector<float> mSkyViewFactor;
+    VectorXf mSkyViewFactor;
 
     VectorXf mIrrVector;
     VectorXf mIrrVectorSky;
     VectorXf mIrrVectorSun;
+    VectorXf mSunHours;
 
     MatrixXfRM mVPMatrix;
     MatrixXfRM mVPMatrixSky;
