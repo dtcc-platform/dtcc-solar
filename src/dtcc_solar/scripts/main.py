@@ -14,6 +14,8 @@ from dtcc_solar.tregenza import Tregenza
 from dtcc_solar.reinhart2 import ReinhartM2
 from dtcc_solar.reinhart4 import ReinhartM4
 from dtcc_solar.reinhart6 import ReinhartM6
+from dtcc_solar.reinhart8 import ReinhartM8
+from dtcc_solar.reinhartMF import ReinhartMF
 from dtcc_solar.perez import *
 from dtcc_solar.radiance import calc_radiance_matrices
 from dtcc_solar.synthetic_data import synthetic_epw_df, df_to_epw
@@ -130,7 +132,7 @@ def radiance_test():
         str(path), sky_type=SkyType.REINHART_578, rad_path=rad_path
     )
 
-    p = SolarParameters(weather_file=str(path), sun_mapping=SunMapping.RADIANCE)
+    p = SolarParameters(weather_file=str(path))
 
     skydome = ReinhartM2()
     sundome = ReinhartM2()
@@ -274,7 +276,7 @@ def analyse_mesh_3():
 
     # Setup model, run analysis and view results
     skydome = ReinhartM2()
-    sundome = ReinhartM6()
+    sundome = ReinhartMF(12)
     sunpath = Sunpath(p, engine.sunpath_radius)
     output = engine.run_analysis(sunpath, skydome, sundome, p)
     end_time = time()
@@ -352,6 +354,53 @@ def analyse_mesh_3_multi():
     return results
 
 
+def analyse_mesh_4_multi():
+    filename = data_file("validation", "boxes_soft_f5248.obj")
+    mesh = io.load_mesh(str(filename))
+    (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.3, 0.9], [0.3, 0.9])
+    engine = SolarEngine(analysis_mesh, shading_mesh)
+
+    lengths, face_counts = subdivision_lengths_for_targets(analysis_mesh, [1e5])
+    analysis_mesh = subdivide_mesh(analysis_mesh, lengths[0])
+
+    sundomes = {}
+    sundomes["Tregenza"] = Tregenza()
+    sundomes["ReinhartM2"] = ReinhartM2()
+    sundomes["ReinhartM4"] = ReinhartM4()
+    sundomes["ReinhartM6"] = ReinhartM6()
+    sundomes["ReinhartM8"] = ReinhartM8()
+
+    weather_dir = data_dir("weather")
+    lnd_epw = weather_dir / "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+
+    results = {}
+
+    for key, sundome in sundomes.items():
+        engine = SolarEngine(analysis_mesh, shading_mesh)
+
+        p = SolarParameters(
+            weather_file=str(lnd_epw),
+            is1D=True,
+            compute_sh=True,
+            compute_svf=True,
+            start=pd.Timestamp("2019-01-01 00:00:00"),
+            end=pd.Timestamp("2019-12-31 23:00:00"),
+        )
+
+        skydome = ReinhartM2()
+        sunpath = Sunpath(p, engine.sunpath_radius)
+        output = engine.run_analysis(sunpath, skydome, sundome, p)
+
+        results.setdefault(key, {})["sun_hours"] = output.sun_hours
+
+    # ---- Sort + Plot ----
+    sorted, order, sort_key = sort_results_by_sun_hours(results, method="median")
+
+    plot_sun_hours_per_face(sorted, title="Sun hours per face (sorted by median)")
+
+    plot_deltas(sorted, baseline="ReinhartM8")
+
+
 def analyse_mesh_4():
     print("-------- Solar Mesh Analysis Started -------")
     filename = data_file("validation", "boxes_sharp_f5248.obj")
@@ -395,3 +444,4 @@ if __name__ == "__main__":
     analyse_mesh_3()
     # analyse_mesh_3_multi()
     # analyse_mesh_4()
+    # analyse_mesh_4_multi()

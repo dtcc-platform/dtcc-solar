@@ -1,9 +1,9 @@
 #include "dtcc_solar.h"
 #include <omp.h>
 
-// -------------------------
+// -----------------------------------------------------------------------
 // Constructors
-// -------------------------
+// -----------------------------------------------------------------------
 
 DtccSolar::DtccSolar(fArray2D vertices, iArray2D faces)
 {
@@ -56,9 +56,9 @@ DtccSolar::DtccSolar(
     info("-----------------------------------------------------");
 }
 
-// -------------------------
+// -----------------------------------------------------------------------
 // Destructor
-// -------------------------
+// -----------------------------------------------------------------------
 
 DtccSolar::~DtccSolar()
 {
@@ -117,9 +117,9 @@ DtccSolar::~DtccSolar()
     mAccel.reset();
 }
 
-// -------------------------
+// -----------------------------------------------------------------------
 // Getters
-// -------------------------
+// -----------------------------------------------------------------------
 
 fArray1D DtccSolar::GetRuntime()
 {
@@ -185,9 +185,9 @@ VectorXf DtccSolar::GetIrradianceVectorSky() { return mIrrVectorSky; }
 VectorXf DtccSolar::GetSunVisibleRays() { return mSunVisibleRayCount; }
 VectorXf DtccSolar::GetSkyViewFactor() { return mSkyViewFactor; }
 
-// -------------------------
+// -----------------------------------------------------------------------
 // Geometry creation
-// -------------------------
+// -----------------------------------------------------------------------
 
 static inline void FillVertices(Vertex *dst, const fArray2D &src)
 {
@@ -343,9 +343,9 @@ void DtccSolar::CalcFaceNormals()
     }
 }
 
-// -------------------------
+// -----------------------------------------------------------------------
 // Irradiance
-// -------------------------
+// -----------------------------------------------------------------------
 
 bool DtccSolar::CalcIrradiance2Phase(Rays *rays, VectorXf &S, const MatrixXfRM &VP, VectorXf &E)
 {
@@ -533,9 +533,9 @@ bool DtccSolar::CalcIrradiance5Phase(Rays *skyRays, Rays *sunRays, MatrixXfRM &s
     return true;
 }
 
-// -------------------------
+// -----------------------------------------------------------------------
 // VP matrix (computed for ANALYSIS faces, occlusion against SHADING BVH)
-// -------------------------
+// -----------------------------------------------------------------------
 bool DtccSolar::CalcVPMatrix(Rays *rays, MatrixXfRM &visProj, fArray2D &surfaceNormals, bool computeSunHours, bool computeSVF, const std::vector<int> *sunHourWeights)
 {
     if (!rays)
@@ -722,9 +722,9 @@ bool DtccSolar::CalcVPMatrix(Rays *rays, MatrixXfRM &visProj, fArray2D &surfaceN
     return true;
 }
 
-// -------------------------
+// -----------------------------------------------------------------------
 // Run analysis methods
-// -------------------------
+// -----------------------------------------------------------------------
 
 bool DtccSolar::RunAnalysis(fArray2D skyMatrix, fArray2D sunMatrix, iArray1D activeSunIndices, bool is1D, bool computeSunHours, bool computeSVF)
 {
@@ -781,6 +781,10 @@ bool DtccSolar::RunAnalysis(fArray2D skyMatrix, fArray2D sunMatrix, iArray1D act
     return success;
 }
 
+// -----------------------------------------------------------------------
+// 1D - Sun and sky matrices summed to single vectors
+// -----------------------------------------------------------------------
+
 bool DtccSolar::Run2PhaseAnalysis(VectorXf sunSkyVec, bool computeSkyViewFactor)
 {
     info("-----------------------------------------------------");
@@ -804,49 +808,6 @@ bool DtccSolar::Run2PhaseAnalysis(VectorXf sunSkyVec, bool computeSkyViewFactor)
 
     mVPMatrix = std::move(VP);
     mIrrVector = std::move(E);
-
-    info("2-phase analysis completed successfully.");
-    info("-----------------------------------------------------");
-    return true;
-}
-
-bool DtccSolar::Run2PhaseAnalysis(MatrixXfRM sunSkyMat, bool computeSkyViewFactor)
-{
-    info("-----------------------------------------------------");
-    info("Running 2-phase 2D analysis: E = VP * S");
-    auto start = hrClock::now();
-
-    if (!mCombinedRays)
-    {
-        error("mCombinedRays is not initialized.");
-        return false;
-    }
-
-    const int numRays = mCombinedRays->GetRayCount();
-
-    if (sunSkyMat.rows() != numRays)
-    {
-        error("sunSkyMat row count does not match ray count.");
-        return false;
-    }
-
-    fArray2D surfaceNormals = GetFaceNormals();
-
-    MatrixXfRM VP;
-    if (!CalcVPMatrix(mCombinedRays, VP, surfaceNormals, false, computeSkyViewFactor, nullptr))
-        return false;
-
-    MatrixXfRM E;
-
-    if (!CalcIrradiance2Phase(mCombinedRays, sunSkyMat, VP, E))
-        return false;
-
-    mVPMatrix = std::move(VP);
-    mIrrMatrix = std::move(E);
-
-    auto end = hrClock::now();
-    fDuration duration = end - start;
-    mTotalTime = duration.count();
 
     info("2-phase analysis completed successfully.");
     info("-----------------------------------------------------");
@@ -943,6 +904,53 @@ bool DtccSolar::Run5PhaseAnalysis(VectorXf skyS, VectorXf sunS, const iArray1D &
     return true;
 }
 
+// -----------------------------------------------------------------------
+// 2D - Sky and sun matrices as (nPatches x nTimeSteps) matrices
+// -----------------------------------------------------------------------
+
+bool DtccSolar::Run2PhaseAnalysis(MatrixXfRM sunSkyMat, bool computeSkyViewFactor)
+{
+    info("-----------------------------------------------------");
+    info("Running 2-phase 2D analysis: E = VP * S");
+    auto start = hrClock::now();
+
+    if (!mCombinedRays)
+    {
+        error("mCombinedRays is not initialized.");
+        return false;
+    }
+
+    const int numRays = mCombinedRays->GetRayCount();
+
+    if (sunSkyMat.rows() != numRays)
+    {
+        error("sunSkyMat row count does not match ray count.");
+        return false;
+    }
+
+    fArray2D surfaceNormals = GetFaceNormals();
+
+    MatrixXfRM VP;
+    if (!CalcVPMatrix(mCombinedRays, VP, surfaceNormals, false, computeSkyViewFactor, nullptr))
+        return false;
+
+    MatrixXfRM E;
+
+    if (!CalcIrradiance2Phase(mCombinedRays, sunSkyMat, VP, E))
+        return false;
+
+    mVPMatrix = std::move(VP);
+    mIrrMatrix = std::move(E);
+
+    auto end = hrClock::now();
+    fDuration duration = end - start;
+    mTotalTime = duration.count();
+
+    info("2-phase analysis completed successfully.");
+    info("-----------------------------------------------------");
+    return true;
+}
+
 bool DtccSolar::Run5PhaseAnalysis(MatrixXfRM skyS, MatrixXfRM sunS, const iArray1D &activeSunIndices, const iArray1D &sunHourWeightsActive, bool computeSunHours, bool computeSkyViewFactor)
 {
     info("-----------------------------------------------------");
@@ -985,10 +993,7 @@ bool DtccSolar::Run5PhaseAnalysis(MatrixXfRM skyS, MatrixXfRM sunS, const iArray
 
     // 1) VP for sky (full)
     MatrixXfRM skyVP;
-    if (!CalcVPMatrix(mSkyRays, skyVP, surfaceNormals,
-                      /*computeSunHours=*/false,
-                      /*computeSkyViewFactor=*/computeSkyViewFactor,
-                      /*sunHourWeights=*/nullptr))
+    if (!CalcVPMatrix(mSkyRays, skyVP, surfaceNormals, false, computeSkyViewFactor, nullptr))
         return false;
 
     // 2) Filter sun rays + sun matrix (active only)
@@ -1005,10 +1010,7 @@ bool DtccSolar::Run5PhaseAnalysis(MatrixXfRM skyS, MatrixXfRM sunS, const iArray
         if (computeSunHours)
             weightsPtr = &sunHourWeightsActive;
 
-        if (!CalcVPMatrix(sunRaysFiltered.get(), sunVP, surfaceNormals,
-                          /*computeSunHours=*/computeSunHours,
-                          /*computeSkyViewFactor=*/false,
-                          /*sunHourWeights=*/weightsPtr))
+        if (!CalcVPMatrix(sunRaysFiltered.get(), sunVP, surfaceNormals, computeSunHours, false, weightsPtr))
             return false;
     }
     else

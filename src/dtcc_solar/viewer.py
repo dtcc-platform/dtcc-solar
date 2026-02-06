@@ -55,6 +55,8 @@ class Viewer:
         s_mesh = output.shading_mesh
 
         data_dict["total_irradiance (kW/m²)"] = output.total_irradiance
+        data_dict["sky_irradiance (kW/m²)"] = output.sky_irradiance
+        data_dict["sun_irradiance (kW/m²)"] = output.sun_irradiance
         data_dict["sky_view_factor"] = output.sky_view_factor
         data_dict["sun_hours (h)"] = output.sun_hours
 
@@ -63,8 +65,8 @@ class Viewer:
         if output.shading_mesh is not None:
             self.scene.add_mesh(name="Shading mesh", mesh=s_mesh)
 
-        self.build_skydome(output, skydome, r)
         self.build_sundome(output, sundome, r)
+        self.build_skydome(output, skydome, r)
         # self.build_sunpath_diagram(sunpath, p)
 
     def build_skydome(self, output: OutputCollection, skydome: Dome, r: float):

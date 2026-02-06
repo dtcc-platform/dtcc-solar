@@ -175,11 +175,22 @@ class SolarEngine:
         # Run the analysis
         self.solar.analyse(sky_mat, sun_mat, idx, p.is1D, p.compute_sh, p.compute_svf)
 
-        irr_vec = self.solar.get_irradiance_vector()
-        sun_visible_rays = self.solar.get_sun_visible_rays()  # effectively sun hours
-        svf = self.solar.get_sky_view_factor()
-        runtime = self.solar.get_runtime()
+        if p.is1D:
+            irr_vec = self.solar.get_irradiance_vector()
+            irr_vec_sky = self.solar.get_irradiance_vector_sky()
+            irr_vec_sun = self.solar.get_irradiance_vector_sun()
+        else:
+            irr_vec = self.solar.get_irradiance_matrix_flat()
+            irr_vec_sky = self.solar.get_irradiance_matrix_sky_flat()
+            irr_vec_sun = self.solar.get_irradiance_matrix_sun_flat()
+
         irr_vec = irr_vec * 0.001  # -> kWh/m2
+        irr_vec_sky = irr_vec_sky * 0.001  # -> kWh/m2
+        irr_vec_sun = irr_vec_sun * 0.001  # -> kWh/m2
+
+        runtime = self.solar.get_runtime()
+        sun_hours = self.solar.get_sun_visible_rays()
+        svf = self.solar.get_sky_view_factor()
 
         outc = OutputCollection(
             analysis_mesh=self.analysis_mesh,
@@ -187,8 +198,10 @@ class SolarEngine:
             sky_results=skyres,
             sun_results=sunres,
             sky_view_factor=svf,
-            sun_hours=sun_visible_rays,
+            sun_hours=sun_hours,
             total_irradiance=irr_vec,
+            sky_irradiance=irr_vec_sky,
+            sun_irradiance=irr_vec_sun,
             runtime=runtime,
         )
         return outc

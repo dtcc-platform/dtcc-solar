@@ -15,6 +15,7 @@ from csv import reader
 from pandas import Timestamp
 from dtcc_solar.logging import info, debug, warning, error
 import matplotlib.pyplot as plt
+from typing import Mapping, Any
 
 
 class SkyType(IntEnum):
@@ -835,3 +836,206 @@ def plot_timings_vs_faces(
     )
     plt.tight_layout()
     plt.show()
+
+
+def plot_sun_hours_per_face(
+    results: Mapping[str, Any],
+    *,
+    title: str = "Sun hours per face",
+    xlabel: str = "Face index",
+    ylabel: str = "Sun hours",
+    alpha: float = 0.9,
+    linewidth: float = 1.2,
+    show: bool = True,
+):
+    """
+    Plot sun-hours per face for multiple sundome types.
+
+    Expected `results` shapes (either works):
+      A) results[sundome_name]["sun_hours"] -> 1D array-like (n_faces,)
+      B) results[sundome_name]["sun_hours"] -> list of runs, each 1D array-like (n_faces,)
+         (we plot the last run by default)
+
+    Example:
+        plot_sun_hours_per_face(results)
+    """
+    fig, ax = plt.subplots()
+
+    for dome_name, payload in results.items():
+        if payload is None:
+            continue
+
+        sun_hours = payload.get("sun_hours") if isinstance(payload, dict) else None
+        if sun_hours is None:
+            # fallback: allow results[dome_name] itself to be the array
+            sun_hours = payload
+
+        # If you stored multiple runs in a list, pick the last run
+        if (
+            isinstance(sun_hours, (list, tuple))
+            and len(sun_hours) > 0
+            and not np.isscalar(sun_hours[0])
+        ):
+            sun_hours = sun_hours[-1]
+
+        y = np.asarray(sun_hours, dtype=float).ravel()
+        x = np.arange(y.size)
+
+        ax.plot(x, y, label=str(dome_name), alpha=alpha, linewidth=linewidth)
+
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.grid(True, linewidth=0.5)
+    ax.legend()
+
+    if show:
+        plt.show()
+
+    return fig, ax
+
+
+def sort_results_by_sun_hours(results: dict, *, method: str = "mean"):
+    """
+    Reorder all sun_hours arrays by increasing sun-hours per face.
+
+    The sort key is computed across sundomes per face:
+      method="mean"   -> sort by mean sun-hours across sundomes
+      method="median" -> sort by median sun-hours across sundomes
+
+    Returns: (sorted_results, order, sort_key)
+      - sorted_results has same structure as input, but sun_hours reordered
+      - order is the face index permutation used
+      - sort_key is the per-face value used for sorting
+    """
+    # stack all sun_hours as (n_domes, n_faces)
+    domes = list(results.keys())
+    Y = np.vstack(
+        [np.asarray(results[d]["sun_hours"], dtype=float).ravel() for d in domes]
+    )
+
+    if method == "mean":
+        key = Y.mean(axis=0)
+    elif method == "median":
+        key = np.median(Y, axis=0)
+    else:
+        raise ValueError("method must be 'mean' or 'median'")
+
+    order = np.argsort(key)  # increasing
+
+    sorted_results = {}
+    for d in domes:
+        y = np.asarray(results[d]["sun_hours"], dtype=float).ravel()
+        sorted_results[d] = dict(results[d])  # shallow copy
+        sorted_results[d]["sun_hours"] = y[order]
+
+    return sorted_results, order, key
+
+
+def plot_sun_hours_binned_envelope(
+    results, bins=2000, title="Sun hours per face (sorted)"
+):
+    fig, ax = plt.subplots(figsize=(14, 5))
+
+    for name, d in results.items():
+        y = np.asarray(d["sun_hours"], float).ravel()
+        n = y.size
+        edges = np.linspace(0, n, bins + 1, dtype=int)
+
+        xb, ymed, ymin, ymax = [], [], [], []
+        for a, b in zip(edges[:-1], edges[1:]):
+            seg = y[a:b]
+            xb.append((a + b) * 0.5)
+            ymed.append(np.median(seg))
+            ymin.append(seg.min())
+            ymax.append(seg.max())
+
+        xb = np.asarray(xb)
+        ymed = np.asarray(ymed)
+        ymin = np.asarray(ymin)
+        ymax = np.asarray(ymax)
+
+        ax.plot(xb, ymed, label=name, linewidth=1.5)
+        ax.fill_between(xb, ymin, ymax, alpha=0.12)
+
+    ax.set_title(title)
+    ax.set_xlabel("Sorted face rank")
+    ax.set_ylabel("Sun hours")
+    ax.grid(True, linewidth=0.5)
+    ax.legend()
+    plt.tight_layout()
+    plt.show()
+    return fig, ax
+
+
+def rolling_mean(y, window=401):
+    y = np.asarray(y, float)
+    w = int(window)
+    if w < 3:
+        return y
+    if w % 2 == 0:
+        w += 1
+    kernel = np.ones(w) / w
+    return np.convolve(y, kernel, mode="same")
+
+
+def plot_sun_hours_smoothed(results, window=401, title="Sun hours per face (smoothed)"):
+    fig, ax = plt.subplots(figsize=(14, 5))
+    for name, d in results.items():
+        y = np.asarray(d["sun_hours"], float).ravel()
+        ys = rolling_mean(y, window=window)
+        ax.plot(np.arange(len(y)), ys, label=name, linewidth=2.0)
+    ax.set_title(title)
+    ax.set_xlabel("Sorted face rank")
+    ax.set_ylabel("Sun hours")
+    ax.grid(True, linewidth=0.5)
+    ax.legend()
+    plt.tight_layout()
+    plt.show()
+    return fig, ax
+
+
+def plot_deltas(results, baseline="Tregenza", step=50, title="Δ sun hours vs baseline"):
+    fig, ax = plt.subplots(figsize=(14, 5))
+
+    # baseline can be a key (str) or an array-like
+    if isinstance(baseline, str):
+        if baseline not in results:
+            raise KeyError(
+                f"Baseline '{baseline}' not found. Available: {list(results.keys())}"
+            )
+        base = np.asarray(results[baseline]["sun_hours"], float).ravel()
+        baseline_name = baseline
+    else:
+        base = np.asarray(baseline, float).ravel()
+        baseline_name = "baseline"
+
+    x = np.arange(base.size)
+
+    for name, d in results.items():
+        y = np.asarray(d["sun_hours"], float).ravel()
+        if y.size != base.size:
+            raise ValueError(
+                f"Size mismatch: {name} has {y.size} faces, baseline has {base.size}"
+            )
+
+        # if baseline is one of the series, skip plotting it against itself
+        if isinstance(baseline, str) and name == baseline:
+            continue
+
+        ax.plot(
+            x[::step],
+            (y - base)[::step],
+            label=f"{name} - {baseline_name}",
+            linewidth=1.2,
+        )
+
+    ax.axhline(0, linewidth=1.0)
+    ax.set_title(title)
+    ax.set_xlabel("Sorted face rank")
+    ax.set_ylabel("Sun hours difference")
+    ax.grid(True, linewidth=0.5)
+    ax.legend()
+    plt.tight_layout()
+    plt.show()
+    return fig, ax
