@@ -1,15 +1,6 @@
 #include "dtcc_solar.h"
 #include <omp.h>
 
-// ------------------------------------------------------------
-// NOTE: This .cpp assumes you will update dtcc_solar.h accordingly.
-// Main changes:
-//   - Two meshes: analysis mesh (receivers) + shading mesh (occluders)
-//   - No faceMask / mMaskCount logic
-//   - VP / irradiance computed for analysis faces only
-//   - BVH built from shading mesh triangles
-// ------------------------------------------------------------
-
 // -------------------------
 // Constructors
 // -------------------------
@@ -25,33 +16,6 @@ DtccSolar::DtccSolar(fArray2D vertices, iArray2D faces)
     CalcFaceNormals();   // analysis normals
 
     info("Model setup with mesh geometry complete.");
-}
-
-// Two-phase: analysis mesh + shading mesh + combined (sun+sky) rays
-DtccSolar::DtccSolar(
-    fArray2D analysisVertices,
-    iArray2D analysisFaces,
-    fArray2D shadingVertices,
-    iArray2D shadingFaces,
-    fArray2D sunSkyRays,
-    fArray1D solidAngles)
-{
-    info("-----------------------------------------------------");
-    info("Creating DtccSolar instance with analysis + shading meshes.");
-    set_log_level(INFO);
-
-    Eigen::setNbThreads(std::thread::hardware_concurrency());
-    info("Eigen using " + str(Eigen::nbThreads()) + " threads.");
-
-    CreateGeom(analysisVertices, analysisFaces, shadingVertices, shadingFaces);
-
-    CalcFaceMidPoints(); // analysis midpoints
-    CalcFaceNormals();   // analysis normals
-
-    mSunSkyRays = new Rays(sunSkyRays, solidAngles);
-
-    info("Model setup complete.");
-    info("-----------------------------------------------------");
 }
 
 // Three-phase: analysis mesh + shading mesh + separate sky + sun rays
@@ -77,6 +41,14 @@ DtccSolar::DtccSolar(
     CalcFaceMidPoints(); // analysis midpoints
     CalcFaceNormals();   // analysis normals
 
+    // Allocate result arrays
+    mSunVisibleRayCount = VectorXf::Zero(mAnalysisFaceCount);
+    mSkyViewFactor = VectorXf::Zero(mAnalysisFaceCount);
+    mIrrVector = VectorXf::Zero(mAnalysisFaceCount);
+    mIrrVectorSky = VectorXf::Zero(mAnalysisFaceCount);
+    mIrrVectorSun = VectorXf::Zero(mAnalysisFaceCount);
+
+    mCombinedRays = new Rays(skyRays, skySolidAngles);
     mSkyRays = new Rays(skyRays, skySolidAngles);
     mSunRays = new Rays(sunRays, sunSolidAngles);
 
@@ -91,10 +63,10 @@ DtccSolar::DtccSolar(
 DtccSolar::~DtccSolar()
 {
     // Delete rays if allocated
-    if (mSunSkyRays)
+    if (mCombinedRays)
     {
-        delete mSunSkyRays;
-        mSunSkyRays = nullptr;
+        delete mCombinedRays;
+        mCombinedRays = nullptr;
     }
     if (mSkyRays)
     {
@@ -210,7 +182,7 @@ VectorXf DtccSolar::GetIrradianceVector() { return mIrrVector; }
 VectorXf DtccSolar::GetIrradianceVectorSun() { return mIrrVectorSun; }
 VectorXf DtccSolar::GetIrradianceVectorSky() { return mIrrVectorSky; }
 
-VectorXf DtccSolar::GetSunHours() { return mSunHours; }
+VectorXf DtccSolar::GetSunVisibleRays() { return mSunVisibleRayCount; }
 VectorXf DtccSolar::GetSkyViewFactor() { return mSkyViewFactor; }
 
 // -------------------------
@@ -258,10 +230,9 @@ static inline std::vector<Tri> BuildTrisFromMesh(const Vertex *V, int Vn, const 
     return tris;
 }
 
-void DtccSolar::CreateGeom(fArray2D analysisVertices, iArray2D analysisFaces,
-                           fArray2D shadingVertices, iArray2D shadingFaces)
+void DtccSolar::CreateGeom(fArray2D analysisVertices, iArray2D analysisFaces, fArray2D shadingVertices, iArray2D shadingFaces)
 {
-    // Store ANALYSIS mesh
+    // Store ANALYSIS mesh (receivers)
     mAnalysisVertexCount = static_cast<int>(analysisVertices.size());
     mAnalysisFaceCount = static_cast<int>(analysisFaces.size());
 
@@ -273,28 +244,65 @@ void DtccSolar::CreateGeom(fArray2D analysisVertices, iArray2D analysisFaces,
     FillVertices(mAnalysisVertices, analysisVertices);
     FillFaces(mAnalysisFaces, analysisFaces);
 
-    // Store SHADING mesh
-    mShadingVertexCount = static_cast<int>(shadingVertices.size());
-    mShadingFaceCount = static_cast<int>(shadingFaces.size());
+    // Store SHADING mesh (optional extra occluders)
+    const bool hasShading = !(shadingVertices.empty() || shadingFaces.empty());
+    if (!hasShading)
+        info("No shading mesh provided -> occluders will be analysis mesh only (self-shading enabled).");
 
-    mShadingVertices = new Vertex[mShadingVertexCount];
-    mShadingFaces = new Face[mShadingFaceCount];
+    mShadingVertexCount = hasShading ? static_cast<int>(shadingVertices.size()) : 0;
+    mShadingFaceCount = hasShading ? static_cast<int>(shadingFaces.size()) : 0;
 
-    FillVertices(mShadingVertices, shadingVertices);
-    FillFaces(mShadingFaces, shadingFaces);
+    if (hasShading)
+    {
+        mShadingVertices = new Vertex[mShadingVertexCount];
+        mShadingFaces = new Face[mShadingFaceCount];
 
-    // Build BVH from SHADING mesh (occluders)
-    std::vector<Tri> tris = BuildTrisFromMesh(mShadingVertices, mShadingVertexCount, mShadingFaces, mShadingFaceCount);
+        FillVertices(mShadingVertices, shadingVertices);
+        FillFaces(mShadingFaces, shadingFaces);
+    }
+    else
+    {
+        // Keep pointers null if no shading mesh
+        mShadingVertices = nullptr;
+        mShadingFaces = nullptr;
+    }
+
+    // ------------------------------------------------------------
+    // Build BVH occluders from (shading mesh + analysis mesh)
+    // This enables self-shading of analysis mesh even when a separate
+    // shading mesh is provided.
+    // ------------------------------------------------------------
+    std::vector<Tri> tris;
+
+    // Reserve roughly to avoid reallocations
+    const int totalFaces = mAnalysisFaceCount + (hasShading ? mShadingFaceCount : 0);
+    tris.reserve(static_cast<size_t>(totalFaces));
+
+    // 1) Add SHADING tris (if provided)
+    if (hasShading && mShadingFaceCount > 0)
+    {
+        std::vector<Tri> shadeTris = BuildTrisFromMesh(mShadingVertices, mShadingVertexCount, mShadingFaces, mShadingFaceCount);
+        tris.insert(tris.end(), shadeTris.begin(), shadeTris.end());
+    }
+
+    // >>> SET OFFSET HERE <<<
+    mAnalysisTriOffsetInBVH = static_cast<int>(tris.size());
+
+    // 2) Add ANALYSIS tris (always) to enable self-occlusion
+    std::vector<Tri> analysisTris = BuildTrisFromMesh(mAnalysisVertices, mAnalysisVertexCount, mAnalysisFaces, mAnalysisFaceCount);
+    tris.insert(tris.end(), analysisTris.begin(), analysisTris.end());
+
+    // Build BVH from combined occluders
     mAccel = std::make_unique<Accel>(tris, "high");
 
     info("Analysis mesh: vertices=" + str(mAnalysisVertexCount) + ", faces=" + str(mAnalysisFaceCount));
-    info("Shading mesh: vertices=" + str(mShadingVertexCount) + ", faces=" + str(mShadingFaceCount));
-    info("BVH built with " + str(mShadingFaceCount) + " shading triangles.");
-}
+    if (hasShading)
+        info("Shading mesh: vertices=" + str(mShadingVertexCount) + ", faces=" + str(mShadingFaceCount));
+    else
+        info("Shading mesh: (none)");
 
-// -------------------------
-// Analysis midpoints + normals (computed for ANALYSIS mesh only)
-// -------------------------
+    info("BVH built with " + str(static_cast<int>(tris.size())) + " occluder triangles (shading + analysis).");
+}
 
 void DtccSolar::CalcFaceMidPoints()
 {
@@ -339,7 +347,7 @@ void DtccSolar::CalcFaceNormals()
 // Irradiance
 // -------------------------
 
-bool DtccSolar::CalcIrradiance2Phase(Rays *rays, fArray1D &skySunVector, const MatrixXfRM &VP, VectorXf &E)
+bool DtccSolar::CalcIrradiance2Phase(Rays *rays, VectorXf &S, const MatrixXfRM &VP, VectorXf &E)
 {
     if (!rays)
     {
@@ -348,7 +356,7 @@ bool DtccSolar::CalcIrradiance2Phase(Rays *rays, fArray1D &skySunVector, const M
     }
 
     const int rayCount = rays->GetRayCount();
-    if (static_cast<int>(skySunVector.size()) != rayCount)
+    if (S.size() != rayCount)
     {
         error("Sky-sun vector length does not match ray count.");
         return false;
@@ -359,8 +367,6 @@ bool DtccSolar::CalcIrradiance2Phase(Rays *rays, fArray1D &skySunVector, const M
         error("VP dimensions do not match (analysisFaceCount x rayCount).");
         return false;
     }
-
-    const Eigen::VectorXf S = VectorToEigen(skySunVector);
 
     if (E.size() != mAnalysisFaceCount)
         E.resize(mAnalysisFaceCount);
@@ -425,10 +431,7 @@ bool DtccSolar::CalcIrradiance2Phase(Rays *rays, const MatrixXfRM &skySun, const
     return true;
 }
 
-bool DtccSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays,
-                                     VectorXf &skyS, VectorXf &sunS,
-                                     const MatrixXfRM &skyVP, const MatrixXfRM &sunVP,
-                                     VectorXf &Esky, VectorXf &Esun)
+bool DtccSolar::CalcIrradiance5Phase(Rays *skyRays, Rays *sunRays, VectorXf &skyS, VectorXf &sunS, const MatrixXfRM &skyVP, const MatrixXfRM &sunVP, VectorXf &Esky, VectorXf &Esun)
 {
     if (!skyRays || !sunRays)
     {
@@ -480,15 +483,12 @@ bool DtccSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays,
 
     fDuration duration = end - start;
     mMultiTime = duration.count();
-    info("3-phase irradiance vector calculation completed in " + str(duration.count()) + " seconds.");
+    info("5-phase irradiance vector calculation completed in " + str(duration.count()) + " seconds.");
 
     return true;
 }
 
-bool DtccSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays,
-                                     MatrixXfRM &skyS, MatrixXfRM &sunS,
-                                     MatrixXfRM &skyVP, MatrixXfRM &sunVP,
-                                     MatrixXfRM &skyE, MatrixXfRM &sunE)
+bool DtccSolar::CalcIrradiance5Phase(Rays *skyRays, Rays *sunRays, MatrixXfRM &skyS, MatrixXfRM &sunS, MatrixXfRM &skyVP, MatrixXfRM &sunVP, MatrixXfRM &skyE, MatrixXfRM &sunE)
 {
     auto skyMatShape = GetShape(skyS);
     auto sunMatShape = GetShape(sunS);
@@ -523,9 +523,8 @@ bool DtccSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays,
     info("Irradiance from sky calculated with Eigen in " + str(duration1.count()) + " seconds.");
 
     sunE.resize(mAnalysisFaceCount, skyTimeSteps);
-    VectorXf diagSun = sunS.diagonal();
     auto start2 = hrClock::now();
-    sunE.noalias() = sunVP * diagSun.asDiagonal();
+    sunE.noalias() = sunVP * sunS; // (N x k) * (k x T)
     auto end2 = hrClock::now();
     fDuration duration2 = end2 - start2;
     info("Irradiance from sun calculated with Eigen in " + str(duration2.count()) + " seconds.");
@@ -537,12 +536,7 @@ bool DtccSolar::CalcIrradiance3Phase(Rays *skyRays, Rays *sunRays,
 // -------------------------
 // VP matrix (computed for ANALYSIS faces, occlusion against SHADING BVH)
 // -------------------------
-
-bool DtccSolar::CalcVPMatrix(Rays *rays,
-                             MatrixXfRM &visProj,
-                             fArray2D &surfaceNormals,
-                             bool computeSunHours,
-                             bool computeSkyViewFactor)
+bool DtccSolar::CalcVPMatrix(Rays *rays, MatrixXfRM &visProj, fArray2D &surfaceNormals, bool computeSunHours, bool computeSVF, const std::vector<int> *sunHourWeights)
 {
     if (!rays)
     {
@@ -555,8 +549,8 @@ bool DtccSolar::CalcVPMatrix(Rays *rays,
         return false;
     }
 
-    const fArray2D rayDirs = rays->GetRayDirections();   // (nRays x 3)
-    const fArray1D solidAngles = rays->GetSolidAngles(); // (nRays)
+    const fArray2D &rayDirs = rays->GetRayDirections();   // (nRays x 3)
+    const fArray1D &solidAngles = rays->GetSolidAngles(); // (nRays)
     const int nRays = rays->GetRayCount();
 
     if (static_cast<int>(surfaceNormals.size()) != mAnalysisFaceCount)
@@ -564,21 +558,66 @@ bool DtccSolar::CalcVPMatrix(Rays *rays,
         error("surfaceNormals size does not match analysisFaceCount.");
         return false;
     }
+    if (static_cast<int>(rayDirs.size()) != nRays || static_cast<int>(solidAngles.size()) != nRays)
+    {
+        error("Rays internal arrays do not match GetRayCount().");
+        return false;
+    }
+
+    if (computeSunHours && sunHourWeights)
+    {
+        if (static_cast<int>(sunHourWeights->size()) != nRays)
+        {
+            error("sunHourWeights size does not match nRays.");
+            return false;
+        }
+    }
 
     // Resize VP (analysisFaces x rays)
     if (visProj.rows() != mAnalysisFaceCount || visProj.cols() != nRays)
         visProj.resize(mAnalysisFaceCount, nRays);
     visProj.setZero();
 
-    if (computeSkyViewFactor)
+    if (computeSVF)
     {
         mSkyViewFactor.resize(mAnalysisFaceCount);
         mSkyViewFactor.setZero();
     }
     if (computeSunHours)
     {
-        mSunHours.resize(mAnalysisFaceCount);
-        mSunHours.setZero();
+        mSunVisibleRayCount.resize(mAnalysisFaceCount);
+        mSunVisibleRayCount.setZero();
+    }
+
+    // ----------------------------------------------------------
+    // SVF denominator for hemisphere dome: sum of all solid angles
+    // (Your dome is already a hemisphere, so no horizon checks here)
+    // ----------------------------------------------------------
+    double svfDenom = 0.0;
+    if (computeSVF)
+    {
+        for (int j = 0; j < nRays; ++j)
+            svfDenom += static_cast<double>(solidAngles[static_cast<size_t>(j)]);
+
+        if (svfDenom <= 0.0)
+        {
+            error("SkyViewFactor denominator is zero. Are your solid angles valid?");
+            return false;
+        }
+    }
+
+    // ----------------------------------------------------------
+    // Combined BVH contains shading tris + analysis tris.
+    // We must skip the receiver face’s own analysis triangle:
+    // triIndexSelf = mAnalysisTriOffsetInBVH + i
+    // ----------------------------------------------------------
+    const size_t triCount = mAccel->precomputed_tris.size();
+
+    // Sanity (optional but useful)
+    if (mAnalysisTriOffsetInBVH + static_cast<size_t>(mAnalysisFaceCount) > triCount)
+    {
+        error("BVH does not contain expected analysis triangle range. Check CreateGeom BVH build.");
+        return false;
     }
 
     int hitCounter = 0;
@@ -586,35 +625,37 @@ bool DtccSolar::CalcVPMatrix(Rays *rays,
 
     auto start = hrClock::now();
     info("Calculating VP matrix with BVH for " + str(mAnalysisFaceCount) +
-         " analysis faces and " + str(nRays) + " rays. (Occluders: " + str(mShadingFaceCount) + " faces)");
+         " analysis faces and " + str(nRays) + " rays. (Occluder tris: " + str(triCount) + ")");
 
     static constexpr size_t stack_size = 64;
 
 #pragma omp parallel for schedule(dynamic) reduction(+ : hitCounter, hitAttempts)
     for (int i = 0; i < mAnalysisFaceCount; ++i)
     {
-        const auto &n = surfaceNormals[i];
+        const auto &n = surfaceNormals[static_cast<size_t>(i)];
         Vec3 face_origin(mFaceMidPts[i].x, mFaceMidPts[i].y, mFaceMidPts[i].z);
 
-        float denom = 0.0f; // sum over front hemisphere: (n·d) Ω
-        float numer = 0.0f; // sum over visible rays:   (n·d) Ω
-        int sunHits = 0;
+        double svfNumer = 0.0; // sum Ω over visible rays that are in front of the face
+        int sunHits = 0;       // weighted (if weights provided) or plain count
 
         float *row = visProj.data() + static_cast<size_t>(i) * static_cast<size_t>(nRays);
 
+        const size_t selfTriIndex = mAnalysisTriOffsetInBVH + static_cast<size_t>(i);
+
         for (int j = 0; j < nRays; ++j)
         {
-            const auto &r = rayDirs[j];
+            const auto &r = rayDirs[static_cast<size_t>(j)];
 
+            // Front-side test w.r.t face normal
             const float dot = n[0] * r[0] + n[1] * r[1] + n[2] * r[2];
             if (dot <= 0.0f)
                 continue;
 
-            const float w = dot * solidAngles[j];
-            denom += w;
+            // VP weight (unchanged)
+            const float w = dot * solidAngles[static_cast<size_t>(j)];
 
-            // Copy ray template (your Rays class should return BVH Ray-compatible objects here)
-            Ray ray = rays->GetRays()[j];
+            // Copy ray template and set origin to face midpoint
+            Ray ray = rays->GetRays()[static_cast<size_t>(j)];
             ray.org = face_origin;
 
             bool occluded = false;
@@ -626,6 +667,10 @@ bool DtccSolar::CalcVPMatrix(Rays *rays,
                 {
                     for (size_t k = begin; k < end; ++k)
                     {
+                        // Skip self triangle (receiver face) to avoid self-occlusion
+                        if (k == selfTriIndex)
+                            continue;
+
                         if (mAccel->precomputed_tris[k].intersect(ray))
                         {
                             occluded = true;
@@ -643,18 +688,27 @@ bool DtccSolar::CalcVPMatrix(Rays *rays,
             }
             else
             {
+                // Visible => store VP entry
                 row[j] = w;
-                numer += w;
+
+                // SVF: sum solid angles (not cosine-weighted)
+                if (computeSVF)
+                    svfNumer += static_cast<double>(solidAngles[static_cast<size_t>(j)]);
+
+                // Sun hours / visible sun rays
                 if (computeSunHours)
-                    sunHits += 1;
+                {
+                    const int add = sunHourWeights ? (*sunHourWeights)[static_cast<size_t>(j)] : 1;
+                    sunHits += add;
+                }
             }
         }
 
-        if (computeSkyViewFactor)
-            mSkyViewFactor(i) = (denom > 0.0f) ? (numer / denom) : 0.0f;
+        if (computeSVF)
+            mSkyViewFactor(i) = static_cast<float>(svfNumer / svfDenom);
 
         if (computeSunHours)
-            mSunHours(i) = static_cast<float>(sunHits);
+            mSunVisibleRayCount(i) = static_cast<float>(sunHits);
     }
 
     auto end = hrClock::now();
@@ -669,18 +723,72 @@ bool DtccSolar::CalcVPMatrix(Rays *rays,
 }
 
 // -------------------------
-// Run analysis (unchanged in spirit, but uses analysisFaceCount everywhere)
+// Run analysis methods
 // -------------------------
 
-bool DtccSolar::Run2PhaseAnalysis(fArray1D sunSkyVec)
+bool DtccSolar::RunAnalysis(fArray2D skyMatrix, fArray2D sunMatrix, iArray1D activeSunIndices, bool is1D, bool computeSunHours, bool computeSVF)
+{
+    auto start = hrClock::now();
+    bool isSameShape = SameShape(skyMatrix, sunMatrix);
+    bool success = false;
+
+    // Build unique active patches + weights (geometry only, no DNI)
+    std::vector<int> activeUnique;
+    std::vector<int> weights;
+    BuildActiveUniqueAndWeights(activeSunIndices, activeUnique, weights);
+
+    // sum of weights for sanity check (should equal number of timesteps represented by activeSunIndices)
+    int weightSum = 0;
+    for (int w : weights)
+        weightSum += w;
+    info("Active sun patches: " + str(activeUnique.size()) + ", sum of weights: " + str(weightSum));
+
+    if (is1D)
+    {
+        VectorXf skyVec = RowSumToVectorXf(skyMatrix);
+        VectorXf sunVec = RowSumToVectorXf(sunMatrix);
+
+        if (isSameShape && !computeSunHours)
+        {
+            VectorXf combinedVec = skyVec + sunVec;
+            success = Run2PhaseAnalysis(combinedVec, computeSVF);
+        }
+        else
+        {
+            success = Run5PhaseAnalysis(skyVec, sunVec, activeUnique, weights, computeSunHours, computeSVF);
+        }
+    }
+    else
+    {
+        MatrixXfRM skyMat = VectorToEigenRM(skyMatrix);
+        MatrixXfRM sunMat = VectorToEigenRM(sunMatrix);
+
+        if (isSameShape && !computeSunHours)
+        {
+            MatrixXfRM combinedMat = skyMat + sunMat;
+            success = Run2PhaseAnalysis(combinedMat, computeSVF);
+        }
+        else
+        {
+            success = Run5PhaseAnalysis(skyMat, sunMat, activeUnique, weights, computeSunHours, computeSVF);
+        }
+    }
+
+    auto end = hrClock::now();
+    fDuration duration = end - start;
+    mTotalTime = duration.count();
+
+    return success;
+}
+
+bool DtccSolar::Run2PhaseAnalysis(VectorXf sunSkyVec, bool computeSkyViewFactor)
 {
     info("-----------------------------------------------------");
     info("Running 2-phase 1D analysis: E = VP * S");
-    auto start = hrClock::now();
 
-    if (!mSunSkyRays)
+    if (!mCombinedRays)
     {
-        error("mSunSkyRays is not initialized.");
+        error("mCombinedRays is not initialized.");
         return false;
     }
 
@@ -688,43 +796,35 @@ bool DtccSolar::Run2PhaseAnalysis(fArray1D sunSkyVec)
     fArray2D surfaceNormals = GetFaceNormals();
 
     MatrixXfRM VP;
-    if (!CalcVPMatrix(mSunSkyRays, VP, surfaceNormals, false, true))
+    if (!CalcVPMatrix(mCombinedRays, VP, surfaceNormals, false, computeSkyViewFactor, nullptr))
         return false;
 
-    if (!CalcIrradiance2Phase(mSunSkyRays, sunSkyVec, VP, E))
+    if (!CalcIrradiance2Phase(mCombinedRays, sunSkyVec, VP, E))
         return false;
 
     mVPMatrix = std::move(VP);
     mIrrVector = std::move(E);
-
-    auto end = hrClock::now();
-    fDuration duration = end - start;
-    mTotalTime = duration.count();
 
     info("2-phase analysis completed successfully.");
     info("-----------------------------------------------------");
     return true;
 }
 
-bool DtccSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
+bool DtccSolar::Run2PhaseAnalysis(MatrixXfRM sunSkyMat, bool computeSkyViewFactor)
 {
     info("-----------------------------------------------------");
     info("Running 2-phase 2D analysis: E = VP * S");
     auto start = hrClock::now();
 
-    if (!mSunSkyRays)
+    if (!mCombinedRays)
     {
-        error("mSunSkyRays is not initialized.");
+        error("mCombinedRays is not initialized.");
         return false;
     }
 
-    const int numRays = mSunSkyRays->GetRayCount();
-    if (sunSkyMat.empty() || sunSkyMat[0].empty())
-    {
-        error("sunSkyMat is empty. Cannot run analysis.");
-        return false;
-    }
-    if (static_cast<int>(sunSkyMat.size()) != numRays)
+    const int numRays = mCombinedRays->GetRayCount();
+
+    if (sunSkyMat.rows() != numRays)
     {
         error("sunSkyMat row count does not match ray count.");
         return false;
@@ -733,13 +833,12 @@ bool DtccSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
     fArray2D surfaceNormals = GetFaceNormals();
 
     MatrixXfRM VP;
-    if (!CalcVPMatrix(mSunSkyRays, VP, surfaceNormals, false, true))
+    if (!CalcVPMatrix(mCombinedRays, VP, surfaceNormals, false, computeSkyViewFactor, nullptr))
         return false;
 
-    MatrixXfRM skySun = VectorToEigen(sunSkyMat);
     MatrixXfRM E;
 
-    if (!CalcIrradiance2Phase(mSunSkyRays, skySun, VP, E))
+    if (!CalcIrradiance2Phase(mCombinedRays, sunSkyMat, VP, E))
         return false;
 
     mVPMatrix = std::move(VP);
@@ -754,11 +853,10 @@ bool DtccSolar::Run2PhaseAnalysis(fArray2D sunSkyMat)
     return true;
 }
 
-bool DtccSolar::Run3PhaseAnalysis(fArray1D skyVector, fArray1D sunVector)
+bool DtccSolar::Run5PhaseAnalysis(VectorXf skyS, VectorXf sunS, const iArray1D &activeSunIndices, const iArray1D &sunHourWeightsActive, bool computeSunHours, bool computeSkyViewFactor)
 {
     info("-----------------------------------------------------");
-    info("Running 3-phase 1D analysis: E = VP_sky * S_sky + VP_sun * S_sun");
-    auto start = hrClock::now();
+    info("Running 5-phase 1D analysis: E = VP_sky * S_sky + VP_sun(active) * S_sun(active)");
 
     if (!mSkyRays || !mSunRays)
     {
@@ -766,43 +864,89 @@ bool DtccSolar::Run3PhaseAnalysis(fArray1D skyVector, fArray1D sunVector)
         return false;
     }
 
-    MatrixXfRM skyVP;
-    MatrixXfRM sunVP;
+    const int P = mSkyRays->GetRayCount();
+    const int K = mSunRays->GetRayCount();
 
-    VectorXf Esky, Esun;
+    if (skyS.size() != P)
+    {
+        error("skyS size does not match number of sky rays.");
+        return false;
+    }
+    if (sunS.size() != K)
+    {
+        error("sunS size does not match number of sun rays.");
+        return false;
+    }
 
+    if (!activeSunIndices.empty() && static_cast<int>(sunHourWeightsActive.size()) != static_cast<int>(activeSunIndices.size()))
+    {
+        error("sunHourWeightsActive must have same length as activeSunIndices.");
+        return false;
+    }
+
+    // Normals once
     fArray2D surfaceNormals = GetFaceNormals();
-    VectorXf skyS = VectorToEigen(skyVector);
-    VectorXf sunS = VectorToEigen(sunVector);
 
-    if (!CalcVPMatrix(mSkyRays, skyVP, surfaceNormals, false, true))
+    // 1) VP for sky (full)
+    MatrixXfRM skyVP;
+    if (!CalcVPMatrix(mSkyRays, skyVP, surfaceNormals, false, computeSkyViewFactor, nullptr))
         return false;
 
-    if (!CalcVPMatrix(mSunRays, sunVP, surfaceNormals, true, false))
-        return false;
+    // 2) Filter sun rays + sun vector (active only)
+    MatrixXfRM sunVP;
+    VectorXf sunS_active;
+    std::unique_ptr<Rays> sunRaysFiltered;
 
-    if (!CalcIrradiance3Phase(mSkyRays, mSunRays, skyS, sunS, skyVP, sunVP, Esky, Esun))
-        return false;
+    if (!activeSunIndices.empty())
+    {
+        sunS_active = SelectRows(sunS, activeSunIndices);
+        sunRaysFiltered = MakeFilteredRays(mSunRays, activeSunIndices);
 
+        const std::vector<int> *weightsPtr = nullptr;
+        if (computeSunHours)
+            weightsPtr = &sunHourWeightsActive;
+
+        if (!CalcVPMatrix(sunRaysFiltered.get(), sunVP, surfaceNormals, computeSunHours, false, weightsPtr))
+            return false;
+    }
+    else
+    {
+        // No active sun patches => no sun contribution, no geometric sun hours
+        sunVP.resize(mAnalysisFaceCount, 0);
+        sunS_active.resize(0);
+        if (computeSunHours)
+        {
+            mSunVisibleRayCount.resize(mAnalysisFaceCount);
+            mSunVisibleRayCount.setZero();
+        }
+    }
+
+    // 3) Irradiance vectors
+    VectorXf Esky(mAnalysisFaceCount);
+    Esky.noalias() = skyVP * skyS;
+
+    VectorXf Esun(mAnalysisFaceCount);
+    Esun.setZero();
+    if (sunVP.cols() > 0)
+        Esun.noalias() = sunVP * sunS_active;
+
+    // 4) Store
     mVPMatrixSky = std::move(skyVP);
     mVPMatrixSun = std::move(sunVP);
+
     mIrrVectorSky = std::move(Esky);
     mIrrVectorSun = std::move(Esun);
+    mIrrVector = mIrrVectorSky + mIrrVectorSun;
 
-    auto end = hrClock::now();
-    fDuration duration = end - start;
-    mTotalTime = duration.count();
-
-    info("3-phase analysis completed successfully.");
+    info("5-phase analysis completed successfully.");
     info("-----------------------------------------------------");
     return true;
 }
 
-bool DtccSolar::Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix)
+bool DtccSolar::Run5PhaseAnalysis(MatrixXfRM skyS, MatrixXfRM sunS, const iArray1D &activeSunIndices, const iArray1D &sunHourWeightsActive, bool computeSunHours, bool computeSkyViewFactor)
 {
     info("-----------------------------------------------------");
-    info("Running 3-phase 2D analysis: E = VP_sky * S_sky + VP_sun * S_sun");
-    auto start = hrClock::now();
+    info("Running 5-phase 2D analysis: E = VP_sky * S_sky + VP_sun(active) * S_sun(active)");
 
     if (!mSkyRays || !mSunRays)
     {
@@ -810,58 +954,94 @@ bool DtccSolar::Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix)
         return false;
     }
 
-    const int numSkyRays = mSkyRays->GetRayCount();
-    const int numSunRays = mSunRays->GetRayCount();
+    const int P = mSkyRays->GetRayCount();
+    const int K = mSunRays->GetRayCount();
 
-    if (skyMatrix.empty() || skyMatrix[0].empty())
-    {
-        error("skyMatrix is empty. Cannot run 3-phase analysis.");
-        return false;
-    }
-    if (sunMatrix.empty() || sunMatrix[0].empty())
-    {
-        error("sunMatrix is empty. Cannot run 3-phase analysis.");
-        return false;
-    }
-    if (static_cast<int>(skyMatrix.size()) != numSkyRays)
+    if (skyS.rows() != P)
     {
         error("skyMatrix row count does not match number of sky rays.");
         return false;
     }
-    if (static_cast<int>(sunMatrix.size()) != numSunRays)
+    if (sunS.rows() != K)
     {
         error("sunMatrix row count does not match number of sun rays.");
         return false;
     }
+    if (skyS.cols() != sunS.cols())
+    {
+        error("Time-step mismatch: skyMatrix.cols() != sunMatrix.cols().");
+        return false;
+    }
 
+    if (!activeSunIndices.empty() &&
+        static_cast<int>(sunHourWeightsActive.size()) != static_cast<int>(activeSunIndices.size()))
+    {
+        error("sunHourWeightsActive must have same length as activeSunIndices.");
+        return false;
+    }
+
+    const int T = static_cast<int>(skyS.cols());
     fArray2D surfaceNormals = GetFaceNormals();
 
-    MatrixXfRM skyS = VectorToEigen(skyMatrix);
-    MatrixXfRM sunS = VectorToEigen(sunMatrix);
-
+    // 1) VP for sky (full)
     MatrixXfRM skyVP;
+    if (!CalcVPMatrix(mSkyRays, skyVP, surfaceNormals,
+                      /*computeSunHours=*/false,
+                      /*computeSkyViewFactor=*/computeSkyViewFactor,
+                      /*sunHourWeights=*/nullptr))
+        return false;
+
+    // 2) Filter sun rays + sun matrix (active only)
     MatrixXfRM sunVP;
+    MatrixXfRM sunS_active;                // (k x T)
+    std::unique_ptr<Rays> sunRaysFiltered; // k rays
 
-    if (!CalcVPMatrix(mSkyRays, skyVP, surfaceNormals, false, true))
-        return false;
+    if (!activeSunIndices.empty())
+    {
+        sunS_active = SelectRows(sunS, activeSunIndices); // (k x T)
+        sunRaysFiltered = MakeFilteredRays(mSunRays, activeSunIndices);
 
-    if (!CalcVPMatrix(mSunRays, sunVP, surfaceNormals, true, false))
-        return false;
+        const std::vector<int> *weightsPtr = nullptr;
+        if (computeSunHours)
+            weightsPtr = &sunHourWeightsActive;
 
-    MatrixXfRM skyE, sunE;
-    if (!CalcIrradiance3Phase(mSkyRays, mSunRays, skyS, sunS, skyVP, sunVP, skyE, sunE))
-        return false;
+        if (!CalcVPMatrix(sunRaysFiltered.get(), sunVP, surfaceNormals,
+                          /*computeSunHours=*/computeSunHours,
+                          /*computeSkyViewFactor=*/false,
+                          /*sunHourWeights=*/weightsPtr))
+            return false;
+    }
+    else
+    {
+        // No active sun patches => no sun contribution
+        sunVP.resize(mAnalysisFaceCount, 0);
+        sunS_active.resize(0, T);
 
+        if (computeSunHours)
+        {
+            mSunVisibleRayCount.resize(mAnalysisFaceCount);
+            mSunVisibleRayCount.setZero();
+        }
+    }
+
+    // 3) Irradiance matrices
+    MatrixXfRM skyE(mAnalysisFaceCount, T);
+    skyE.noalias() = skyVP * skyS;
+
+    MatrixXfRM sunE(mAnalysisFaceCount, T);
+    sunE.setZero();
+    if (sunVP.cols() > 0)
+        sunE.noalias() = sunVP * sunS_active; // (N x k) * (k x T)
+
+    // 4) Store
     mVPMatrixSky = std::move(skyVP);
     mVPMatrixSun = std::move(sunVP);
     mIrrMatrixSky = std::move(skyE);
     mIrrMatrixSun = std::move(sunE);
 
-    auto end = hrClock::now();
-    fDuration duration = end - start;
-    mTotalTime = duration.count();
+    mIrrMatrix = mIrrMatrixSky + mIrrMatrixSun;
 
-    info("3-phase analysis completed successfully.");
+    info("5-phase analysis completed successfully.");
     info("-----------------------------------------------------");
     return true;
 }
@@ -898,31 +1078,6 @@ PYBIND11_MODULE(py_solar, m)
 {
     py::class_<DtccSolar>(m, "PySolar")
         // -----------------------------
-        // Option C: 2-phase constructor
-        // analysis mesh + optional shading mesh + (sun+sky) rays
-        // -----------------------------
-        .def(py::init([](std::vector<std::vector<float>> analysisVertices,
-                         std::vector<std::vector<int>> analysisFaces,
-                         std::vector<std::vector<float>> shadingVertices,
-                         std::vector<std::vector<int>> shadingFaces,
-                         std::vector<std::vector<float>> sunSkyRays,
-                         std::vector<float> solidAngles)
-                      { return new DtccSolar(
-                            std::move(analysisVertices),
-                            std::move(analysisFaces),
-                            std::move(shadingVertices),
-                            std::move(shadingFaces),
-                            std::move(sunSkyRays),
-                            std::move(solidAngles)); }),
-             py::arg("analysis_vertices"),
-             py::arg("analysis_faces"),
-             py::arg("shading_vertices") = std::vector<std::vector<float>>{}, // empty => use analysis mesh
-             py::arg("shading_faces") = std::vector<std::vector<int>>{},      // empty => use analysis mesh
-             py::arg("sun_sky_rays"),
-             py::arg("solid_angles"))
-
-        // -----------------------------
-        // Option C: 3-phase constructor
         // analysis mesh + optional shading mesh + sky rays + sun rays
         // -----------------------------
         .def(py::init([](std::vector<std::vector<float>> analysisVertices,
@@ -958,14 +1113,8 @@ PYBIND11_MODULE(py_solar, m)
              { return py::cast(self.GetMeshVertices()); })
         .def("get_face_normals", [](DtccSolar &self)
              { return py::cast(self.GetFaceNormals()); })
-        .def("run_2_phase_analysis_vec", [](DtccSolar &self, std::vector<float> sun_sky_vec)
-             { return py::cast(self.Run2PhaseAnalysis(sun_sky_vec)); })
-        .def("run_2_phase_analysis_mat", [](DtccSolar &self, std::vector<std::vector<float>> sun_sky_mat)
-             { return py::cast(self.Run2PhaseAnalysis(sun_sky_mat)); })
-        .def("run_3_phase_analysis_vec", [](DtccSolar &self, std::vector<float> sky_vec, std::vector<float> sun_vec)
-             { return py::cast(self.Run3PhaseAnalysis(sky_vec, sun_vec)); })
-        .def("run_3_phase_analysis_mat", [](DtccSolar &self, std::vector<std::vector<float>> sky_mat, std::vector<std::vector<float>> sun_mat)
-             { return py::cast(self.Run3PhaseAnalysis(sky_mat, sun_mat)); })
+        .def("analyse", [](DtccSolar &self, std::vector<std::vector<float>> sky_mat, std::vector<std::vector<float>> sun_mat, std::vector<int> activeSunIndices, bool is1D, bool computeSunHours, bool computeSkyViewFactor)
+             { return py::cast(self.RunAnalysis(sky_mat, sun_mat, activeSunIndices, is1D, computeSunHours, computeSkyViewFactor)); })
         .def("get_irradiance_vector", [](DtccSolar &self)
              { return vec_to_numpy_1d(self.GetIrradianceVector()); })
         .def("get_irradiance_vector_sun", [](DtccSolar &self)
@@ -986,8 +1135,8 @@ PYBIND11_MODULE(py_solar, m)
              { return vec_to_numpy_1d(self.GetIrradianceMatrixSunFlat()); })
         .def("get_runtime", [](DtccSolar &self)
              { return py::cast(self.GetRuntime()); })
-        .def("get_sun_hours", [](DtccSolar &self)
-             { return vec_to_numpy_1d(self.GetSunHours()); })
+        .def("get_sun_visible_rays", [](DtccSolar &self)
+             { return vec_to_numpy_1d(self.GetSunVisibleRays()); })
         .def("get_sky_view_factor", [](DtccSolar &self)
              { return vec_to_numpy_1d(self.GetSkyViewFactor()); });
 }

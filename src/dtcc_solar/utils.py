@@ -35,6 +35,11 @@ class AnalysisType(IntEnum):
     THREE_PHASE_2D = 4
 
 
+class Dim(IntEnum):
+    ONE_D = 1
+    TWO_D = 2
+
+
 class SunMapping(IntEnum):
     NONE = 1
     RADIANCE = 2
@@ -52,8 +57,9 @@ class Vec3:
 class SolarParameters:
     weather_file: str = "Undefined weather data file"
     display: bool = True
-    analysis_type: AnalysisType = AnalysisType.TWO_PHASE_1D
-    sun_mapping: SunMapping = SunMapping.NONE
+    is1D: bool = True
+    compute_sh: bool = True  # Sun hours
+    compute_svf: bool = True  # Sky view factor
     start: Timestamp = field(default_factory=lambda: Timestamp("2019-01-01 00:00"))
     end: Timestamp = field(default_factory=lambda: Timestamp("2020-01-01 00:00"))
 
@@ -102,6 +108,8 @@ class SkyResults:
 class SunResults:
     # Number of suns
     count: int = 0
+    # Active idx (mask for patches in the sun dome that are closest to some sun pos)
+    active_idx: np.ndarray = field(default_factory=lambda: np.empty(0))
     # 2D array of absolute luminance * solid angle (W/m2) per patch and timestep [n x t]
     matrix: np.ndarray = field(default_factory=lambda: np.empty(0))
 

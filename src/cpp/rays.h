@@ -1,4 +1,5 @@
 #pragma once
+#include "common.h"
 #include "bvh_types.h"
 #include <stdio.h>
 #include <math.h>
@@ -14,21 +15,17 @@ class Rays
 
 public:
     Rays(fArray2D rays);
-    Rays(fArray2D rays, fArray1D areas);
+    Rays(fArray2D rays, fArray1D solidAngles);
     ~Rays();
 
     void InitRays(fArray2D rays);
     void CreateRays();
 
-    void TranslateRays(Vertex new_origin);
-
-    int GetRayCount();
-
-    std::vector<Ray> &GetRays();
-
-    fArray2D GetRayDirections();
-    fArray1D GetSolidAngles();
-    float GetDomeSolidAngle();
+    const int GetRayCount() const;
+    const std::vector<Ray> &GetRays() const;
+    const fArray2D &GetRayDirections() const;
+    const fArray1D &GetSolidAngles() const;
+    float GetDomeSolidAngle() const;
 
 private:
     int mRayCount;

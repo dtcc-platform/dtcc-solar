@@ -1,12 +1,12 @@
 import math
 import numpy as np
 from typing import Dict
-from dtcc_solar.skydome import Skydome
+from dtcc_solar.dome import Dome
 from dtcc_core.model import Mesh
 from dtcc_solar.logging import info, debug, warning, error
 
 
-class Tregenza(Skydome):
+class Tregenza(Dome):
 
     def __init__(self):
         self.vertices = []

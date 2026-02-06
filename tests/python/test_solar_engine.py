@@ -39,7 +39,7 @@ class TestSolarEngineCreation:
 
         assert engine.analysis_mesh is not None
         assert engine.shading_mesh is None
-        assert engine.mesh is not None
+        assert engine.scene_mesh is not None
 
     def test_create_with_shading_mesh(self, single_triangle_mesh, unit_square_mesh):
         """Test creating engine with analysis and shading meshes."""
@@ -47,47 +47,14 @@ class TestSolarEngineCreation:
 
         assert engine.analysis_mesh is not None
         assert engine.shading_mesh is not None
-        assert engine.mesh is not None
+        assert engine.scene_mesh is not None
 
     def test_combined_mesh_has_all_faces(self, single_triangle_mesh, unit_square_mesh):
         """Test that combined mesh includes all faces."""
         engine = SolarEngine(single_triangle_mesh, shading_mesh=unit_square_mesh)
 
         expected_faces = len(single_triangle_mesh.faces) + len(unit_square_mesh.faces)
-        assert len(engine.mesh.faces) == expected_faces
-
-
-class TestFaceMask:
-    """Tests for face mask generation."""
-
-    def test_face_mask_analysis_only(self, single_triangle_mesh):
-        """Test face mask when no shading mesh."""
-        engine = SolarEngine(single_triangle_mesh)
-
-        # All faces should be marked as analysis faces
-        assert len(engine.face_mask) == len(single_triangle_mesh.faces)
-        assert np.all(engine.face_mask == True)
-
-    def test_face_mask_with_shading(self, single_triangle_mesh, unit_square_mesh):
-        """Test face mask with shading mesh."""
-        engine = SolarEngine(single_triangle_mesh, shading_mesh=unit_square_mesh)
-
-        # First faces (analysis) should be True, rest (shading) should be False
-        num_analysis = len(single_triangle_mesh.faces)
-        num_shading = len(unit_square_mesh.faces)
-
-        assert len(engine.face_mask) == num_analysis + num_shading
-        assert np.all(engine.face_mask[:num_analysis] == True)
-        assert np.all(engine.face_mask[num_analysis:] == False)
-
-    def test_face_mask_sum_matches_analysis_faces(
-        self, single_triangle_mesh, unit_square_mesh
-    ):
-        """Test that face mask sum equals analysis face count."""
-        engine = SolarEngine(single_triangle_mesh, shading_mesh=unit_square_mesh)
-
-        num_analysis_faces = np.sum(engine.face_mask)
-        assert num_analysis_faces == len(single_triangle_mesh.faces)
+        assert len(engine.scene_mesh.faces) == expected_faces
 
 
 class TestBoundsCalculation:
@@ -370,20 +337,6 @@ class TestOutputCollection:
     @pytest.mark.skipif(
         not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"
     )
-    def test_output_has_data_mask(self, single_triangle_mesh, solar_params_week):
-        """Test that output contains data mask."""
-        engine = SolarEngine(single_triangle_mesh)
-        sunpath = Sunpath(solar_params_week)
-        skydome = Tregenza()
-
-        output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
-
-        assert output.data_mask is not None
-        assert len(output.data_mask) == len(output.analysis_mesh.faces)
-
-    @pytest.mark.skipif(
-        not SOLAR_BINDINGS_AVAILABLE, reason="C++ solar bindings not available"
-    )
     def test_output_has_sky_results(self, single_triangle_mesh, solar_params_week):
         """Test that output contains sky results."""
         engine = SolarEngine(single_triangle_mesh)
@@ -406,24 +359,6 @@ class TestOutputCollection:
         output = engine.run_2_phase_analysis_1D(sunpath, skydome, solar_params_week)
 
         assert output.sun_results is not None
-
-
-class TestMultipleMeshes:
-    """Tests for analysis with multiple mesh configurations."""
-
-    def test_multiple_analysis_faces(self, unit_square_mesh):
-        """Test engine with mesh having multiple faces."""
-        engine = SolarEngine(unit_square_mesh)
-
-        assert len(engine.face_mask) == 2
-        assert np.sum(engine.face_mask) == 2
-
-    def test_cube_mesh(self, small_cube_mesh):
-        """Test engine with cube mesh (12 triangles)."""
-        engine = SolarEngine(small_cube_mesh)
-
-        assert len(engine.face_mask) == 12
-        assert np.sum(engine.face_mask) == 12
 
 
 @pytest.mark.skipif(

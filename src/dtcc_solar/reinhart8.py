@@ -6,12 +6,14 @@ from dtcc_core.model import Mesh
 from dtcc_solar.logging import info
 
 
-class ReinhartM4(Dome):
+class ReinhartM8(Dome):
     """
-    Reinhart MF:4 skydome (2305 patches, no ground).
-    - 145 Tregenza patches
-    - Each patch (except zenith) split into 16 subpatches
+    Reinhart MF:8 skydome (9217 patches, no ground).
+    - 145 Tregenza patches (no ground)
+    - Each patch (except zenith) split into 64 subpatches (8x8 grid)
     - Zenith patch left whole
+    Expected patch count:
+        144 * (8*8) + 1 = 9217
     """
 
     def __init__(self):
@@ -29,6 +31,9 @@ class ReinhartM4(Dome):
         self.band_patches = [30, 30, 24, 24, 18, 12, 6, 1]
         self.elevs_deg = [0, 12, 24, 36, 48, 60, 72, 84]
 
+        # MF resolution
+        self.subdiv = 8  # 8x8 for MF:8
+
         self.create_mesh()
 
     def create_mesh(self):
@@ -42,11 +47,13 @@ class ReinhartM4(Dome):
             azim_step = 2 * math.pi / patch_count
 
             if elev1 < math.radians(84.0):
-                # Subdivide each Tregenza patch into 16 subpatches (4x4 grid)
+                # Subdivide each Tregenza patch into 64 subpatches (8x8 grid)
                 for j in range(patch_count):
                     azim1 = j * azim_step
                     azim2 = (j + 1) * azim_step
-                    self.subdivide_patch(elev1, elev2, azim1, azim2, 4, 4, dome_area)
+                    self.subdivide_patch(
+                        elev1, elev2, azim1, azim2, self.subdiv, self.subdiv, dome_area
+                    )
             else:
                 # Zenith patch is not subdivided
                 self.create_zenith_patch(elev1)
@@ -55,8 +62,8 @@ class ReinhartM4(Dome):
 
         tot_solid_angle = np.round(np.sum(self.solid_angles), 6)
         info("-----------------------------------------------------")
-        info(f"Reinhart MF:4 dome created:")
-        info(f"  Number of patches: {self.patch_counter} (expected 2305)")
+        info("Reinhart MF:8 dome created:")
+        info(f"  Number of patches: {self.patch_counter} (expected 9217)")
         info(f"  Number of direction vectors: {len(self.ray_dirs)}")
         info(f"  Total solid angle: ~{tot_solid_angle}, expected: ~6.283185")
         info("-----------------------------------------------------")
@@ -77,7 +84,7 @@ class ReinhartM4(Dome):
                 mid_elev = (e1 + e2) / 2.0
                 mid_azim = (a1 + a2) / 2.0
 
-                # Build geometry
+                # Build geometry (quad -> 2 triangles)
                 self.create_mesh_quad(a1, a2, e1, e2)
 
                 # Midpoint direction
@@ -87,7 +94,7 @@ class ReinhartM4(Dome):
                 # Zenith angle
                 self.patch_zeniths.append((math.pi / 2.0) - mid_elev)
 
-                # Solid angle and relative area
+                # Solid angle + relative area
                 solid_angle = self.solid_angle(e1, e2, a1, a2)
                 self.solid_angles.append(solid_angle)
 
@@ -97,12 +104,12 @@ class ReinhartM4(Dome):
                 self.patch_counter += 1
 
     def create_zenith_patch(self, elev):
-        """Single zenith patch like Tregenza."""
+        """Single zenith patch like Tregenza (same style as your M4)."""
         v_count = len(self.vertices)
         dome_area = self.calc_hemisphere_area()
 
-        ray_dir = [0.0, 0.0, 1.0]
-        self.ray_dirs.append(ray_dir)
+        # Direction straight up
+        self.ray_dirs.append([0.0, 0.0, 1.0])
 
         zenith_angle = np.pi / 2.0 - elev
         self.patch_zeniths.append(zenith_angle)
@@ -113,6 +120,7 @@ class ReinhartM4(Dome):
         cap_area = self.calc_sphere_cap_area(elev)
         self.ray_areas.append(cap_area / dome_area)
 
+        # A small hex fan to the zenith point (6 triangles)
         for i in range(6):
             azimuth_step = 2 * math.pi / 6
             azim = i * azimuth_step
@@ -129,8 +137,12 @@ class ReinhartM4(Dome):
         self.patch_counter += 1
 
     def map_data_to_faces(self, data: np.ndarray) -> np.ndarray:
-        if len(data) != 2305:
-            raise ValueError("Data must have 2305 elements for Reinhart MF:4 mapping.")
+        """
+        Map patch data (len=9217) to mesh faces.
+        Each subpatch is a quad -> 2 triangles, zenith is 6 triangles.
+        """
+        if len(data) != 9217:
+            raise ValueError("Data must have 9217 elements for Reinhart MF:8 mapping.")
 
         data = np.array(data)
         if len(data.shape) == 2:
@@ -139,7 +151,7 @@ class ReinhartM4(Dome):
         last = data[-1]
 
         # All patches except the last have 2 triangles (quads → 2 tris)
-        data = np.repeat(data[0:2304], 2)
+        data = np.repeat(data[0:9216], 2)
 
         # The last patch (zenith) has 6 triangles
         data = np.append(data, [last, last, last, last, last, last])

@@ -29,22 +29,22 @@ Rays::~Rays()
     mRaySolidAngles.clear();
 }
 
-std::vector<float> Rays::GetSolidAngles()
+const fArray1D &Rays::GetSolidAngles() const
 {
     return mRaySolidAngles;
 }
 
-std::vector<Ray> &Rays::GetRays()
+const std::vector<Ray> &Rays::GetRays() const
 {
     return mRays;
 }
 
-int Rays::GetRayCount()
+const int Rays::GetRayCount() const
 {
     return mRayCount;
 }
 
-fArray2D Rays::GetRayDirections()
+const fArray2D &Rays::GetRayDirections() const
 {
     return mRayDirections;
 }
@@ -77,14 +77,5 @@ void Rays::CreateRays()
         Vec3 origin(mRayOrigin[0], mRayOrigin[1], mRayOrigin[2]);
         Vec3 direction(mRayDirections[i][0], mRayDirections[i][1], mRayDirections[i][2]);
         mRays[i] = Ray(origin, direction, 0.05f, std::numeric_limits<Scalar>::infinity());
-    }
-}
-
-void Rays::TranslateRays(Vertex new_origin)
-{
-    Vec3 origin(new_origin.x, new_origin.y, new_origin.z);
-    for (int i = 0; i < mRayCount; i++)
-    {
-        mRays[i].org = origin;
     }
 }

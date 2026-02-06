@@ -6,12 +6,13 @@ from dtcc_core.model import Mesh
 from dtcc_solar.logging import info
 
 
-class ReinhartM4(Dome):
+class ReinhartM6(Dome):
     """
-    Reinhart MF:4 skydome (2305 patches, no ground).
+    Reinhart MF:6 skydome (5185 patches, no ground).
     - 145 Tregenza patches
-    - Each patch (except zenith) split into 16 subpatches
+    - Each patch (except zenith) split into 36 subpatches (6x6 grid)
     - Zenith patch left whole
+    Total: (145-1)*6^2 + 1 = 5185
     """
 
     def __init__(self):
@@ -29,6 +30,9 @@ class ReinhartM4(Dome):
         self.band_patches = [30, 30, 24, 24, 18, 12, 6, 1]
         self.elevs_deg = [0, 12, 24, 36, 48, 60, 72, 84]
 
+        # MF subdivision
+        self.M = 6
+
         self.create_mesh()
 
     def create_mesh(self):
@@ -42,11 +46,13 @@ class ReinhartM4(Dome):
             azim_step = 2 * math.pi / patch_count
 
             if elev1 < math.radians(84.0):
-                # Subdivide each Tregenza patch into 16 subpatches (4x4 grid)
+                # Subdivide each Tregenza patch into 6x6 subpatches
                 for j in range(patch_count):
                     azim1 = j * azim_step
                     azim2 = (j + 1) * azim_step
-                    self.subdivide_patch(elev1, elev2, azim1, azim2, 4, 4, dome_area)
+                    self.subdivide_patch(
+                        elev1, elev2, azim1, azim2, self.M, self.M, dome_area
+                    )
             else:
                 # Zenith patch is not subdivided
                 self.create_zenith_patch(elev1)
@@ -55,8 +61,8 @@ class ReinhartM4(Dome):
 
         tot_solid_angle = np.round(np.sum(self.solid_angles), 6)
         info("-----------------------------------------------------")
-        info(f"Reinhart MF:4 dome created:")
-        info(f"  Number of patches: {self.patch_counter} (expected 2305)")
+        info("Reinhart MF:6 dome created:")
+        info(f"  Number of patches: {self.patch_counter} (expected 5185)")
         info(f"  Number of direction vectors: {len(self.ray_dirs)}")
         info(f"  Total solid angle: ~{tot_solid_angle}, expected: ~6.283185")
         info("-----------------------------------------------------")
@@ -77,7 +83,7 @@ class ReinhartM4(Dome):
                 mid_elev = (e1 + e2) / 2.0
                 mid_azim = (a1 + a2) / 2.0
 
-                # Build geometry
+                # Build geometry (quad -> 2 triangles)
                 self.create_mesh_quad(a1, a2, e1, e2)
 
                 # Midpoint direction
@@ -87,10 +93,11 @@ class ReinhartM4(Dome):
                 # Zenith angle
                 self.patch_zeniths.append((math.pi / 2.0) - mid_elev)
 
-                # Solid angle and relative area
+                # Solid angle
                 solid_angle = self.solid_angle(e1, e2, a1, a2)
                 self.solid_angles.append(solid_angle)
 
+                # Relative area on hemisphere
                 patch_area = self.calc_sphere_patch_area(e1, e2, a1, a2)
                 self.ray_areas.append(patch_area / dome_area)
 
@@ -129,8 +136,15 @@ class ReinhartM4(Dome):
         self.patch_counter += 1
 
     def map_data_to_faces(self, data: np.ndarray) -> np.ndarray:
-        if len(data) != 2305:
-            raise ValueError("Data must have 2305 elements for Reinhart MF:4 mapping.")
+        """
+        Map per-patch data (len=5185) to per-triangle face data.
+
+        Assumes:
+        - Each non-zenith patch is represented by a quad => 2 triangles
+        - Zenith patch is represented by 6 triangles
+        """
+        if len(data) != 5185:
+            raise ValueError("Data must have 5185 elements for Reinhart MF:6 mapping.")
 
         data = np.array(data)
         if len(data.shape) == 2:
@@ -138,10 +152,10 @@ class ReinhartM4(Dome):
 
         last = data[-1]
 
-        # All patches except the last have 2 triangles (quads → 2 tris)
-        data = np.repeat(data[0:2304], 2)
+        # 5184 non-zenith patches -> each has 2 triangles
+        data = np.repeat(data[0:5184], 2)
 
-        # The last patch (zenith) has 6 triangles
+        # zenith patch -> 6 triangles
         data = np.append(data, [last, last, last, last, last, last])
 
         return data

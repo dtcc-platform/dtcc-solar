@@ -6,7 +6,7 @@ from dtcc_core.model import Mesh, MultiLineString
 from dtcc_core.model import Mesh, LineString, MultiLineString
 
 
-class Skydome(ABC):
+class Dome(ABC):
 
     r: float = 1.0  # Radius of the skydome, default is 1.0
 

@@ -4,6 +4,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <chrono>
+#include <unordered_map>
 #define PYTHON_MODULE
 
 #ifndef M_PI
@@ -70,6 +71,123 @@ static inline Vector CreateVector(Vertex from, Vertex to)
     Vector v = {x, y, z};
     return v;
 };
+
+// Select rows of a full matrix (K x T) into (k x T) using active indices.
+static inline MatrixXfRM SelectRows(const MatrixXfRM &M, const std::vector<int> &active)
+{
+    MatrixXfRM out(static_cast<Eigen::Index>(active.size()), M.cols());
+    for (size_t i = 0; i < active.size(); ++i)
+        out.row(static_cast<Eigen::Index>(i)) = M.row(active[i]);
+    return out;
+}
+
+static inline VectorXf SelectRows(const VectorXf &v, const std::vector<int> &rows)
+{
+    VectorXf out(static_cast<int>(rows.size()));
+    for (int i = 0; i < static_cast<int>(rows.size()); ++i)
+        out(i) = v(rows[i]);
+    return out;
+}
+
+static inline void BuildActiveUniqueAndWeights(
+    const iArray1D &activeSunIndices, // per timestep (length T)
+    std::vector<int> &activeUnique,   // unique patch indices (sorted)
+    std::vector<int> &weights)        // counts per unique patch (same length as activeUnique)
+{
+    activeUnique.clear();
+    weights.clear();
+
+    const int T = static_cast<int>(activeSunIndices.size());
+    if (T <= 0)
+        return;
+
+    std::unordered_map<int, int> counts;
+    counts.reserve(static_cast<size_t>(T));
+
+    for (int t = 0; t < T; ++t)
+    {
+        const int p = activeSunIndices[static_cast<size_t>(t)];
+        if (p < 0)
+            continue; // ignore invalid
+        counts[p] += 1;
+    }
+
+    activeUnique.reserve(counts.size());
+    for (const auto &kv : counts)
+        activeUnique.push_back(kv.first);
+
+    std::sort(activeUnique.begin(), activeUnique.end());
+
+    weights.resize(activeUnique.size());
+    for (size_t i = 0; i < activeUnique.size(); ++i)
+        weights[i] = counts[activeUnique[i]];
+}
+
+static inline bool SameShape(const fArray2D &A, const fArray2D &B)
+{
+    if (A.size() != B.size())
+        return false;
+
+    for (size_t i = 0; i < A.size(); ++i)
+    {
+        if (A[i].size() != B[i].size())
+            return false;
+    }
+    return true;
+}
+
+// Row-wise sum: out[i] = sum_j M[i][j]
+static inline Eigen::VectorXf RowSumToVectorXf(const fArray2D &M)
+{
+    const int rows = static_cast<int>(M.size());
+    Eigen::VectorXf out(rows);
+    out.setZero();
+
+    for (int i = 0; i < rows; ++i)
+    {
+        const auto &row = M[i];
+        float s = 0.0f;
+        for (float v : row)
+            s += v;
+        out(i) = s;
+    }
+
+    return out;
+}
+
+static inline std::vector<int> ActiveIndicesByAbsValue(const Eigen::VectorXf &v, float eps = 0.0f)
+{
+    std::vector<int> idx;
+    idx.reserve(static_cast<size_t>(v.size()));
+    for (Eigen::Index i = 0; i < v.size(); ++i)
+    {
+        if (std::abs(v(i)) > eps)
+            idx.push_back(static_cast<int>(i));
+    }
+    return idx;
+}
+
+static inline Eigen::VectorXf SelectEntries(const Eigen::VectorXf &v, const std::vector<int> &idx)
+{
+    Eigen::VectorXf out(static_cast<Eigen::Index>(idx.size()));
+    for (size_t k = 0; k < idx.size(); ++k)
+        out(static_cast<Eigen::Index>(k)) = v(static_cast<Eigen::Index>(idx[k]));
+    return out;
+}
+
+// 1) Find active sun rows: rows where sum over time != 0 (with tolerance)
+static inline std::vector<int> ActiveRowsByRowSum(const MatrixXfRM &S, float eps = 0.0f)
+{
+    std::vector<int> idx;
+    idx.reserve(static_cast<size_t>(S.rows()));
+    for (int r = 0; r < S.rows(); ++r)
+    {
+        const float s = S.row(r).sum();
+        if (std::fabs(s) > eps)
+            idx.push_back(r);
+    }
+    return idx;
+}
 
 static inline float VectorLength(Vector v)
 {

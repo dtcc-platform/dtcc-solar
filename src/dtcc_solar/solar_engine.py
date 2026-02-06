@@ -11,18 +11,13 @@ except ImportError as exc:  # pragma: no cover - platform dependent
 else:
     _SOLAR_IMPORT_ERROR = None
 
-from dtcc_solar.utils import SolarParameters, concatenate_meshes
+from dtcc_solar.utils import Dim, SolarParameters, concatenate_meshes
 from dtcc_solar.utils import OutputCollection, SkyType
 from dtcc_solar.utils import Rays, split_mesh_by_face_mask, AnalysisType
-from dtcc_solar.skydome import Skydome
+from dtcc_solar.dome import Dome
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.logging import info, debug, warning, error
-from dtcc_solar.perez import (
-    calc_2_phase_matrices,
-    calc_3_phase_matrices,
-    calc_3_phase_vector,
-    calc_2_phase_vector,
-)
+from dtcc_solar.perez import calc_sky_sun_matrices
 from dtcc_core.model import Mesh, Bounds
 
 
@@ -136,116 +131,7 @@ class SolarEngine:
 
         self.bb = Bounds(xmin=self.xmin, xmax=self.xmax, ymin=self.ymin, ymax=self.ymax)
 
-    def run_analysis(
-        self, sunp: Sunpath, skyd: Skydome, p: SolarParameters
-    ) -> OutputCollection:
-        output = None
-
-        if p.analysis_type == AnalysisType.TWO_PHASE_1D:
-            output = self.run_2_phase_analysis_1D(sunp, skyd, p)
-        elif p.analysis_type == AnalysisType.TWO_PHASE_2D:
-            output = self.run_2_phase_analysis_2D(sunp, skyd, p)
-        elif p.analysis_type == AnalysisType.THREE_PHASE_1D:
-            output = self.run_3_phase_analysis_1D(sunp, skyd, p)
-        elif p.analysis_type == AnalysisType.THREE_PHASE_2D:
-            output = self.run_3_phase_analysis_2D(sunp, skyd, p)
-
-        if output is not None:
-            output.info_print()
-
-        return output
-
-    # -----------------------
-    # 2-PHASE
-    # -----------------------
-
-    def _make_cpp_solar_2phase(self, ray_dirs: np.ndarray, solid_angles: np.ndarray):
-        solar_mod = _require_solar()
-
-        aV, aF = _mesh_to_lists(self.analysis_mesh)
-        sV, sF = _mesh_to_lists(self.shading_mesh)
-
-        rd = np.asarray(ray_dirs, dtype=np.float32).tolist()
-        sa = np.asarray(solid_angles, dtype=np.float32).tolist()
-
-        return solar_mod.PySolar(aV, aF, sV, sF, rd, sa)
-
-    def run_2_phase_analysis_1D(
-        self, sunpath: Sunpath, skydome: Skydome, p: SolarParameters
-    ) -> OutputCollection:
-        ss_vector, skyres, sunres = calc_2_phase_vector(sunpath, skydome, p)
-
-        ray_dirs = np.asarray(skydome.ray_dirs, dtype=np.float32)
-        solid_angles = np.asarray(skydome.solid_angles, dtype=np.float32)
-
-        info("-----------------------------------------------------")
-        info("Creating solar instance and running analysis...")
-        info("-----------------------------------------------------")
-
-        # Call the C++ solar constructor
-        self.solar = self._make_cpp_solar_2phase(ray_dirs, solid_angles)
-
-        # Run the analysis
-        self.solar.run_2_phase_analysis_vec(ss_vector)
-
-        # Retrieve results
-        irr_vec = self.solar.get_irradiance_vector()
-        runtime = self.solar.get_runtime()
-
-        irr_vec = irr_vec * 0.001  # -> kWh/m2
-
-        outc = OutputCollection(
-            analysis_mesh=self.analysis_mesh,  # results correspond to analysis mesh only
-            shading_mesh=self.shading_mesh,  # still included for context / rendering
-            sky_results=skyres,
-            sun_results=sunres,
-            total_irradiance=irr_vec,
-            runtime=runtime,
-        )
-        return outc
-
-    def run_2_phase_analysis_2D(
-        self, sunpath: Sunpath, skydome: Skydome, p: SolarParameters
-    ) -> OutputCollection:
-        skyres, sunres = calc_2_phase_matrices(sunpath, skydome, p)
-        ss_matrix = sunres.matrix + skyres.matrix
-
-        ray_dirs = np.asarray(skydome.ray_dirs, dtype=np.float32)
-        solid_angles = np.asarray(skydome.solid_angles, dtype=np.float32)
-
-        info("-----------------------------------------------------")
-        info("Creating solar instance and running analysis...")
-        info("-----------------------------------------------------")
-
-        # Call the C++ solar constructor
-        self.solar = self._make_cpp_solar_2phase(ray_dirs, solid_angles)
-
-        # Run the analysis
-        self.solar.run_2_phase_analysis_mat(ss_matrix)
-
-        # Retrieve results
-        start = time()
-        irr_vec = self.solar.get_irradiance_matrix_flat()
-        runtime = self.solar.get_runtime()
-        irr_vec = irr_vec * 0.001  # -> kWh/m2
-        end = time()
-        info(f"Retrieving irradiance matrix flat took {end - start} seconds.")
-
-        outc = OutputCollection(
-            analysis_mesh=self.analysis_mesh,
-            shading_mesh=self.shading_mesh,
-            sky_results=skyres,
-            sun_results=sunres,
-            total_irradiance=irr_vec,
-            runtime=runtime,
-        )
-        return outc
-
-    # -----------------------
-    # 3-PHASE
-    # -----------------------
-
-    def _make_cpp_solar_3phase(
+    def _make_cpp(
         self,
         sky_ray_dirs: np.ndarray,
         sky_solid_angles: np.ndarray,
@@ -264,94 +150,46 @@ class SolarEngine:
 
         return solar_mod.PySolar(aV, aF, sV, sF, rd_sky, sa_sky, rd_sun, sa_sun)
 
-    def run_3_phase_analysis_1D(
-        self, sunpath: Sunpath, skydome: Skydome, p: SolarParameters
+    def run_analysis(
+        self, sunpath: Sunpath, skydome: Dome, sundome: Dome, p: SolarParameters
     ) -> OutputCollection:
-        sky_vec, sun_vec, skyres, sunres = calc_3_phase_vector(sunpath, skydome, p)
+        skyres, sunres = calc_sky_sun_matrices(sunpath, skydome, sundome, p)
 
-        sky_rd = np.asarray(skydome.ray_dirs, dtype=np.float32)
-        sun_rd = np.asarray(sunpath.sunc.sun_vecs, dtype=np.float32)
+        sun_mat = sunres.matrix
+        sky_mat = skyres.matrix
+        idx = sunres.active_idx  # indices of active sun dome patches
 
-        sky_sa = np.asarray(skydome.solid_angles, dtype=np.float32)
-        sun_sa = np.ones(sunpath.sunc.count, dtype=np.float32)
+        idx = np.asarray(idx, dtype=np.int32)
+        skydome_rd = np.asarray(skydome.ray_dirs, dtype=np.float32)
+        skydome_sa = np.asarray(skydome.solid_angles, dtype=np.float32)
+        sundome_rd = np.asarray(sundome.ray_dirs, dtype=np.float32)
+        sundome_sa = np.asarray(sundome.solid_angles, dtype=np.float32)
 
         info("-----------------------------------------------------")
         info("Creating solar instance and running analysis...")
         info("-----------------------------------------------------")
 
         # Call the C++ solar constructor
-        self.solar = self._make_cpp_solar_3phase(sky_rd, sky_sa, sun_rd, sun_sa)
+        self.solar = self._make_cpp(skydome_rd, skydome_sa, sundome_rd, sundome_sa)
 
         # Run the analysis
-        self.solar.run_3_phase_analysis_vec(sky_vec, sun_vec)
+        self.solar.analyse(sky_mat, sun_mat, idx, p.is1D, p.compute_sh, p.compute_svf)
 
-        # Retrieve results
-        sky_irr = self.solar.get_irradiance_vector_sky() * 0.001
-        sun_irr = self.solar.get_irradiance_vector_sun() * 0.001
-        tot_irr = sky_irr + sun_irr
-
-        sun_hours = self.solar.get_sun_hours()
+        irr_vec = self.solar.get_irradiance_vector()
+        sun_visible_rays = self.solar.get_sun_visible_rays()  # effectively sun hours
         svf = self.solar.get_sky_view_factor()
         runtime = self.solar.get_runtime()
+        irr_vec = irr_vec * 0.001  # -> kWh/m2
 
         outc = OutputCollection(
             analysis_mesh=self.analysis_mesh,
             shading_mesh=self.shading_mesh,
             sky_results=skyres,
             sun_results=sunres,
-            total_irradiance=tot_irr,
-            sky_irradiance=sky_irr,
-            sun_irradiance=sun_irr,
-            runtime=runtime,
-            sun_hours=sun_hours,
             sky_view_factor=svf,
-        )
-        return outc
-
-    def run_3_phase_analysis_2D(
-        self, sunpath: Sunpath, skydome: Skydome, p: SolarParameters
-    ) -> OutputCollection:
-        sky_res, sun_res = calc_3_phase_matrices(sunpath, skydome, p)
-
-        sky_matrix = sky_res.matrix
-        sun_matrix = sun_res.matrix
-
-        sky_rd = np.asarray(skydome.ray_dirs, dtype=np.float32)
-        sun_rd = np.asarray(sunpath.sunc.sun_vecs, dtype=np.float32)
-
-        sky_sa = np.asarray(skydome.solid_angles, dtype=np.float32)
-        sun_sa = np.ones(sunpath.sunc.count, dtype=np.float32)
-
-        info("-----------------------------------------------------")
-        info("Creating solar instance and running analysis...")
-        info("-----------------------------------------------------")
-
-        # Call the C++ solar constructor
-        self.solar = self._make_cpp_solar_3phase(sky_rd, sky_sa, sun_rd, sun_sa)
-
-        # Run the analysis
-        self.solar.run_3_phase_analysis_mat(sky_matrix, sun_matrix)
-
-        # Retrieve results
-        sky_irr = self.solar.get_irradiance_matrix_sky_flat() * 0.001
-        sun_irr = self.solar.get_irradiance_matrix_sun_flat() * 0.001
-        tot_irr = sky_irr + sun_irr
-
-        sun_hours = self.solar.get_sun_hours()
-        svf = self.solar.get_sky_view_factor()
-        runtime = self.solar.get_runtime()
-
-        outc = OutputCollection(
-            analysis_mesh=self.analysis_mesh,
-            shading_mesh=self.shading_mesh,
-            sky_results=sky_res,
-            sun_results=sun_res,
-            total_irradiance=tot_irr,
-            sky_irradiance=sky_irr,
-            sun_irradiance=sun_irr,
+            sun_hours=sun_visible_rays,
+            total_irradiance=irr_vec,
             runtime=runtime,
-            sun_hours=sun_hours,
-            sky_view_factor=svf,
         )
         return outc
 
@@ -361,7 +199,7 @@ class SolarEngine:
 
     def check_2_phase_energy_balance(
         self,
-        skydome: Skydome,
+        skydome: Dome,
         tot_mat: np.ndarray,
         irr_vec: np.ndarray,
         vis_mat: np.ndarray,
@@ -406,7 +244,7 @@ class SolarEngine:
 
     def check_3_phase_energy_balance(
         self,
-        skydome: Skydome,
+        skydome: Dome,
         sky_matrix: np.ndarray,
         sky_vis: np.ndarray,
         sky_irr: np.ndarray,

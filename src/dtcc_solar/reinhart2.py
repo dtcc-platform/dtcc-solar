@@ -2,12 +2,12 @@ import math
 import numpy as np
 from typing import Dict
 from abc import ABC, abstractmethod
-from dtcc_solar.skydome import Skydome
+from dtcc_solar.dome import Dome
 from dtcc_core.model import Mesh
 from dtcc_solar.logging import info, debug, warning, error
 
 
-class ReinhartM2(Skydome):
+class ReinhartM2(Dome):
 
     def __init__(self):
         self.vertices = []
@@ -65,7 +65,7 @@ class ReinhartM2(Skydome):
 
         tot_solid_angle = np.round(np.sum(self.solid_angles), 6)
         info("-----------------------------------------------------")
-        info(f"Reinhart MF:2 skydome created:")
+        info(f"Reinhart MF:2 dome created:")
         info(f"  Number of patches: {self.patch_counter} (expected 578)")
         info(f"  Number of direction vectors: {len(self.ray_dirs)}")
         info(f"  Total solid angle: ~{tot_solid_angle}, expected: ~6.283185")

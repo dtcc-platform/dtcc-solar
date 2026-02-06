@@ -7,7 +7,7 @@ from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import concatenate_meshes, SolarParameters, create_ls_circle
 from dtcc_solar.utils import OutputCollection, AnalysisType, split_mesh_by_face_mask
 from dtcc_solar.logging import info, debug, warning, error
-from dtcc_solar.skydome import Skydome
+from dtcc_solar.dome import Dome
 from typing import Any
 
 
@@ -18,7 +18,8 @@ class Viewer:
     def __init__(
         self,
         output: OutputCollection,
-        skydome: Skydome,
+        skydome: Dome,
+        sundome: Dome,
         sunpath: Sunpath,
         p: SolarParameters,
         situation: Situation = None,
@@ -29,7 +30,7 @@ class Viewer:
         if self.has_display and p.display:
             self.window = Window(1200, 800)
             self.scene = Scene(situation=situation)
-            self.prepare_scene(output, skydome, sunpath, p)
+            self.prepare_scene(output, skydome, sundome, sunpath, p)
             self.show()
         else:
             self.has_display = False
@@ -40,7 +41,8 @@ class Viewer:
     def prepare_scene(
         self,
         output: OutputCollection,
-        skydome: Skydome,
+        skydome: Dome,
+        sundome: Dome,
         sunpath: Sunpath,
         p: SolarParameters,
     ):
@@ -51,63 +53,39 @@ class Viewer:
         r = sunpath.r
         a_mesh = output.analysis_mesh
         s_mesh = output.shading_mesh
-        a_type = p.analysis_type
 
-        if a_type == AnalysisType.TWO_PHASE_1D or a_type == AnalysisType.TWO_PHASE_2D:
-            data_dict["total_irradiance (kW/m²)"] = output.total_irradiance
-
-        if (
-            a_type == AnalysisType.THREE_PHASE_1D
-            or a_type == AnalysisType.THREE_PHASE_2D
-        ):
-            data_dict["total_irradiance (kW/m²)"] = output.total_irradiance
-            data_dict["sky_irradiance (kW/m²)"] = output.sky_irradiance
-            data_dict["sun_irradiance (kW/m²)"] = output.sun_irradiance
-            data_dict["sky_view_factor"] = output.sky_view_factor
-            data_dict["sun_hours (h)"] = output.sun_hours
+        data_dict["total_irradiance (kW/m²)"] = output.total_irradiance
+        data_dict["sky_view_factor"] = output.sky_view_factor
+        data_dict["sun_hours (h)"] = output.sun_hours
 
         self.scene.add_mesh(name="Analysis mesh", mesh=a_mesh, data=data_dict)
 
         if output.shading_mesh is not None:
             self.scene.add_mesh(name="Shading mesh", mesh=s_mesh)
 
-        if a_type == AnalysisType.TWO_PHASE_1D or a_type == AnalysisType.TWO_PHASE_2D:
-            self.build_skydome_2_phase(output, skydome, r)
-        if (
-            a_type == AnalysisType.THREE_PHASE_1D
-            or a_type == AnalysisType.THREE_PHASE_2D
-        ):
-            self.build_skydome_3_phase(output, skydome, r)
-            self.build_sunpath_diagram(sunpath, p)
+        self.build_skydome(output, skydome, r)
+        self.build_sundome(output, sundome, r)
+        # self.build_sunpath_diagram(sunpath, p)
 
-    def build_skydome_2_phase(
-        self, output: OutputCollection, skydome: Skydome, r: float
-    ):
+    def build_skydome(self, output: OutputCollection, skydome: Dome, r: float):
         """Build the skydome for the scene."""
         data_dict = {}
         mesh = skydome.mesh
         mesh.vertices *= r
         sky_vec = np.sum(output.sky_results.matrix, axis=1)
+        sky_vec = skydome.map_data_to_faces(sky_vec) * 0.001  # W to kW
+        data_dict["sky matrix"] = sky_vec
+        self.scene.add_mesh(name="Skydome", mesh=skydome.mesh, data=data_dict)
+
+    def build_sundome(self, output: OutputCollection, sundome: Dome, r: float):
+        """Build the sundome for the scene."""
+        data_dict = {}
+        mesh = sundome.mesh
+        mesh.vertices *= r
         sun_vec = np.sum(output.sun_results.matrix, axis=1)
-        sky_vec = skydome.map_data_to_faces(sky_vec) * 0.001  # W to kW
-        sun_vec = skydome.map_data_to_faces(sun_vec) * 0.001  # W to kW
-        tot_vec = sky_vec + sun_vec
-        data_dict["tot matrix"] = tot_vec
-        data_dict["sky matrix"] = sky_vec
+        sun_vec = sundome.map_data_to_faces(sun_vec) * 0.001  # W to kW
         data_dict["sun matrix"] = sun_vec
-        self.scene.add_mesh(name="Skydome", mesh=skydome.mesh, data=data_dict)
-
-    def build_skydome_3_phase(
-        self, output: OutputCollection, skydome: Skydome, r: float
-    ):
-        """Build the skydome for the scene."""
-        data_dict = {}
-        mesh = skydome.mesh
-        mesh.vertices *= r
-        sky_vec = np.sum(output.sky_results.matrix, axis=1)
-        sky_vec = skydome.map_data_to_faces(sky_vec) * 0.001  # W to kW
-        data_dict["sky matrix"] = sky_vec
-        self.scene.add_mesh(name="Skydome", mesh=skydome.mesh, data=data_dict)
+        self.scene.add_mesh(name="Sundome", mesh=sundome.mesh, data=data_dict)
 
     def build_sunpath_diagram(self, sunpath: Sunpath, p: SolarParameters):
         day_paths = sunpath.daypath_meshes
@@ -124,9 +102,7 @@ class Viewer:
 class SkydomeViewer:
     has_display: bool
 
-    def __init__(
-        self, skydome: Skydome, patch_data: dict, sun_pos_pc: PointCloud = None
-    ):
+    def __init__(self, skydome: Dome, patch_data: dict, sun_pos_pc: PointCloud = None):
         self.has_display = has_display()
 
         if self.has_display:
@@ -141,7 +117,7 @@ class SkydomeViewer:
         return
 
     def prepare_scene(
-        self, skydome: Skydome, data_dict: dict, sun_pos_pc: PointCloud = None
+        self, skydome: Dome, data_dict: dict, sun_pos_pc: PointCloud = None
     ):
         """Prepare the scene for viewing."""
         mesh = skydome.mesh

@@ -15,10 +15,12 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <unordered_map>
 
 #include "common.h"
 #include "rays.h"
 #include "logging.h"
+#include "rays_utils.h"
 
 #ifdef PYTHON_MODULE
 #include <pybind11/pybind11.h>
@@ -79,7 +81,7 @@ public:
     VectorXf GetIrradianceVector();
     VectorXf GetIrradianceMatrixFlat();
 
-    VectorXf GetSunHours();
+    VectorXf GetSunVisibleRays();
     VectorXf GetSkyViewFactor();
 
     MatrixXfRM GetVPMatrixSky();
@@ -96,43 +98,21 @@ public:
     VectorXf GetIrradianceMatrixSkyFlat();
     VectorXf GetIrradianceMatrixSunFlat();
 
-    // Core compute
-    bool CalcVPMatrix(
-        Rays *rays,
-        MatrixXfRM &visProjMatrix,
-        fArray2D &surfaceNormals,
-        bool computeSunHours,
-        bool computeSkyViewFactor);
+    bool CalcVPMatrix(Rays *rays, MatrixXfRM &visProj, fArray2D &surfaceNormals, bool computeSunHours, bool computeSkyViewFactor, const std::vector<int> *sunHourWeights);
 
-    bool CalcIrradiance2Phase(
-        Rays *rays,
-        fArray1D &skySunVector,
-        const MatrixXfRM &VP,
-        VectorXf &irrVector);
+    bool CalcIrradiance2Phase(Rays *rays, VectorXf &skySunVector, const MatrixXfRM &VP, VectorXf &irrVector);
+    bool CalcIrradiance2Phase(Rays *rays, const MatrixXfRM &skySunMatrix, const MatrixXfRM &visProjMatrix, MatrixXfRM &irrMatrix);
 
-    bool CalcIrradiance2Phase(
-        Rays *rays,
-        const MatrixXfRM &skySunMatrix,
-        const MatrixXfRM &visProjMatrix,
-        MatrixXfRM &irrMatrix);
-
-    bool CalcIrradiance3Phase(
-        Rays *skyRays, Rays *sunRays,
-        VectorXf &skyS, VectorXf &sunS,
-        const MatrixXfRM &skyVP, const MatrixXfRM &sunVP,
-        VectorXf &skyIrrVec, VectorXf &sunIrrVec);
-
-    bool CalcIrradiance3Phase(
-        Rays *skyRays, Rays *sunRays,
-        MatrixXfRM &skyS, MatrixXfRM &sunS,
-        MatrixXfRM &skyVPMatrix, MatrixXfRM &sunVPMatrix,
-        MatrixXfRM &skyIrrMatrix, MatrixXfRM &sunIrrMatrix);
+    bool CalcIrradiance5Phase(Rays *skyRays, Rays *sunRays, VectorXf &skyS, VectorXf &sunS, const MatrixXfRM &skyVP, const MatrixXfRM &sunVP, VectorXf &skyIrrVec, VectorXf &sunIrrVec);
+    bool CalcIrradiance5Phase(Rays *skyRays, Rays *sunRays, MatrixXfRM &skyS, MatrixXfRM &sunS, MatrixXfRM &skyVPMatrix, MatrixXfRM &sunVPMatrix, MatrixXfRM &skyIrrMatrix, MatrixXfRM &sunIrrMatrix);
 
     // Analyses
-    bool Run2PhaseAnalysis(fArray1D sunSkyVector);
-    bool Run2PhaseAnalysis(fArray2D sunSkyMatrix);
-    bool Run3PhaseAnalysis(fArray1D skyVector, fArray1D sunVector);
-    bool Run3PhaseAnalysis(fArray2D skyMatrix, fArray2D sunMatrix);
+    bool Run2PhaseAnalysis(VectorXf sunSkyVector, bool computeSkyViewFactor);
+    bool Run2PhaseAnalysis(MatrixXfRM sunSkyMatrix, bool computeSkyViewFactor);
+    bool Run5PhaseAnalysis(VectorXf skyS, VectorXf sunS, const iArray1D &activeSunIndices, const iArray1D &sunHourWeightsActive, bool computeSunHours, bool computeSkyViewFactor);
+    bool Run5PhaseAnalysis(MatrixXfRM skyMatrix, MatrixXfRM sunMatrix, const iArray1D &activeSunIndices, const iArray1D &sunHourWeightsActive, bool computeSunHours, bool computeSkyViewFactor);
+
+    bool RunAnalysis(fArray2D skyMatrix, fArray2D sunMatrix, iArray1D activeSunIndices, bool is1D, bool computeSunHours, bool computeSkyViewFactor);
 
 private:
     // BVH built from shading mesh
@@ -143,6 +123,7 @@ private:
     // Analysis mesh counts
     int mAnalysisVertexCount = 0;
     int mAnalysisFaceCount = 0;
+    int mAnalysisTriOffsetInBVH = 0;
 
     // Shading mesh counts
     int mShadingVertexCount = 0;
@@ -166,7 +147,7 @@ private:
 
     // Results (all sized by analysis faces)
     VectorXf mSkyViewFactor;
-    VectorXf mSunHours;
+    VectorXf mSunVisibleRayCount;
 
     VectorXf mIrrVector;
     VectorXf mIrrVectorSky;
@@ -183,7 +164,7 @@ private:
     float mDomeSolidAngle = 2 * M_PI; // hemisphere solid angle
 
     // Ray objects for analysis
-    Rays *mSunSkyRays = nullptr;
+    Rays *mCombinedRays = nullptr;
     Rays *mSkyRays = nullptr;
     Rays *mSunRays = nullptr;
 };
