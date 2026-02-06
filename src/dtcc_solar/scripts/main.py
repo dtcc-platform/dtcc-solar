@@ -16,7 +16,6 @@ from dtcc_solar.reinhart4 import ReinhartM4
 from dtcc_solar.reinhart6 import ReinhartM6
 from dtcc_solar.reinhart8 import ReinhartM8
 from dtcc_solar.reinhartMF import ReinhartMF
-from dtcc_solar.natural_sundome import NaturalSunDome
 from dtcc_solar.perez import *
 from dtcc_solar.radiance import calc_radiance_matrices
 from dtcc_solar.synthetic_data import synthetic_epw_df, df_to_epw
@@ -218,14 +217,13 @@ def analyse_mesh_1():
     skydome = ReinhartM2()
     sundome = ReinhartM2()
     sunpath = Sunpath(p, engine.sunpath_radius)
-    output = engine.run_analysis(sunpath, skydome, sundome, p)
+    output = engine.run_analysis(p, sunpath, skydome, sundome)
     export_path = data_dir("validation") / "export_test.json"
     export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)
 
 
 def analyse_mesh_2():
-
     filename = data_file("validation", "boxes_sharp_f5248.obj")
     mesh = io.load_mesh(str(filename))
     weather_dir = data_dir("weather")
@@ -248,7 +246,7 @@ def analyse_mesh_2():
     sundome = ReinhartM2()
     engine = SolarEngine(analysis_mesh, shading_mesh)
     sunpath = Sunpath(p, engine.sunpath_radius)
-    output = engine.run_analysis(sunpath, skydome, sundome, p)
+    output = engine.run_analysis(p, sunpath, skydome, sundome)
     viewer = Viewer(output, skydome, sunpath, p)
 
 
@@ -278,8 +276,8 @@ def analyse_mesh_3():
     # Setup model, run analysis and view results
     sunpath = Sunpath(p, engine.sunpath_radius)
     skydome = ReinhartMF(2)
-    sundome = NaturalSunDome(sunpath)
-    output = engine.run_analysis(sunpath, skydome, sundome, p)
+    sundome = None
+    output = engine.run_analysis(p, sunpath, skydome, sundome)
     end_time = time()
     print("Analysis time (s): ", end_time - start_time)
     # export_path = data_dir("validation") / "export_test.json"
@@ -340,7 +338,7 @@ def analyse_mesh_3_multi():
             skydome = ReinhartM2()
             sundome = ReinhartM4()
             sunpath = Sunpath(p, engine.sunpath_radius)
-            output = engine.run_analysis(sunpath, skydome, sundome, p)
+            output = engine.run_analysis(p, sunpath, skydome, sundome)
 
             elapsed = time() - start_time
 
@@ -365,6 +363,7 @@ def analyse_mesh_4_multi():
     analysis_mesh = subdivide_mesh(analysis_mesh, lengths[0])
 
     sundomes = {}
+    sundomes["NaturalSuns"] = None
     sundomes["Tregenza"] = Tregenza()
     sundomes["ReinhartM2"] = ReinhartM2()
     sundomes["ReinhartM4"] = ReinhartM4()
@@ -392,8 +391,7 @@ def analyse_mesh_4_multi():
 
         skydome = ReinhartM2()
         sunpath = Sunpath(p, engine.sunpath_radius)
-        output = engine.run_analysis(sunpath, skydome, sundome, p)
-
+        output = engine.run_analysis(p, sunpath, skydome, sundome)
         results.setdefault(key, {})["sun_hours"] = output.sun_hours
 
     # ---- Sort + Plot ----
@@ -401,7 +399,7 @@ def analyse_mesh_4_multi():
 
     plot_sun_hours_per_face(sorted, title="Sun hours per face (sorted by median)")
 
-    plot_deltas(sorted, baseline="ReinhartM12", step=1)
+    plot_deltas(sorted, baseline="NaturalSuns", step=1)
 
 
 def analyse_mesh_4():
@@ -428,7 +426,7 @@ def analyse_mesh_4():
     skydome = ReinhartM2()
     sundome = ReinhartM6()
     sunpath = Sunpath(p, engine.sunpath_radius)
-    output = engine.run_analysis(sunpath, skydome, sundome, p)
+    output = engine.run_analysis(p, sunpath, skydome, sundome)
     export_path = data_dir("validation") / "export_test.json"
     export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sunpath, p)
@@ -444,7 +442,7 @@ if __name__ == "__main__":
     # synthetic_data_test()
     # analyse_mesh_1()
     # analyse_mesh_2()
-    analyse_mesh_3()
+    # analyse_mesh_3()
     # analyse_mesh_3_multi()
     # analyse_mesh_4()
-    # analyse_mesh_4_multi()
+    analyse_mesh_4_multi()

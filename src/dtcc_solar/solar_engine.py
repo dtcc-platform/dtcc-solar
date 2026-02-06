@@ -17,7 +17,7 @@ from dtcc_solar.utils import Rays, split_mesh_by_face_mask, AnalysisType
 from dtcc_solar.dome import Dome
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.logging import info, debug, warning, error
-from dtcc_solar.perez import calc_sky_sun_matrices, patch_occurrences_from_active_idx
+from dtcc_solar.perez import calc_sky_sun_matrices
 from dtcc_core.model import Mesh, Bounds
 
 
@@ -202,10 +202,14 @@ class SolarEngine:
         return solar_mod.PySolar(aV, aF, sV, sF, rd_sky, sa_sky, rd_sun, sa_sun)
 
     def run_analysis(
-        self, sunpath: Sunpath, skydome: Dome, sundome: Dome, p: SolarParameters
+        self,
+        p: SolarParameters,
+        sunpath: Sunpath,
+        skydome: Dome,
+        sundome: Dome = None,
     ) -> OutputCollection:
-        skyres, sunres = calc_sky_sun_matrices(sunpath, skydome, sundome, p)
 
+        skyres, sunres = calc_sky_sun_matrices(sunpath, skydome, sundome)
         sun_mat = np.asarray(sunres.matrix, dtype=np.float32)
         sky_mat = np.asarray(skyres.matrix, dtype=np.float32)
         idx = np.asarray(sunres.active_idx, dtype=np.int32)
@@ -214,33 +218,23 @@ class SolarEngine:
         skydome_rd = np.asarray(skydome.ray_dirs, dtype=np.float32)
         skydome_sa = np.asarray(skydome.solid_angles, dtype=np.float32)
 
-        # --- Decide which sun rays to use ---
-        K = sun_mat.shape[0]  # number of sun "patches"/rays used by the matrix
-
-        if K == len(sundome.ray_dirs):
-            # Sundome mode
-            sundirs = np.asarray(sundome.ray_dirs, dtype=np.float32)
-            sunsa = np.asarray(sundome.solid_angles, dtype=np.float32)
-            info(f"Using sundome rays: K={K}")
-        else:
+        if sundome is None:
             # Natural-sun mode: one ray per timestep
-            sundirs = np.asarray(sunpath.sunc.sun_vecs, dtype=np.float32)
-            # normalise for safety
-            sundirs /= np.linalg.norm(sundirs, axis=1, keepdims=True)
-            if sundirs.shape[0] != K:
-                raise ValueError(
-                    f"Sun matrix has {K} rows but sunpath has {sundirs.shape[0]} sun vectors."
-                )
-            # Use unit solid angles (or timestep weights if you prefer later)
-            sunsa = np.ones(K, dtype=np.float32)
-            info(f"Using natural-sun rays: K={K}")
+            sun_dirs = np.asarray(sunpath.sunc.sun_vecs, dtype=np.float32)
+            sun_sa = np.ones(len(sun_dirs), dtype=np.float32)  # Use unit solid angles
+            info(f"Using natural-sun rays")
+        else:
+            # Sundome mode
+            sun_dirs = np.asarray(sundome.ray_dirs, dtype=np.float32)
+            sun_sa = np.asarray(sundome.solid_angles, dtype=np.float32)
+            info(f"Using sundome rays")
 
         info("-----------------------------------------------------")
         info("Creating solar instance and running analysis...")
         info("-----------------------------------------------------")
 
         # Call the C++ solar constructor
-        self.solar = self._make_cpp(skydome_rd, skydome_sa, sundirs, sunsa)
+        self.solar = self._make_cpp(skydome_rd, skydome_sa, sun_dirs, sun_sa)
 
         # Run the analysis
         self.solar.analyse(sky_mat, sun_mat, idx, p.is1D, p.compute_sh, p.compute_svf)

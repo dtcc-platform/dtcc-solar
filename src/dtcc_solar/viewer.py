@@ -3,7 +3,6 @@ import sys
 import numpy as np
 from dtcc_viewer import Scene, Window, Situation
 from dtcc_core.model import Mesh, PointCloud
-from dtcc_solar.natural_sundome import NaturalSunDome
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import concatenate_meshes, SolarParameters, create_ls_circle
 from dtcc_solar.utils import OutputCollection, AnalysisType, split_mesh_by_face_mask
@@ -67,7 +66,7 @@ class Viewer:
         if output.shading_mesh is not None:
             self.scene.add_mesh(name="Shading mesh", mesh=s_mesh)
 
-        if type(sundome) == NaturalSunDome:
+        if sundome is None:
             self.build_sunpath_diagram(sunpath, p)
         else:
             self.build_sundome(output, sundome, r)

@@ -5,7 +5,6 @@ import pprint as pp
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.dome import Dome
-from dtcc_solar.natural_sundome import NaturalSunDome
 from dtcc_solar.coefficients import calc_perez_coeffs
 from dtcc_solar.utils import SkyResults, SunResults, SolarParameters
 
@@ -183,17 +182,19 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
 
 
 def calc_sky_sun_matrices(
-    sunpath: Sunpath, skydome: Dome, sundome: Dome, p: SolarParameters
+    sunpath: Sunpath,
+    skydome: Dome,
+    sundome: Dome = None,
 ) -> list[SkyResults, SunResults]:
 
-    if type(sundome) == NaturalSunDome:
+    if sundome is None:
         info("Calculating sun matrix from NaturalSunDome geometry...")
-        sun_res = calc_sun_matrix_from_natural_sundome(sunpath)
+        sun_res = calc_sun_matrix_from_sunpath(sunpath)
     else:
         sun_res = calc_sun_matrix_from_dome_fast(sunpath, sundome)
 
     sky_res = calc_sky_matrix(sunpath, skydome)
-    calc_tot_error(sky_res, skydome, sun_res, sundome, sunpath)
+    calc_tot_error(sunpath, sky_res, skydome, sun_res, sundome)
     return (sky_res, sun_res)
 
 
@@ -321,20 +322,23 @@ def calc_sky_matrix(
 
 
 def calc_tot_error(
+    sunp: Sunpath,
     sky_res: SkyResults,
     skydome: Dome,
     sun_res: SunResults,
-    sundome: Dome,
-    sunp: Sunpath,
+    sundome: Dome = None,
 ):
 
-    sky_cos_zeniths = np.cos(np.array(skydome.patch_zeniths))
+    sky_cos_zen = np.cos(np.array(skydome.patch_zeniths))
     sky_solid_angles = np.array(skydome.solid_angles)
-    sun_solid_angles = np.array(sundome.solid_angles)
+
+    if sundome is None:
+        sun_solid_angles = np.ones(len(sunp.sunc.sun_vecs), dtype=np.float32)
+    else:
+        sun_solid_angles = np.array(sundome.solid_angles)
+
     sun_dni = np.sum(np.sum(sun_res.matrix, axis=1) * sun_solid_angles)
-    sky_dhi = np.sum(
-        np.sum(sky_res.matrix, axis=1) * sky_cos_zeniths * sky_solid_angles
-    )
+    sky_dhi = np.sum(np.sum(sky_res.matrix, axis=1) * sky_cos_zen * sky_solid_angles)
 
     epw_dni = np.sum(sunp.sunc.dni)
     epw_dhi = np.sum(sunp.sunc.dhi)
@@ -522,7 +526,7 @@ def calc_sun_matrix_smooth_smear(sunpath: Sunpath, skydome: Dome, da=15) -> SunR
     return SunResults(matrix=sun_matrix)
 
 
-def calc_sun_matrix_from_natural_sundome(sunpath: Sunpath) -> SunResults:
+def calc_sun_matrix_from_sunpath(sunpath: Sunpath) -> SunResults:
     T = int(sunpath.sunc.count)
     dni = np.asarray(sunpath.sunc.dni, dtype=np.float32)
 
