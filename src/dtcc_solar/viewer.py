@@ -3,11 +3,13 @@ import sys
 import numpy as np
 from dtcc_viewer import Scene, Window, Situation
 from dtcc_core.model import Mesh, PointCloud
+from dtcc_solar.natural_sundome import NaturalSunDome
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.utils import concatenate_meshes, SolarParameters, create_ls_circle
 from dtcc_solar.utils import OutputCollection, AnalysisType, split_mesh_by_face_mask
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.dome import Dome
+from dtcc_solar.perez import patch_occurrences_from_active_idx
 from typing import Any
 
 
@@ -65,9 +67,12 @@ class Viewer:
         if output.shading_mesh is not None:
             self.scene.add_mesh(name="Shading mesh", mesh=s_mesh)
 
-        self.build_sundome(output, sundome, r)
+        if type(sundome) == NaturalSunDome:
+            self.build_sunpath_diagram(sunpath, p)
+        else:
+            self.build_sundome(output, sundome, r)
+
         self.build_skydome(output, skydome, r)
-        # self.build_sunpath_diagram(sunpath, p)
 
     def build_skydome(self, output: OutputCollection, skydome: Dome, r: float):
         """Build the skydome for the scene."""
@@ -84,16 +89,20 @@ class Viewer:
         data_dict = {}
         mesh = sundome.mesh
         mesh.vertices *= r
+        idx = output.sun_results.active_idx
+        # suns_per_patch = patch_occurrences_from_active_idx(idx, len(sundome.mesh.faces))
+        # sun_counts = sundome.map_data_to_faces(suns_per_patch)
         sun_vec = np.sum(output.sun_results.matrix, axis=1)
         sun_vec = sundome.map_data_to_faces(sun_vec) * 0.001  # W to kW
+        # data_dict["suns per patch"] = sun_counts
         data_dict["sun matrix"] = sun_vec
         self.scene.add_mesh(name="Sundome", mesh=sundome.mesh, data=data_dict)
 
     def build_sunpath_diagram(self, sunpath: Sunpath, p: SolarParameters):
-        day_paths = sunpath.daypath_meshes
-        day_paths = concatenate_meshes(day_paths)
+        # day_paths = sunpath.daypath_meshes
+        # day_paths = concatenate_meshes(day_paths)
+        # self.scene.add_mesh(name="day paths", mesh=day_paths)
         sun_pc = sunpath.sun_pc
-        self.scene.add_mesh(name="day paths", mesh=day_paths)
         self.scene.add_pointcloud("suns", sun_pc, 0.5 * sunpath.w)
 
     def show(self):

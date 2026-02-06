@@ -17,7 +17,7 @@ from dtcc_solar.utils import Rays, split_mesh_by_face_mask, AnalysisType
 from dtcc_solar.dome import Dome
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.logging import info, debug, warning, error
-from dtcc_solar.perez import calc_sky_sun_matrices
+from dtcc_solar.perez import calc_sky_sun_matrices, patch_occurrences_from_active_idx
 from dtcc_core.model import Mesh, Bounds
 
 
@@ -32,6 +32,20 @@ def _require_solar():
         )
         raise RuntimeError(msg) from _SOLAR_IMPORT_ERROR
     return solar_module
+
+
+def _as_ray_dirs(x, name: str) -> np.ndarray:
+    a = np.asarray(x, dtype=np.float32)
+    if a.ndim != 2 or a.shape[1] != 3:
+        raise ValueError(f"{name} must have shape (N, 3); got {a.shape}")
+    return a
+
+
+def _as_solid_angles(x, n: int, name: str) -> np.ndarray:
+    a = np.asarray(x, dtype=np.float32).ravel()
+    if a.size != n:
+        raise ValueError(f"{name} must have length {n}; got {a.size}")
+    return a
 
 
 def _mesh_to_lists(mesh: Mesh | None):
@@ -135,18 +149,55 @@ class SolarEngine:
         self,
         sky_ray_dirs: np.ndarray,
         sky_solid_angles: np.ndarray,
-        sun_ray_dirs: np.ndarray,
-        sun_solid_angles: np.ndarray,
+        sun_ray_dirs: np.ndarray | None,
+        sun_solid_angles: np.ndarray | None,
     ):
+        """
+        Build the C++ DtccSolar instance.
+
+        Supports:
+          - sundome mode: sun_ray_dirs = (P,3), sun_solid_angles = (P,)
+          - true-sun mode: sun_ray_dirs = (T,3), sun_solid_angles = (T,) (or ones)
+
+        Note: the *caller* must ensure sun_matrix rows == len(sun_ray_dirs) and
+              active_idx indices refer to [0..len(sun_ray_dirs)-1].
+        """
         solar_mod = _require_solar()
 
         aV, aF = _mesh_to_lists(self.analysis_mesh)
         sV, sF = _mesh_to_lists(self.shading_mesh)
 
-        rd_sky = np.asarray(sky_ray_dirs, dtype=np.float32).tolist()
-        sa_sky = np.asarray(sky_solid_angles, dtype=np.float32).tolist()
-        rd_sun = np.asarray(sun_ray_dirs, dtype=np.float32).tolist()
-        sa_sun = np.asarray(sun_solid_angles, dtype=np.float32).tolist()
+        # --- Sky ---
+        rd_sky_np = _as_ray_dirs(sky_ray_dirs, "sky_ray_dirs")
+        sa_sky_np = _as_solid_angles(
+            sky_solid_angles, rd_sky_np.shape[0], "sky_solid_angles"
+        )
+
+        # --- Sun ---
+        if sun_ray_dirs is None or (
+            isinstance(sun_ray_dirs, (list, tuple)) and len(sun_ray_dirs) == 0
+        ):
+            raise ValueError(
+                "sun_ray_dirs must be provided (sundome rays or true-sun rays)."
+            )
+
+        rd_sun_np = _as_ray_dirs(sun_ray_dirs, "sun_ray_dirs")
+
+        if sun_solid_angles is None or (
+            isinstance(sun_solid_angles, (list, tuple)) and len(sun_solid_angles) == 0
+        ):
+            # sensible default if caller doesn't provide: all ones
+            sa_sun_np = np.ones(rd_sun_np.shape[0], dtype=np.float32)
+        else:
+            sa_sun_np = _as_solid_angles(
+                sun_solid_angles, rd_sun_np.shape[0], "sun_solid_angles"
+            )
+
+        # Convert to Python lists for pybind11
+        rd_sky = rd_sky_np.tolist()
+        sa_sky = sa_sky_np.tolist()
+        rd_sun = rd_sun_np.tolist()
+        sa_sun = sa_sun_np.tolist()
 
         return solar_mod.PySolar(aV, aF, sV, sF, rd_sky, sa_sky, rd_sun, sa_sun)
 
@@ -155,22 +206,41 @@ class SolarEngine:
     ) -> OutputCollection:
         skyres, sunres = calc_sky_sun_matrices(sunpath, skydome, sundome, p)
 
-        sun_mat = sunres.matrix
-        sky_mat = skyres.matrix
-        idx = sunres.active_idx  # indices of active sun dome patches
+        sun_mat = np.asarray(sunres.matrix, dtype=np.float32)
+        sky_mat = np.asarray(skyres.matrix, dtype=np.float32)
+        idx = np.asarray(sunres.active_idx, dtype=np.int32)
 
-        idx = np.asarray(idx, dtype=np.int32)
+        # --- Sky rays (always from skydome) ---
         skydome_rd = np.asarray(skydome.ray_dirs, dtype=np.float32)
         skydome_sa = np.asarray(skydome.solid_angles, dtype=np.float32)
-        sundome_rd = np.asarray(sundome.ray_dirs, dtype=np.float32)
-        sundome_sa = np.asarray(sundome.solid_angles, dtype=np.float32)
+
+        # --- Decide which sun rays to use ---
+        K = sun_mat.shape[0]  # number of sun "patches"/rays used by the matrix
+
+        if K == len(sundome.ray_dirs):
+            # Sundome mode
+            sundirs = np.asarray(sundome.ray_dirs, dtype=np.float32)
+            sunsa = np.asarray(sundome.solid_angles, dtype=np.float32)
+            info(f"Using sundome rays: K={K}")
+        else:
+            # Natural-sun mode: one ray per timestep
+            sundirs = np.asarray(sunpath.sunc.sun_vecs, dtype=np.float32)
+            # normalise for safety
+            sundirs /= np.linalg.norm(sundirs, axis=1, keepdims=True)
+            if sundirs.shape[0] != K:
+                raise ValueError(
+                    f"Sun matrix has {K} rows but sunpath has {sundirs.shape[0]} sun vectors."
+                )
+            # Use unit solid angles (or timestep weights if you prefer later)
+            sunsa = np.ones(K, dtype=np.float32)
+            info(f"Using natural-sun rays: K={K}")
 
         info("-----------------------------------------------------")
         info("Creating solar instance and running analysis...")
         info("-----------------------------------------------------")
 
         # Call the C++ solar constructor
-        self.solar = self._make_cpp(skydome_rd, skydome_sa, sundome_rd, sundome_sa)
+        self.solar = self._make_cpp(skydome_rd, skydome_sa, sundirs, sunsa)
 
         # Run the analysis
         self.solar.analyse(sky_mat, sun_mat, idx, p.is1D, p.compute_sh, p.compute_svf)

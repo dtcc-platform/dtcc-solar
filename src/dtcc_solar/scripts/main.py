@@ -16,6 +16,7 @@ from dtcc_solar.reinhart4 import ReinhartM4
 from dtcc_solar.reinhart6 import ReinhartM6
 from dtcc_solar.reinhart8 import ReinhartM8
 from dtcc_solar.reinhartMF import ReinhartMF
+from dtcc_solar.natural_sundome import NaturalSunDome
 from dtcc_solar.perez import *
 from dtcc_solar.radiance import calc_radiance_matrices
 from dtcc_solar.synthetic_data import synthetic_epw_df, df_to_epw
@@ -255,8 +256,8 @@ def analyse_mesh_3():
     # filename = "...../../data/validation/boxes_sharp_f5248.obj"
     filename = data_file("validation", "boxes_soft_f5248.obj")
     mesh = io.load_mesh(str(filename))
-    # lengths, face_counts = subdivision_lengths_for_targets(mesh, [1e5])
-    # mesh = subdivide_mesh(mesh, lengths[0])  # Smallest 0.05 => 13 m faces
+    lengths, face_counts = subdivision_lengths_for_targets(mesh, [1e4])
+    mesh = subdivide_mesh(mesh, lengths[0])
     start_time = time()
     (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.3, 0.9], [0.3, 0.9])
     engine = SolarEngine(analysis_mesh, shading_mesh)
@@ -275,9 +276,9 @@ def analyse_mesh_3():
     )
 
     # Setup model, run analysis and view results
-    skydome = ReinhartM2()
-    sundome = ReinhartMF(12)
     sunpath = Sunpath(p, engine.sunpath_radius)
+    skydome = ReinhartMF(2)
+    sundome = NaturalSunDome(sunpath)
     output = engine.run_analysis(sunpath, skydome, sundome, p)
     end_time = time()
     print("Analysis time (s): ", end_time - start_time)
@@ -360,7 +361,7 @@ def analyse_mesh_4_multi():
     (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.3, 0.9], [0.3, 0.9])
     engine = SolarEngine(analysis_mesh, shading_mesh)
 
-    lengths, face_counts = subdivision_lengths_for_targets(analysis_mesh, [1e5])
+    lengths, face_counts = subdivision_lengths_for_targets(analysis_mesh, [1e4])
     analysis_mesh = subdivide_mesh(analysis_mesh, lengths[0])
 
     sundomes = {}
@@ -369,6 +370,8 @@ def analyse_mesh_4_multi():
     sundomes["ReinhartM4"] = ReinhartM4()
     sundomes["ReinhartM6"] = ReinhartM6()
     sundomes["ReinhartM8"] = ReinhartM8()
+    sundomes["ReinhartM10"] = ReinhartMF(10)
+    sundomes["ReinhartM12"] = ReinhartMF(12)
 
     weather_dir = data_dir("weather")
     lnd_epw = weather_dir / "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
@@ -398,7 +401,7 @@ def analyse_mesh_4_multi():
 
     plot_sun_hours_per_face(sorted, title="Sun hours per face (sorted by median)")
 
-    plot_deltas(sorted, baseline="ReinhartM8")
+    plot_deltas(sorted, baseline="ReinhartM12", step=1)
 
 
 def analyse_mesh_4():

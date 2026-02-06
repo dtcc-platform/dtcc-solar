@@ -5,6 +5,7 @@ import pprint as pp
 from dtcc_solar.logging import info, debug, warning, error
 from dtcc_solar.sunpath import Sunpath
 from dtcc_solar.dome import Dome
+from dtcc_solar.natural_sundome import NaturalSunDome
 from dtcc_solar.coefficients import calc_perez_coeffs
 from dtcc_solar.utils import SkyResults, SunResults, SolarParameters
 
@@ -184,7 +185,13 @@ def perez_rel_lum(ksi, gamma, A, B, C, D, E):
 def calc_sky_sun_matrices(
     sunpath: Sunpath, skydome: Dome, sundome: Dome, p: SolarParameters
 ) -> list[SkyResults, SunResults]:
-    sun_res = calc_sun_matrix_from_dome_fast(sunpath, sundome)
+
+    if type(sundome) == NaturalSunDome:
+        info("Calculating sun matrix from NaturalSunDome geometry...")
+        sun_res = calc_sun_matrix_from_natural_sundome(sunpath)
+    else:
+        sun_res = calc_sun_matrix_from_dome_fast(sunpath, sundome)
+
     sky_res = calc_sky_matrix(sunpath, skydome)
     calc_tot_error(sky_res, skydome, sun_res, sundome, sunpath)
     return (sky_res, sun_res)
@@ -515,18 +522,16 @@ def calc_sun_matrix_smooth_smear(sunpath: Sunpath, skydome: Dome, da=15) -> SunR
     return SunResults(matrix=sun_matrix)
 
 
-def calc_sun_matrix_from_sunpath(sunpath: Sunpath) -> SunResults:
+def calc_sun_matrix_from_natural_sundome(sunpath: Sunpath) -> SunResults:
+    T = int(sunpath.sunc.count)
+    dni = np.asarray(sunpath.sunc.dni, dtype=np.float32)
 
-    sun_matrix = np.zeros((sunpath.sunc.count, sunpath.sunc.count))
-    dni = sunpath.sunc.dni
+    sun_matrix = np.zeros((T, T), dtype=np.float32)
+    np.fill_diagonal(sun_matrix, dni)  # or dni>0 filter if you want
 
-    for i in range(len(sunpath.sunc.sun_vecs)):
-        sun_matrix[i, i] = dni[i]
-
-    sun_res = SunResults()
-    sun_res.matrix = sun_matrix
-
-    return sun_res
+    res = SunResults(matrix=sun_matrix)
+    res.active_idx = np.arange(T, dtype=np.int32)
+    return res
 
 
 def find_closest_patch(sun_vec, ray_dirs):
@@ -542,3 +547,30 @@ def find_closest_patch(sun_vec, ray_dirs):
     """
     dots = np.dot(ray_dirs, sun_vec)  # shape (N,)
     return np.argmax(dots)  # max dot = min angle
+
+
+def patch_occurrences_from_active_idx(active_idx, n_patches: int) -> np.ndarray:
+    """
+    Count how many times each sundome patch index occurs in active_idx.
+
+    Parameters
+    ----------
+    active_idx : array-like of int, shape (T,)
+        Per-timestep patch indices. Use -1 for "inactive" (sun below horizon).
+    n_patches : int
+        Number of patches/rays in the sundome (P).
+
+    Returns
+    -------
+    counts : np.ndarray, shape (n_patches,)
+        counts[p] == number of occurrences of patch p in active_idx.
+    """
+    idx = np.asarray(active_idx, dtype=np.int64).ravel()
+
+    # keep only valid patch indices (ignore -1)
+    mask = (idx >= 0) & (idx < n_patches)
+    valid = idx[mask]
+
+    # bincount gives counts per integer label; minlength ensures length == n_patches
+    counts = np.bincount(valid, minlength=n_patches).astype(np.int32)
+    return counts
