@@ -353,7 +353,7 @@ def analyse_mesh_3_multi():
     return results
 
 
-def analyse_mesh_4_multi():
+def analyse_convergence():
     filename = data_file("validation", "boxes_soft_f5248.obj")
     mesh = io.load_mesh(str(filename))
     (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.3, 0.9], [0.3, 0.9])
@@ -375,7 +375,8 @@ def analyse_mesh_4_multi():
     weather_dir = data_dir("weather")
     lnd_epw = weather_dir / "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
 
-    results = {}
+    results_sh = {}
+    results_irr = {}
 
     for key, sundome in sundomes.items():
         engine = SolarEngine(analysis_mesh, shading_mesh)
@@ -392,14 +393,37 @@ def analyse_mesh_4_multi():
         skydome = ReinhartM2()
         sunpath = Sunpath(p, engine.sunpath_radius)
         output = engine.run_analysis(p, sunpath, skydome, sundome)
-        results.setdefault(key, {})["sun_hours"] = output.sun_hours
+        results_sh.setdefault(key, {})["sun_hours"] = output.sun_hours
+        results_irr.setdefault(key, {})["irradiance"] = output.sun_irradiance
 
     # ---- Sort + Plot ----
-    sorted, order, sort_key = sort_results_by_sun_hours(results, method="median")
+    sorted_sh, order, sort_key = sort_faces_by_key_value(
+        results_sh, field="sun_hours", baseline="NaturalSuns"
+    )
+    sorted_irr, order, sort_key = sort_faces_by_key_value(
+        results_irr, field="irradiance", baseline="NaturalSuns"
+    )
+    plot_values_per_face(sorted_sh, field="sun_hours", title="Sun hours per face")
 
-    plot_sun_hours_per_face(sorted, title="Sun hours per face (sorted by median)")
+    plot_deltas(
+        sorted_sh,
+        baseline="NaturalSuns",
+        key="sun_hours",
+        title="Sun hours convergence",
+        step=1,
+        ylabel="Sun hours (h)",
+    )
 
-    plot_deltas(sorted, baseline="NaturalSuns", step=1)
+    plot_values_per_face(sorted_irr, field="irradiance", title="Irradiance per face")
+
+    plot_deltas(
+        sorted_irr,
+        baseline="NaturalSuns",
+        key="irradiance",
+        title="Irradiance convergence",
+        step=1,
+        ylabel="Irradiance (kW/m²)",
+    )
 
 
 def analyse_mesh_4():
@@ -445,4 +469,4 @@ if __name__ == "__main__":
     # analyse_mesh_3()
     # analyse_mesh_3_multi()
     # analyse_mesh_4()
-    analyse_mesh_4_multi()
+    analyse_convergence()

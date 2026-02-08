@@ -838,50 +838,65 @@ def plot_timings_vs_faces(
     plt.show()
 
 
-def plot_sun_hours_per_face(
+from typing import Any, Mapping
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def plot_values_per_face(
     results: Mapping[str, Any],
     *,
-    title: str = "Sun hours per face",
+    field: str = "sun_hours",
+    title: str | None = None,
     xlabel: str = "Face index",
-    ylabel: str = "Sun hours",
+    ylabel: str | None = None,
     alpha: float = 0.9,
     linewidth: float = 1.2,
     show: bool = True,
 ):
     """
-    Plot sun-hours per face for multiple sundome types.
+    Plot per-face values for multiple series (e.g. sundome types).
 
     Expected `results` shapes (either works):
-      A) results[sundome_name]["sun_hours"] -> 1D array-like (n_faces,)
-      B) results[sundome_name]["sun_hours"] -> list of runs, each 1D array-like (n_faces,)
+      A) results[name][field] -> 1D array-like (n_faces,)
+      B) results[name][field] -> list of runs, each 1D array-like (n_faces,)
          (we plot the last run by default)
+      C) results[name] -> 1D array-like (n_faces,)  (fallback)
 
     Example:
-        plot_sun_hours_per_face(results)
+        plot_values_per_face(results_sh, field="sun_hours")
+        plot_values_per_face(results_irr, field="irradiance", ylabel="Irradiance (kWh/m²)")
     """
+    if title is None:
+        title = f"{field} per face"
+    if ylabel is None:
+        ylabel = field
+
     fig, ax = plt.subplots()
 
-    for dome_name, payload in results.items():
+    for name, payload in results.items():
         if payload is None:
             continue
 
-        sun_hours = payload.get("sun_hours") if isinstance(payload, dict) else None
-        if sun_hours is None:
-            # fallback: allow results[dome_name] itself to be the array
-            sun_hours = payload
+        values = None
+        if isinstance(payload, dict):
+            values = payload.get(field)
+        if values is None:
+            # fallback: allow results[name] itself to be the array
+            values = payload
 
-        # If you stored multiple runs in a list, pick the last run
+        # If stored multiple runs in a list, pick the last run
         if (
-            isinstance(sun_hours, (list, tuple))
-            and len(sun_hours) > 0
-            and not np.isscalar(sun_hours[0])
+            isinstance(values, (list, tuple))
+            and len(values) > 0
+            and not np.isscalar(values[0])
         ):
-            sun_hours = sun_hours[-1]
+            values = values[-1]
 
-        y = np.asarray(sun_hours, dtype=float).ravel()
+        y = np.asarray(values, dtype=float).ravel()
         x = np.arange(y.size)
 
-        ax.plot(x, y, label=str(dome_name), alpha=alpha, linewidth=linewidth)
+        ax.plot(x, y, label=str(name), alpha=alpha, linewidth=linewidth)
 
     ax.set_title(title)
     ax.set_xlabel(xlabel)
@@ -895,107 +910,55 @@ def plot_sun_hours_per_face(
     return fig, ax
 
 
-def sort_results_by_sun_hours(results: dict, *, method: str = "mean"):
+def sort_faces_by_key_value(results: dict, *, field: str, baseline: str):
     """
-    Reorder all sun_hours arrays by increasing sun-hours per face.
-
-    The sort key is computed across sundomes per face:
-      method="mean"   -> sort by mean sun-hours across sundomes
-      method="median" -> sort by median sun-hours across sundomes
+    Sort faces by `results[baseline][field]` (ascending) and apply that same
+    face order to `field` for all series in `results`.
 
     Returns: (sorted_results, order, sort_key)
-      - sorted_results has same structure as input, but sun_hours reordered
-      - order is the face index permutation used
-      - sort_key is the per-face value used for sorting
+      - sorted_results: same structure, but `field` reordered for each series
+      - order: indices that sort the baseline values ascending
+      - sort_key: the baseline per-face values used to sort
     """
-    # stack all sun_hours as (n_domes, n_faces)
-    domes = list(results.keys())
-    Y = np.vstack(
-        [np.asarray(results[d]["sun_hours"], dtype=float).ravel() for d in domes]
-    )
+    if baseline not in results:
+        raise KeyError(
+            f"Baseline '{baseline}' not found. Available: {list(results.keys())}"
+        )
+    if field not in results[baseline]:
+        raise KeyError(
+            f"Baseline '{baseline}' missing '{field}'. Available keys: {list(results[baseline].keys())}"
+        )
 
-    if method == "mean":
-        key = Y.mean(axis=0)
-    elif method == "median":
-        key = np.median(Y, axis=0)
-    else:
-        raise ValueError("method must be 'mean' or 'median'")
-
-    order = np.argsort(key)  # increasing
+    sort_key = np.asarray(results[baseline][field], dtype=float).ravel()
+    order = np.argsort(sort_key)  # smallest -> largest
 
     sorted_results = {}
-    for d in domes:
-        y = np.asarray(results[d]["sun_hours"], dtype=float).ravel()
-        sorted_results[d] = dict(results[d])  # shallow copy
-        sorted_results[d]["sun_hours"] = y[order]
+    for name, d in results.items():
+        if field not in d:
+            raise KeyError(
+                f"Series '{name}' missing '{field}'. Available keys: {list(d.keys())}"
+            )
 
-    return sorted_results, order, key
+        y = np.asarray(d[field], dtype=float).ravel()
+        if y.size != sort_key.size:
+            raise ValueError(
+                f"Size mismatch: '{name}' has {y.size} values, baseline has {sort_key.size}"
+            )
+
+        sorted_results[name] = dict(d)  # shallow copy
+        sorted_results[name][field] = y[order]
+
+    return sorted_results, order, sort_key
 
 
-def plot_sun_hours_binned_envelope(
-    results, bins=2000, title="Sun hours per face (sorted)"
+def plot_deltas(
+    results,
+    baseline="Tregenza",
+    step=50,
+    key="sun_hours",
+    title="title",
+    ylabel="y-axis",
 ):
-    fig, ax = plt.subplots(figsize=(14, 5))
-
-    for name, d in results.items():
-        y = np.asarray(d["sun_hours"], float).ravel()
-        n = y.size
-        edges = np.linspace(0, n, bins + 1, dtype=int)
-
-        xb, ymed, ymin, ymax = [], [], [], []
-        for a, b in zip(edges[:-1], edges[1:]):
-            seg = y[a:b]
-            xb.append((a + b) * 0.5)
-            ymed.append(np.median(seg))
-            ymin.append(seg.min())
-            ymax.append(seg.max())
-
-        xb = np.asarray(xb)
-        ymed = np.asarray(ymed)
-        ymin = np.asarray(ymin)
-        ymax = np.asarray(ymax)
-
-        ax.plot(xb, ymed, label=name, linewidth=1.5)
-        ax.fill_between(xb, ymin, ymax, alpha=0.12)
-
-    ax.set_title(title)
-    ax.set_xlabel("Sorted face rank")
-    ax.set_ylabel("Sun hours")
-    ax.grid(True, linewidth=0.5)
-    ax.legend()
-    plt.tight_layout()
-    plt.show()
-    return fig, ax
-
-
-def rolling_mean(y, window=401):
-    y = np.asarray(y, float)
-    w = int(window)
-    if w < 3:
-        return y
-    if w % 2 == 0:
-        w += 1
-    kernel = np.ones(w) / w
-    return np.convolve(y, kernel, mode="same")
-
-
-def plot_sun_hours_smoothed(results, window=401, title="Sun hours per face (smoothed)"):
-    fig, ax = plt.subplots(figsize=(14, 5))
-    for name, d in results.items():
-        y = np.asarray(d["sun_hours"], float).ravel()
-        ys = rolling_mean(y, window=window)
-        ax.plot(np.arange(len(y)), ys, label=name, linewidth=2.0)
-    ax.set_title(title)
-    ax.set_xlabel("Sorted face rank")
-    ax.set_ylabel("Sun hours")
-    ax.grid(True, linewidth=0.5)
-    ax.legend()
-    plt.tight_layout()
-    plt.show()
-    return fig, ax
-
-
-def plot_deltas(results, baseline="Tregenza", step=50, title="Δ sun hours vs baseline"):
     fig, ax = plt.subplots(figsize=(14, 5))
 
     # baseline can be a key (str) or an array-like
@@ -1004,7 +967,7 @@ def plot_deltas(results, baseline="Tregenza", step=50, title="Δ sun hours vs ba
             raise KeyError(
                 f"Baseline '{baseline}' not found. Available: {list(results.keys())}"
             )
-        base = np.asarray(results[baseline]["sun_hours"], float).ravel()
+        base = np.asarray(results[baseline][key], float).ravel()
         baseline_name = baseline
     else:
         base = np.asarray(baseline, float).ravel()
@@ -1013,7 +976,7 @@ def plot_deltas(results, baseline="Tregenza", step=50, title="Δ sun hours vs ba
     x = np.arange(base.size)
 
     for name, d in results.items():
-        y = np.asarray(d["sun_hours"], float).ravel()
+        y = np.asarray(d[key], float).ravel()
         if y.size != base.size:
             raise ValueError(
                 f"Size mismatch: {name} has {y.size} faces, baseline has {base.size}"
@@ -1033,7 +996,7 @@ def plot_deltas(results, baseline="Tregenza", step=50, title="Δ sun hours vs ba
     ax.axhline(0, linewidth=1.0)
     ax.set_title(title)
     ax.set_xlabel("Sorted face rank")
-    ax.set_ylabel("Sun hours difference")
+    ax.set_ylabel(ylabel)
     ax.grid(True, linewidth=0.5)
     ax.legend()
     plt.tight_layout()
