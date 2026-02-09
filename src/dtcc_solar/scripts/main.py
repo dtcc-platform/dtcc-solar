@@ -112,13 +112,36 @@ def only_perez_test():
 
 
 def synthetic_data_test():
+    filename = "../../../data/validation/boxes_soft_f5248.obj"
+    mesh = io.load_mesh(str(filename))
+    engine = SolarEngine(mesh)
     df, header = synthetic_epw_df()
     export_path = data_dir("weather") / "synthetic.epw"
-    # df_to_epw(df, header, export_path)
-    # print("Synthetic EPW written with shape:", df.shape)
+    df_to_epw(df, header, export_path)
+    info("Synthetic EPW written with shape:", df.shape)
 
-    # Print first few rows
-    print(df.head())
+    weather_dir = data_dir("weather")
+    synt_epw = weather_dir / "synthetic.epw"
+
+    # Stockholm
+    p = SolarParameters(
+        weather_file=str(synt_epw),
+        is1D=True,
+        compute_sh=True,
+        compute_svf=True,
+        start=pd.Timestamp("2019-01-01 00:00:00"),
+        end=pd.Timestamp("2019-12-31 23:00:00"),
+    )
+
+    sunpath = Sunpath(p, engine.sunpath_radius)
+
+    # Setup model, run analysis and view results
+    skydome = ReinhartM2()
+    sundome = ReinhartM2()
+    output = engine.run_analysis(p, sunpath, skydome, sundome)
+    export_path = data_dir("validation") / "export_test.json"
+    export_to_json(output, p, export_path)
+    viewer = Viewer(output, skydome, sundome, sunpath, p)
 
 
 def radiance_test():
@@ -220,7 +243,7 @@ def analyse_mesh_1():
     output = engine.run_analysis(p, sunpath, skydome, sundome)
     export_path = data_dir("validation") / "export_test.json"
     export_to_json(output, p, export_path)
-    viewer = Viewer(output, skydome, sunpath, p)
+    viewer = Viewer(output, skydome, sundome, sunpath, p)
 
 
 def analyse_mesh_2():
@@ -239,7 +262,7 @@ def analyse_mesh_2():
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
 
-    (analysis_mesh, shading_mesh) = split_mesh_by_vertical_faces(mesh)
+    (analysis_mesh, shading_mesh, mask) = split_mesh_by_vertical_faces(mesh)
 
     # Setup model, run analysis and view results
     skydome = ReinhartM2()
@@ -247,7 +270,7 @@ def analyse_mesh_2():
     engine = SolarEngine(analysis_mesh, shading_mesh)
     sunpath = Sunpath(p, engine.sunpath_radius)
     output = engine.run_analysis(p, sunpath, skydome, sundome)
-    viewer = Viewer(output, skydome, sunpath, p)
+    viewer = Viewer(output, skydome, sundome, sunpath, p)
 
 
 def analyse_mesh_3():
@@ -424,9 +447,6 @@ def analyse_convergence():
         step=1,
         ylabel="Irradiance (kW/m²)",
     )
-
-
-import numpy as np
 
 
 def analyse_all_modes():
