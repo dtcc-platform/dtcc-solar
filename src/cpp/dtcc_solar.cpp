@@ -52,6 +52,8 @@ DtccSolar::DtccSolar(
     mSkyRays = new Rays(skyRays, skySolidAngles);
     mSunRays = new Rays(sunRays, sunSolidAngles);
 
+    mAnalysisLog = "No results";
+
     info("Model setup complete.");
     info("-----------------------------------------------------");
 }
@@ -164,6 +166,11 @@ fArray2D DtccSolar::GetFaceNormals()
         out[i][2] = v.z;
     }
     return out;
+}
+
+std::string DtccSolar::GetAnalysisLog()
+{
+    return mAnalysisLog;
 }
 
 MatrixXfRM DtccSolar::GetVPMatrix() { return mVPMatrix; }
@@ -788,7 +795,8 @@ bool DtccSolar::RunAnalysis(fArray2D skyMatrix, fArray2D sunMatrix, iArray1D act
 bool DtccSolar::Run2PhaseAnalysis(VectorXf sunSkyVec, bool computeSkyViewFactor)
 {
     info("-----------------------------------------------------");
-    info("Running 2-phase 1D analysis: E = VP * S");
+    std::string log = "Running 2-phase 1D analysis: E = VP * S";
+    info(log);
 
     if (!mCombinedRays)
     {
@@ -809,6 +817,7 @@ bool DtccSolar::Run2PhaseAnalysis(VectorXf sunSkyVec, bool computeSkyViewFactor)
     mVPMatrix = std::move(VP);
     mIrrVector = std::move(E);
 
+    mAnalysisLog = log;
     info("2-phase analysis completed successfully.");
     info("-----------------------------------------------------");
     return true;
@@ -817,7 +826,8 @@ bool DtccSolar::Run2PhaseAnalysis(VectorXf sunSkyVec, bool computeSkyViewFactor)
 bool DtccSolar::Run5PhaseAnalysis(VectorXf skyS, VectorXf sunS, const iArray1D &activeSunIndices, const iArray1D &sunHourWeightsActive, bool computeSunHours, bool computeSkyViewFactor)
 {
     info("-----------------------------------------------------");
-    info("Running 5-phase 1D analysis: E = VP_sky * S_sky + VP_sun(active) * S_sun(active)");
+    std::string log = "Running 5-phase 1D analysis: E = VP_sky * S_sky + VP_sun(active) * S_sun(active)";
+    info(log);
 
     if (!mSkyRays || !mSunRays)
     {
@@ -899,6 +909,7 @@ bool DtccSolar::Run5PhaseAnalysis(VectorXf skyS, VectorXf sunS, const iArray1D &
     mIrrVectorSun = std::move(Esun);
     mIrrVector = mIrrVectorSky + mIrrVectorSun;
 
+    mAnalysisLog = log;
     info("5-phase analysis completed successfully.");
     info("-----------------------------------------------------");
     return true;
@@ -911,7 +922,8 @@ bool DtccSolar::Run5PhaseAnalysis(VectorXf skyS, VectorXf sunS, const iArray1D &
 bool DtccSolar::Run2PhaseAnalysis(MatrixXfRM sunSkyMat, bool computeSkyViewFactor)
 {
     info("-----------------------------------------------------");
-    info("Running 2-phase 2D analysis: E = VP * S");
+    std::string log = "Running 2-phase 2D analysis: E = VP * S";
+    info(log);
     auto start = hrClock::now();
 
     if (!mCombinedRays)
@@ -946,6 +958,7 @@ bool DtccSolar::Run2PhaseAnalysis(MatrixXfRM sunSkyMat, bool computeSkyViewFacto
     fDuration duration = end - start;
     mTotalTime = duration.count();
 
+    mAnalysisLog = log;
     info("2-phase analysis completed successfully.");
     info("-----------------------------------------------------");
     return true;
@@ -954,7 +967,8 @@ bool DtccSolar::Run2PhaseAnalysis(MatrixXfRM sunSkyMat, bool computeSkyViewFacto
 bool DtccSolar::Run5PhaseAnalysis(MatrixXfRM skyS, MatrixXfRM sunS, const iArray1D &activeSunIndices, const iArray1D &sunHourWeightsActive, bool computeSunHours, bool computeSkyViewFactor)
 {
     info("-----------------------------------------------------");
-    info("Running 5-phase 2D analysis: E = VP_sky * S_sky + VP_sun(active) * S_sun(active)");
+    std::string log = "Running 5-phase 2D analysis: E = VP_sky * S_sky + VP_sun(active) * S_sun(active)";
+    info(log);
 
     if (!mSkyRays || !mSunRays)
     {
@@ -1043,6 +1057,7 @@ bool DtccSolar::Run5PhaseAnalysis(MatrixXfRM skyS, MatrixXfRM sunS, const iArray
 
     mIrrMatrix = mIrrMatrixSky + mIrrMatrixSun;
 
+    mAnalysisLog = log;
     info("5-phase analysis completed successfully.");
     info("-----------------------------------------------------");
     return true;
@@ -1140,6 +1155,8 @@ PYBIND11_MODULE(py_solar, m)
         .def("get_sun_visible_rays", [](DtccSolar &self)
              { return vec_to_numpy_1d(self.GetSunVisibleRays()); })
         .def("get_sky_view_factor", [](DtccSolar &self)
-             { return vec_to_numpy_1d(self.GetSkyViewFactor()); });
+             { return vec_to_numpy_1d(self.GetSkyViewFactor()); })
+        .def("get_analysis_log", [](DtccSolar &self)
+             { return self.GetAnalysisLog(); });
 }
 #endif

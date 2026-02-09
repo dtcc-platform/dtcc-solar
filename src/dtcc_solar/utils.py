@@ -153,6 +153,7 @@ class SunCollection:
 
 @dataclass
 class OutputCollection:
+    analysis_log: str = ""
     # Analysis mesh
     analysis_mesh: Mesh = field(default_factory=lambda: Mesh())
     # Shading mesh
@@ -645,46 +646,40 @@ def export_to_json(output: OutputCollection, p: SolarParameters, filename: str):
     face_count = len(a_mesh.faces)
 
     parameters = {
-        "analysis_type": p.analysis_type.name,
-        "sun_mapping": p.sun_mapping.name,
+        "is1D": p.is1D,
+        "compute_sh": p.compute_sh,
+        "compute_svf": p.compute_svf,
         "start_date": str(p.start),
         "end_date": str(p.end),
         "weather_data": p.weather_file,
     }
-    a_type = p.analysis_type
     results_data = {}
 
     # Create the structure to hold the mesh data
-    if a_type == AnalysisType.TWO_PHASE_1D or a_type == AnalysisType.TWO_PHASE_2D:
-        total_irr = output.total_irradiance
-        assert len(total_irr) == face_count
-        results_data = {
-            "GUID": guid_combined,
-            "TotalIrradiation": total_irr.tolist(),
-            "Parameters": parameters,
-        }
-    elif a_type == AnalysisType.THREE_PHASE_1D or a_type == AnalysisType.THREE_PHASE_2D:
-        # sun_hours = output.sun_hours[mask]
-        total_irr = output.total_irradiance
+
+    total_irr = output.total_irradiance
+
+    if len(output.sky_irradiance) > 0:
         sky_irr = output.sky_irradiance
+    if len(output.sun_irradiance) > 0:
         sun_irr = output.sun_irradiance
-        svf = output.sky_view_factor
-        sun_hours = output.sun_hours
-
-        # assert len(sun_hours) == face_count
-        assert len(total_irr) == face_count
+    svf = output.sky_view_factor
+    sun_hours = output.sun_hours
+    assert len(total_irr) == face_count
+    if len(output.sky_irradiance) > 0:
         assert len(sky_irr) == face_count
+    if len(output.sun_irradiance) > 0:
         assert len(sun_irr) == face_count
+    assert len(svf) == face_count
+    assert len(sun_hours) == face_count
 
-        results_data = {
-            "GUID": guid_combined,
-            "TotalIrradiation": total_irr.tolist(),
-            "SkyIrradiation": sky_irr.tolist(),
-            "SunIrradiation": sun_irr.tolist(),
-            "SkyViewFactor": svf.tolist(),
-            "SunHours": sun_hours.tolist(),
-            "Parameters": parameters,
-        }
+    results_data = {
+        "GUID": guid_combined,
+        "TotalIrradiation": total_irr.tolist(),
+        "SkyViewFactor": svf.tolist(),
+        "SunHours": sun_hours.tolist(),
+        "Parameters": parameters,
+    }
 
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
@@ -804,14 +799,16 @@ def plot_timings_vs_faces(
             y = np.array(results[t][key])[idx]
             lw = lw_scale * lineweights.get(key, 2.0)
 
+            dim_label = "is1D" if t else "is2D"
             if base_line is None:
+                dim_label = "is1D" if t else "is2D"
                 (base_line,) = plt.plot(
                     faces_sorted,
                     y,
                     linestyle=linestyles[key],
                     linewidth=lw,
                     marker=marker,
-                    label=f"{t.name} — {label}",
+                    label=dim_label + "-" + label,
                 )
                 type_color[t] = base_line.get_color()
             else:
@@ -822,7 +819,7 @@ def plot_timings_vs_faces(
                     linewidth=lw,
                     marker=marker,
                     color=type_color[t],
-                    label=f"{t.name} — {label}",
+                    label=dim_label + "-" + label,
                 )
 
     plt.xlabel("Face count")
@@ -838,9 +835,27 @@ def plot_timings_vs_faces(
     plt.show()
 
 
-from typing import Any, Mapping
-import numpy as np
-import matplotlib.pyplot as plt
+def plot_results(
+    results: dict, *, step: int = 1, title: str = "Sun irradiance per face"
+):
+    """
+    results: {label: 1D array-like (n_faces,)}
+    step: plot every `step` point to keep it readable
+    """
+    plt.figure(figsize=(14, 5))
+
+    for label, values in results.items():
+        y = np.asarray(values, dtype=float).ravel()
+        x = np.arange(y.size)
+        plt.plot(x[::step], y[::step], label=label)
+
+    plt.title(title)
+    plt.xlabel("Face index")
+    plt.ylabel("Sun irradiance")
+    plt.grid(True, linewidth=0.5)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 
 def plot_values_per_face(

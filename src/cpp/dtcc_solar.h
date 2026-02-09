@@ -65,6 +65,8 @@ public:
     // Runtime
     fArray1D GetRuntime();
 
+    std::string GetAnalysisLog();
+
     // Mesh getters (analysis)
     iArray2D GetMeshFaces();    // analysis faces
     fArray2D GetMeshVertices(); // analysis vertices
@@ -119,6 +121,8 @@ private:
     std::unique_ptr<Accel> mAccel;
 
     Parameters mPp; // plane parameters
+
+    std::string mAnalysisLog;
 
     // Analysis mesh counts
     int mAnalysisVertexCount = 0;

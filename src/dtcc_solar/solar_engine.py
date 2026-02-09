@@ -255,8 +255,10 @@ class SolarEngine:
         runtime = self.solar.get_runtime()
         sun_hours = self.solar.get_sun_visible_rays()
         svf = self.solar.get_sky_view_factor()
+        log = self.solar.get_analysis_log()
 
         outc = OutputCollection(
+            analysis_log=log,
             analysis_mesh=self.analysis_mesh,
             shading_mesh=self.shading_mesh,
             sky_results=skyres,

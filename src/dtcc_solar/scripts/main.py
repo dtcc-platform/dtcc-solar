@@ -138,7 +138,7 @@ def radiance_test():
     sundome = ReinhartM2()
     sunpath = Sunpath(p, include_night=True)
 
-    (sky_res, sun_res) = calc_sky_sun_matrices(sunpath, skydome, sundome, p)
+    (sky_res, sun_res) = calc_sky_sun_matrices(sunpath, skydome, sundome)
 
     dtcc_sky = sky_res.matrix
     dtcc_sun = sun_res.matrix
@@ -266,9 +266,9 @@ def analyse_mesh_3():
     # London
     p = SolarParameters(
         weather_file=str(lnd_epw),
-        is1D=True,
-        compute_sh=True,
-        compute_svf=False,
+        is1D=False,
+        compute_sh=False,
+        compute_svf=True,
         start=pd.Timestamp("2019-01-01 00:00:00"),
         end=pd.Timestamp("2019-12-31 23:00:00"),
     )
@@ -276,22 +276,22 @@ def analyse_mesh_3():
     # Setup model, run analysis and view results
     sunpath = Sunpath(p, engine.sunpath_radius)
     skydome = ReinhartMF(2)
-    sundome = None
+    sundome = ReinhartMF(2)
     output = engine.run_analysis(p, sunpath, skydome, sundome)
     end_time = time()
     print("Analysis time (s): ", end_time - start_time)
-    # export_path = data_dir("validation") / "export_test.json"
-    # export_to_json(output, p, export_path)
+    export_path = data_dir("validation") / "export_test.json"
+    export_to_json(output, p, export_path)
     viewer = Viewer(output, skydome, sundome, sunpath, p)
 
 
-def analyse_mesh_3_multi():
+def analyse_time_test():
     filename = data_file("validation", "boxes_soft_f5248.obj")
     base_mesh = io.load_mesh(str(filename))
     sub_dom = [0.3, 0.9]
     (a_mesh, s_mesh) = split_mesh_with_domain(base_mesh, sub_dom, sub_dom)
     # Choose targets (log or linear)
-    targets = np.linspace(1e5, 5e5, num=10, dtype=int)
+    targets = np.linspace(1e4, 1e5, num=6, dtype=int)
     lengths, face_counts = subdivision_lengths_for_targets(a_mesh, targets)
 
     pprint({"Lengths": lengths})
@@ -426,34 +426,70 @@ def analyse_convergence():
     )
 
 
-def analyse_mesh_4():
+import numpy as np
+
+
+def analyse_all_modes():
     print("-------- Solar Mesh Analysis Started -------")
-    filename = data_file("validation", "boxes_sharp_f5248.obj")
-    # filename = "../../../data/validation/boxes_soft_f5248.obj"
-    weather_dir = data_dir("weather")
-    sth_epw = weather_dir / "SWE_ST_Stockholm.Arlanda.AP.024600_TMYx.2007-2021.epw"
-
+    filename = data_file("validation", "boxes_soft_f5248.obj")
     mesh = io.load_mesh(str(filename))
-    engine = SolarEngine(mesh)
+    lengths, face_counts = subdivision_lengths_for_targets(mesh, [1e4])
+    mesh = subdivide_mesh(mesh, lengths[0])
+    (analysis_mesh, shading_mesh) = split_mesh_with_domain(mesh, [0.3, 0.9], [0.3, 0.9])
+    engine = SolarEngine(analysis_mesh, shading_mesh)
 
-    # Stockholm
+    list_is_1D = [True, False]
+    dicretisation = [[2, None], [2, 2], [2, 2], [2, 4], [2, 4]]
+    list_compute_sh = [True, False, True, True, True]
+    list_compute_svf = [True, True, True, True, True]
+
+    weather_dir = data_dir("weather")
+    lnd_epw = weather_dir / "GBR_ENG_London.City.AP.037683_TMYx.2007-2021.epw"
+
     p = SolarParameters(
-        weather_file=str(sth_epw),
-        is1D=True,
-        compute_sh=True,
-        compute_svf=True,
-        start=pd.Timestamp("2019-01-01 00:00:00"),
-        end=pd.Timestamp("2019-12-31 23:00:00"),
+        weather_file=str(lnd_epw),
+        start=pd.Timestamp("2019-07-01 00:00:00"),
+        end=pd.Timestamp("2019-07-31 23:00:00"),
     )
 
-    # Setup model, run analysis and view results
-    skydome = ReinhartM2()
-    sundome = ReinhartM6()
-    sunpath = Sunpath(p, engine.sunpath_radius)
-    output = engine.run_analysis(p, sunpath, skydome, sundome)
-    export_path = data_dir("validation") / "export_test.json"
-    export_to_json(output, p, export_path)
-    viewer = Viewer(output, skydome, sunpath, p)
+    results = {}
+    order = None  # will be set from the first run
+    counter = 0
+
+    for is1D in list_is_1D:
+        for i in range(len(list_compute_sh)):
+            compute_sh = list_compute_sh[i]
+            compute_svf = list_compute_svf[i]
+
+            p.is1D = is1D
+            p.compute_sh = compute_sh
+            p.compute_svf = compute_svf
+
+            skydome = ReinhartMF(dicretisation[i][0])
+            sundome = (
+                None if dicretisation[i][1] is None else ReinhartMF(dicretisation[i][1])
+            )
+
+            sunpath = Sunpath(p, engine.sunpath_radius)
+            output = engine.run_analysis(p, sunpath, skydome, sundome)
+
+            y = np.asarray(output.total_irradiance, dtype=float).ravel()
+
+            # --- first run defines the face order ---
+            if order is None:
+                order = np.argsort(y)  # ascending (small -> large)
+                # if you want descending instead: order = np.argsort(y)[::-1]
+
+            # --- apply the same order to every run ---
+            y_sorted = y[order]
+
+            log = output.analysis_log
+            key = f"{log} compute_sh={compute_sh} is1D={is1D} {counter}"
+            results[key] = y_sorted
+            counter += 1
+
+    plot_results(results)
+    return results, order
 
 
 if __name__ == "__main__":
@@ -462,11 +498,11 @@ if __name__ == "__main__":
     info("#################### DTCC-SOLAR #####################")
 
     # only_perez_test()
-    # radiance_test()
+    radiance_test()
     # synthetic_data_test()
     # analyse_mesh_1()
     # analyse_mesh_2()
     # analyse_mesh_3()
-    # analyse_mesh_3_multi()
-    # analyse_mesh_4()
-    analyse_convergence()
+    # analyse_time_test()
+    # analyse_convergence()
+    # analyse_all_modes()

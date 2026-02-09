@@ -66,12 +66,12 @@ class Viewer:
         if output.shading_mesh is not None:
             self.scene.add_mesh(name="Shading mesh", mesh=s_mesh)
 
+        self.build_skydome(output, skydome, r)
+
         if sundome is None:
             self.build_sunpath_diagram(sunpath, p)
         else:
             self.build_sundome(output, sundome, r)
-
-        self.build_skydome(output, skydome, r)
 
     def build_skydome(self, output: OutputCollection, skydome: Dome, r: float):
         """Build the skydome for the scene."""
@@ -102,7 +102,7 @@ class Viewer:
         # day_paths = concatenate_meshes(day_paths)
         # self.scene.add_mesh(name="day paths", mesh=day_paths)
         sun_pc = sunpath.sun_pc
-        self.scene.add_pointcloud("suns", sun_pc, 0.5 * sunpath.w)
+        self.scene.add_pointcloud("suns", sun_pc, 0.8 * sunpath.w)
 
     def show(self):
         if self.has_display:
