@@ -498,11 +498,11 @@ if __name__ == "__main__":
     info("#################### DTCC-SOLAR #####################")
 
     # only_perez_test()
-    radiance_test()
+    # radiance_test()
     # synthetic_data_test()
     # analyse_mesh_1()
     # analyse_mesh_2()
-    # analyse_mesh_3()
+    analyse_mesh_3()
     # analyse_time_test()
     # analyse_convergence()
     # analyse_all_modes()
